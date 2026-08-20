@@ -99,55 +99,11 @@ function getLocalPrefs(): UserPreferences {
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState<UserPreferences>(getLocalPrefs);
 
-  // Helper para guardar dados na Firestore com higienização de undefined
-  const syncToCloud = async (payload: UserPreferences) => {
-    const user = auth.currentUser;
-    const docData = JSON.parse(
-      JSON.stringify({
-        ...payload,
-        updatedAt: payload.updatedAt || new Date().toISOString()
-      })
-    );
-
-    try {
-      await setDoc(doc(db, 'user_preferences', 'global_shared'), { 
-        ...docData, 
-        userId: 'global_shared',
-        created_by_id: 'global_shared'
-      }, { merge: true });
-    } catch (err) {
-      console.error('Erro na sincronização de preferências com a Firestore (global_shared):', err);
-    }
-
-    if (user) {
-      try {
-        await setDoc(doc(db, 'user_preferences', user.uid), { 
-          ...docData, 
-          userId: user.uid, 
-          created_by_id: user.uid 
-        }, { merge: true });
-      } catch (err) {
-        console.error('Erro na sincronização de preferências com a Firestore (user.uid):', err);
-      }
-    }
-  };
-
-  // Sync with Firestore
+  // Sync with Firestore (READ-ONLY listener, strictly never writes to Firestore)
   useEffect(() => {
     let unsubscribeListener: (() => void) | null = null;
 
     const applyCloudData = (cloudData: Partial<UserPreferences>) => {
-      const local = getLocalPrefs();
-      const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
-      const cloudTime = cloudData.updatedAt ? new Date(cloudData.updatedAt).getTime() : 0;
-
-      // Se os dados locais forem estritamente mais recentes que os da cloud, mantemos os locais e enviamos para a cloud
-      if (localTime > cloudTime && localTime > 0) {
-        syncToCloud(local);
-        return;
-      }
-
-      // Se a cloud for mais recente ou igual, atualizamos o estado local e localStorage
       setPrefs(prev => {
         const newPrefs: UserPreferences = {
           ...prev,
@@ -172,7 +128,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
       const docRef = doc(db, 'user_preferences', targetId);
       unsubscribeListener = onSnapshot(docRef, async (snap) => {
-        // Ignora snapshots temporários de edições locais otimistas
+        // Ignora snapshots temporários de edições locais pendentes
         if (snap.metadata.hasPendingWrites) {
           return;
         }
@@ -184,14 +140,10 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
             const globalSnap = await getDoc(doc(db, 'user_preferences', 'global_shared'));
             if (globalSnap.exists()) {
               applyCloudData(globalSnap.data() as Partial<UserPreferences>);
-            } else {
-              syncToCloud(getLocalPrefs());
             }
           } catch (err) {
             console.warn('Error reading fallback global_shared:', err);
           }
-        } else {
-          syncToCloud(getLocalPrefs());
         }
       }, (err) => {
         console.warn(`Firestore user_preferences (${targetId}) listener error:`, err);
@@ -249,7 +201,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const updatePrefs = async (newPrefs: Partial<UserPreferences>) => {
     const now = new Date().toISOString();
     
-    // 1. Atualiza estado local e localStorage de forma síncrona com novo timestamp
+    // 1. Atualiza estado local e localStorage
     let updatedPayload: UserPreferences = DEFAULT_PREFERENCES;
     setPrefs(prev => {
       updatedPayload = {
@@ -270,20 +222,62 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       return updatedPayload;
     });
 
-    // 2. Envia para a nuvem de forma assíncrona
-    await syncToCloud(updatedPayload);
+    // 2. Grava diretamente na Firestore sem re-sincronizações cíclicas
+    const cleanData = JSON.parse(JSON.stringify(updatedPayload));
+    const user = auth.currentUser;
+    const targetId = user ? user.uid : 'global_shared';
+
+    try {
+      await setDoc(doc(db, 'user_preferences', targetId), {
+        ...cleanData,
+        userId: targetId,
+        created_by_id: targetId
+      }, { merge: true });
+
+      if (user) {
+        await setDoc(doc(db, 'user_preferences', 'global_shared'), {
+          ...cleanData,
+          userId: 'global_shared',
+          created_by_id: 'global_shared'
+        }, { merge: true }).catch(err => {
+          console.warn('Erro ao guardar backup em global_shared:', err);
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao guardar preferências na Firestore:', err);
+    }
   };
 
-  const resetToDefaults = () => {
-    setPrefs(DEFAULT_PREFERENCES);
-    localStorage.removeItem('finanas_user_prefs');
-
-    const resetPayload = {
+  const resetToDefaults = async () => {
+    const resetPayload: UserPreferences = {
       ...DEFAULT_PREFERENCES,
       updatedAt: new Date().toISOString()
     };
 
-    syncToCloud(resetPayload);
+    setPrefs(resetPayload);
+    localStorage.removeItem('finanas_user_prefs');
+
+    const cleanData = JSON.parse(JSON.stringify(resetPayload));
+    const user = auth.currentUser;
+    const targetId = user ? user.uid : 'global_shared';
+
+    try {
+      await setDoc(doc(db, 'user_preferences', targetId), {
+        ...cleanData,
+        userId: targetId,
+        created_by_id: targetId
+      });
+
+      if (user) {
+        await setDoc(doc(db, 'user_preferences', 'global_shared'), {
+          ...cleanData,
+          userId: 'global_shared',
+          created_by_id: 'global_shared'
+        }).catch(() => {});
+      }
+    } catch (err) {
+      console.error('Erro ao repor preferências na Firestore:', err);
+    }
   };
 
   const getUserPrefs = async (): Promise<UserPreferences> => prefs;
