@@ -58,8 +58,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthError('user_not_registered');
       } else if (err.code === 'auth/popup-blocked') {
         setAuthError('popup_blocked');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setAuthError('unauthorized_domain');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setAuthError('operation_not_allowed');
       } else {
-        setAuthError('auth_required');
+        setAuthError(err.message || 'auth_required');
       }
     } finally {
       setIsLoadingAuth(false);

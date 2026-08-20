@@ -74,9 +74,29 @@ export default function WelcomeView() {
                 Erro de rede. Verifique a sua ligação à internet.
               </div>
             )}
+            {authError === 'unauthorized_domain' && (
+              <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-medium text-center border border-amber-500/20 leading-relaxed">
+                Domínio não autorizado. Adicione o seu domínio da Vercel (ex: <code className="bg-amber-500/20 px-1 rounded">seu-app.vercel.app</code>) em <strong>Firebase Console &gt; Authentication &gt; Settings &gt; Authorized domains</strong>.
+              </div>
+            )}
+            {authError === 'operation_not_allowed' && (
+              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium text-center border border-destructive/20">
+                A autenticação com a Google não está ativada na sua consola do Firebase.
+              </div>
+            )}
+            {authError === 'popup_blocked' && (
+              <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-medium text-center border border-amber-500/20">
+                O janela de autenticação foi bloqueada pelo navegador. Por favor permita pop-ups.
+              </div>
+            )}
             {authError === 'auth_required' && (
               <div className="p-3 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium text-center">
                 Sessão expirada. Por favor inicie sessão novamente.
+              </div>
+            )}
+            {authError && !['network_error', 'unauthorized_domain', 'operation_not_allowed', 'popup_blocked', 'auth_required'].includes(authError) && (
+              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium text-center border border-destructive/20">
+                Erro de autenticação: {authError}
               </div>
             )}
             <Button 
