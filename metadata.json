@@ -1,0 +1,6 @@
+{
+  "name": "Finanças Pessoais",
+  "description": "Command center premium para gestão financeira pessoal e patrimonial.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

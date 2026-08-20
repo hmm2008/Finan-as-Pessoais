@@ -1,0 +1,2 @@
+cat src/contexts/PreferencesContext.tsx | sed "s/await setDoc(doc(db, 'user_preferences', user.uid), finalPayload, { merge: true });/await Promise.race([setDoc(doc(db, 'user_preferences', user.uid), finalPayload, { merge: true }), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))]);/" > src/contexts/PreferencesContext.tsx.new
+mv src/contexts/PreferencesContext.tsx.new src/contexts/PreferencesContext.tsx

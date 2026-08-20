@@ -1,0 +1,194 @@
+{
+  "collections": {
+    "expenses": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "date", "type": "timestamp", "required": true },
+        { "name": "amount", "type": "number", "required": true },
+        { "name": "category", "type": "string", "required": true },
+        { "name": "description", "type": "string" },
+        { "name": "payment_method", "type": "string" },
+        { "name": "entity", "type": "string" },
+        { "name": "recurring", "type": "boolean", "default": false },
+        { "name": "attachment_url", "type": "string" },
+        { "name": "notes", "type": "string" },
+        { "name": "fixed_expense_id", "type": "string" },
+        { "name": "vehicle_id", "type": "string" }
+      ]
+    },
+    "incomes": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "date", "type": "timestamp", "required": true },
+        { "name": "amount", "type": "number", "required": true },
+        { "name": "category", "type": "string", "required": true },
+        { "name": "origin", "type": "string" },
+        { "name": "description", "type": "string" },
+        { "name": "recurring", "type": "boolean" },
+        { "name": "fixed_income_id", "type": "string" }
+      ]
+    },
+    "fixed_expenses": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "name", "type": "string", "required": true },
+        { "name": "amount", "type": "number", "required": true },
+        { "name": "frequency", "type": "string", "default": "Mensal" },
+        { "name": "category", "type": "string", "required": true },
+        { "name": "day_of_month", "type": "number" },
+        { "name": "due_date", "type": "timestamp" },
+        { "name": "alert_days_before", "type": "number", "default": 7 },
+        { "name": "payment_method", "type": "string" },
+        { "name": "entity", "type": "string" },
+        { "name": "asset_id", "type": "string" },
+        { "name": "active", "type": "boolean", "default": true },
+        { "name": "notes", "type": "string" }
+      ]
+    },
+    "fixed_incomes": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "name", "type": "string", "required": true },
+        { "name": "amount", "type": "number", "required": true },
+        { "name": "frequency", "type": "string", "default": "Mensal" },
+        { "name": "category", "type": "string", "required": true },
+        { "name": "day_of_month", "type": "number" },
+        { "name": "due_date", "type": "timestamp" },
+        { "name": "alert_days_before", "type": "number", "default": 7 },
+        { "name": "origin", "type": "string" },
+        { "name": "active", "type": "boolean", "default": true },
+        { "name": "notes", "type": "string" }
+      ]
+    },
+    "assets": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "type", "type": "string", "required": true },
+        { "name": "name", "type": "string", "required": true },
+        { "name": "current_value", "type": "number", "required": true },
+        { "name": "purchase_value", "type": "number" },
+        { "name": "acquisition_date", "type": "timestamp" },
+        { "name": "institution", "type": "string" },
+        { "name": "quantidade", "type": "number" },
+        { "name": "preco_medio", "type": "number" },
+        { "name": "taxa_juro", "type": "number" },
+        { "name": "data_inicio", "type": "timestamp" },
+        { "name": "data_fim", "type": "timestamp" },
+        { "name": "street", "type": "string" },
+        { "name": "postal_code", "type": "string" },
+        { "name": "city", "type": "string" },
+        { "name": "notes", "type": "string" },
+        { "name": "document_url", "type": "string" },
+        { "name": "monthly_expense", "type": "number", "default": 0 },
+        { "name": "annual_expense", "type": "number", "default": 0 }
+      ]
+    },
+    "vehicles": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "plate", "type": "string", "required": true },
+        { "name": "brand", "type": "string", "required": true },
+        { "name": "model", "type": "string", "required": true },
+        { "name": "year", "type": "number" },
+        { "name": "fuel", "type": "string" },
+        { "name": "vin", "type": "string" },
+        { "name": "kilometers", "type": "number" },
+        { "name": "purchase_date", "type": "timestamp" },
+        { "name": "photo_url", "type": "string" },
+        { "name": "notes", "type": "string" }
+      ]
+    },
+    "vehicle_tasks": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "vehicle_id", "type": "string", "required": true },
+        { "name": "type", "type": "string", "required": true },
+        { "name": "start_date", "type": "timestamp" },
+        { "name": "due_date", "type": "timestamp", "required": true },
+        { "name": "completed", "type": "boolean", "default": false },
+        { "name": "cost", "type": "number" },
+        { "name": "notes", "type": "string" },
+        { "name": "document_url", "type": "string" }
+      ]
+    },
+    "savings_goals": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "name", "type": "string", "required": true },
+        { "name": "target_amount", "type": "number", "required": true },
+        { "name": "current_amount", "type": "number", "default": 0 },
+        { "name": "deadline", "type": "timestamp" },
+        { "name": "category", "type": "string", "required": true },
+        { "name": "priority", "type": "string", "default": "Média" },
+        { "name": "recurring_monthly", "type": "number", "default": 0 },
+        { "name": "notes", "type": "string" },
+        { "name": "completed", "type": "boolean", "default": false }
+      ]
+    },
+    "budgets": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "month", "type": "string", "required": true },
+        { "name": "category", "type": "string", "required": true },
+        { "name": "limit_amount", "type": "number", "required": true }
+      ]
+    },
+    "notifications": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "title", "type": "string", "required": true },
+        { "name": "description", "type": "string" },
+        { "name": "type", "type": "string", "required": true },
+        { "name": "read", "type": "boolean", "default": false },
+        { "name": "link", "type": "string" }
+      ]
+    },
+    "trash": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "entity_name", "type": "string", "required": true },
+        { "name": "entity_id", "type": "string" },
+        { "name": "label", "type": "string", "required": true },
+        { "name": "data", "type": "map", "required": true },
+        { "name": "deleted_at", "type": "timestamp" }
+      ]
+    },
+    "archives": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "name", "type": "string", "required": true },
+        { "name": "type", "type": "string", "required": true },
+        { "name": "file_url", "type": "string", "required": true },
+        { "name": "records_count", "type": "number" },
+        { "name": "period", "type": "string" },
+        { "name": "format", "type": "string", "default": "pdf" }
+      ]
+    },
+    "categorization_rules": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "keyword", "type": "string", "required": true },
+        { "name": "category", "type": "string", "required": true },
+        { "name": "priority", "type": "number", "default": 0 }
+      ]
+    },
+    "app_logs": {
+      "fields": [
+        { "name": "created_by_id", "type": "string", "required": true },
+        { "name": "level", "type": "string" },
+        { "name": "message", "type": "string", "required": true },
+        { "name": "context", "type": "map" },
+        { "name": "source", "type": "string" },
+        { "name": "resolved", "type": "boolean", "default": false }
+      ]
+    },
+    "pin_resets": {
+      "fields": [
+        { "name": "email", "type": "string", "required": true },
+        { "name": "code", "type": "string", "required": true },
+        { "name": "used", "type": "boolean", "default": false },
+        { "name": "expires_at", "type": "timestamp" }
+      ]
+    }
+  }
+}

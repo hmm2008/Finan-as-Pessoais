@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User preferences: readable by all, writable for global_shared or owner doc
+    match /user_preferences/{docId} { 
+      allow read: if true; 
+      allow write: if docId == 'global_shared' || (request.auth != null && request.auth.uid == docId);
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    function isService() {
+      return request.auth != null && request.auth.token.role == 'service';
+    }
+    
+    function canReadWrite() {
+      return request.auth != null && (
+        resource.data.created_by_id == request.auth.uid || 
+        resource.data.userId == request.auth.uid
+      );
+    }
+    
+    function canCreate() {
+      return request.auth != null && (
+        request.resource.data.created_by_id == request.auth.uid || 
+        request.resource.data.userId == request.auth.uid
+      );
+    }
+    
+    function canUpdate() {
+      return request.auth != null && (
+        (resource.data.created_by_id == request.auth.uid || resource.data.userId == request.auth.uid) && 
+        (request.resource.data.created_by_id == request.auth.uid || request.resource.data.userId == request.auth.uid)
+      );
+    }
+
+    match /expenses/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /incomes/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /incomes_punctual/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /incomes_fixed_registered/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /incomes_fixed_realized/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /fixed_expenses/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /fixed_incomes/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /assets/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /accounts/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /vehicles/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /vehicle_tasks/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /vehicle_fuel/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /goals/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /savings_goals/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /budgets/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /trash/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /archives/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /categorization_rules/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /connectors/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /property_expenses/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+    match /documents/{doc} { allow read, delete: if canReadWrite(); allow create: if canCreate(); allow update: if canUpdate(); }
+
+    match /notifications/{doc} {
+      allow read, delete: if canReadWrite();
+      allow create: if canCreate() || isService();
+      allow update: if canUpdate() || isService();
+    }
+
+    match /app_logs/{doc} {
+      allow read, delete: if canReadWrite() || isService();
+      allow create: if canCreate() || isService();
+      allow update: if canUpdate() || isService();
+    }
+
+    match /pin_resets/{doc} {
+      allow read, write: if isService();
+    }
+  }
+}
