@@ -104,6 +104,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     let unsubscribeListener: (() => void) | null = null;
 
     const applyCloudData = (cloudData: Partial<UserPreferences>) => {
+      if (isUpdatingRef.current) return;
       setPrefs(prev => {
         const newPrefs = {
           ...prev,
@@ -196,9 +197,10 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const updatePrefs = async (newPrefs: Partial<UserPreferences>) => {
     isUpdatingRef.current = true;
     
-    // Atualiza estado local instantaneamente
+    // 1. Atualiza estado local e localStorage de forma síncrona
+    let updatedPayload: UserPreferences = DEFAULT_PREFERENCES;
     setPrefs(prev => {
-      const updated = {
+      updatedPayload = {
         ...prev,
         ...newPrefs,
         navLabels: { ...(prev.navLabels || {}), ...(newPrefs.navLabels || {}) },
@@ -207,46 +209,43 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       };
 
       try {
-        localStorage.setItem('finanas_user_prefs', JSON.stringify(updated));
-      } catch (e) {}
+        localStorage.setItem('finanas_user_prefs', JSON.stringify(updatedPayload));
+      } catch (e) {
+        console.warn('LocalStorage save error:', e);
+      }
       
-      return updated;
+      return updatedPayload;
     });
 
-    // Envia para a nuvem em ambos os documentos (global e utilizador)
+    // 2. Sincronização em background com a Firestore (totalmente não-bloqueante para a UI)
     const user = auth.currentUser;
     const finalPayload = {
-       ...newPrefs,
+       ...updatedPayload,
        updatedAt: new Date().toISOString()
     };
     
-    // 1. Tenta guardar no documento global
-    try {
-      await setDoc(doc(db, 'user_preferences', 'global_shared'), { 
-        ...finalPayload, 
-        userId: 'global_shared',
-        created_by_id: 'global_shared'
-      }, { merge: true });
-    } catch (err) {
-      console.warn('Sync error (global_shared):', err);
-    }
+    // Dispara a gravação na nuvem em background
+    setDoc(doc(db, 'user_preferences', 'global_shared'), { 
+      ...finalPayload, 
+      userId: 'global_shared',
+      created_by_id: 'global_shared'
+    }, { merge: true }).catch(err => {
+      console.warn('Background sync error (global_shared):', err);
+    });
 
-    // 2. Se houver utilizador autenticado, guarda no seu documento pessoal
     if (user) {
-      try {
-        await setDoc(doc(db, 'user_preferences', user.uid), { 
-          ...finalPayload, 
-          userId: user.uid, 
-          created_by_id: user.uid 
-        }, { merge: true });
-      } catch (err) {
-        console.warn('Sync error (user preferences):', err);
-      }
+      setDoc(doc(db, 'user_preferences', user.uid), { 
+        ...finalPayload, 
+        userId: user.uid, 
+        created_by_id: user.uid 
+      }, { merge: true }).catch(err => {
+        console.warn('Background sync error (user preferences):', err);
+      });
     }
     
     setTimeout(() => {
       isUpdatingRef.current = false;
-    }, 500);
+    }, 1000);
   };
 
   const resetToDefaults = () => {
