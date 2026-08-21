@@ -106,7 +106,6 @@ async function getEntityList<T extends { id?: string }>(localStorageKey: string,
         }
 
         // BI-DIRECTIONAL SYNC: Upload local items that are missing from Firestore
-        const pushPromises: Promise<void>[] = [];
         localList.forEach((locItem: any) => {
           if (locItem && locItem.id && !cloudMap.has(locItem.id) && !isBannedDemoRecord(locItem)) {
             cloudMap.set(locItem.id, locItem);
@@ -116,17 +115,11 @@ async function getEntityList<T extends { id?: string }>(localStorageKey: string,
               created_by_id: user.uid,
               createdAt: locItem.createdAt || new Date().toISOString()
             });
-            pushPromises.push(
-              setDoc(doc(db, firestoreCollectionName, locItem.id), payload, { merge: true }).catch(err => {
-                console.warn(`Error auto-syncing local item ${locItem.id} to Firestore ${firestoreCollectionName}:`, err);
-              })
-            );
+            setDoc(doc(db, firestoreCollectionName, locItem.id), payload, { merge: true }).catch(err => {
+              console.warn(`Error auto-syncing local item ${locItem.id} to Firestore ${firestoreCollectionName}:`, err);
+            });
           }
         });
-
-        if (pushPromises.length > 0) {
-          await Promise.all(pushPromises);
-        }
 
         const merged = Array.from(cloudMap.values());
         localStorage.setItem(localStorageKey, JSON.stringify(merged));
@@ -173,9 +166,10 @@ async function saveEntity<T extends { id?: string }>(
         created_by_id: user.uid,
         createdAt: (itemWithId as any).createdAt || new Date().toISOString()
       });
-      await setDoc(doc(db, firestoreCollectionName, id), payload, { merge: true });
+      setDoc(doc(db, firestoreCollectionName, id), payload, { merge: true })
+        .catch(e => console.warn(`Firestore create failed for ${firestoreCollectionName}, saved locally:`, e));
     } catch (e) {
-      console.warn(`Firestore create failed for ${firestoreCollectionName}, saved locally:`, e);
+      console.warn(`Firestore payload sanitization failed:`, e);
     }
   }
 
@@ -213,9 +207,10 @@ async function updateEntity<T extends { id: string }>(
         created_by_id: user.uid,
         updatedAt: new Date().toISOString()
       });
-      await setDoc(docRef, payload, { merge: true });
+      setDoc(docRef, payload, { merge: true })
+        .catch(e => console.warn(`Firestore update failed for ${firestoreCollectionName}, updated locally:`, e));
     } catch (e) {
-      console.warn(`Firestore update failed for ${firestoreCollectionName}, updated locally:`, e);
+      console.warn(`Firestore payload sanitization failed:`, e);
     }
   }
 
@@ -853,19 +848,18 @@ export async function syncAllLocalEntitiesToFirestore(userUid: string): Promise<
     try {
       const localItems = getLocalEntityList<any>(storageKey);
       if (localItems && localItems.length > 0) {
-        const batchPromises = localItems.map(item => {
-          if (!item || !item.id || isBannedDemoRecord(item)) return Promise.resolve();
+        localItems.forEach(item => {
+          if (!item || !item.id || isBannedDemoRecord(item)) return;
           const payload = sanitizeForFirestore({
             ...item,
             userId: userUid,
             created_by_id: userUid,
             createdAt: item.createdAt || new Date().toISOString()
           });
-          return setDoc(doc(db, collectionName, item.id), payload, { merge: true }).catch(err => {
+          setDoc(doc(db, collectionName, item.id), payload, { merge: true }).catch(err => {
             console.warn(`Error syncing local item ${item.id} to Firestore collection ${collectionName}:`, err);
           });
         });
-        await Promise.all(batchPromises);
       }
     } catch (err) {
       console.warn(`Error during sync for ${storageKey}:`, err);

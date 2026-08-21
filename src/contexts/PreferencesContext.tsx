@@ -144,21 +144,23 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     const cleanData = sanitizeForFirestore(payload);
 
     try {
-      await setDoc(doc(db, 'user_preferences', targetId), {
+      setDoc(doc(db, 'user_preferences', targetId), {
         ...cleanData,
         userId: targetId,
         created_by_id: targetId
-      }, { merge: true });
+      }, { merge: true }).catch(err => {
+        console.warn('Error persisting user preferences to Firestore:', err);
+      });
 
       if (user) {
-        await setDoc(doc(db, 'user_preferences', 'global_shared'), {
+        setDoc(doc(db, 'user_preferences', 'global_shared'), {
           ...cleanData,
           userId: 'global_shared',
           created_by_id: 'global_shared'
         }, { merge: true }).catch(() => {});
       }
     } catch (err) {
-      console.warn('Error persisting user preferences to Firestore:', err);
+      console.warn('Error during preference sanitization:', err);
     }
   }, []);
 
