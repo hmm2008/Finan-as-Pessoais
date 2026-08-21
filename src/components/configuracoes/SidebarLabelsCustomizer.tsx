@@ -144,7 +144,7 @@ export function SidebarLabelsCustomizer() {
           </div>
           <div>
             <p className="font-semibold text-white">Nomes do Menu Guardados!</p>
-            <p className="text-xs text-emerald-100">Atualizado no menu e sincronizado na Firebase.</p>
+            <p className="text-xs text-emerald-100">Atualizado no menu e sincronizado na Google Drive.</p>
           </div>
         </div>
       )}
@@ -211,7 +211,7 @@ export function SidebarLabelsCustomizer() {
         {savedSuccess && (
           <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-sm flex items-center gap-2">
             <Check className="w-4 h-4 shrink-0" />
-            <span>Nomes do menu lateral atualizados com sucesso no menu e sincronizados com a Firebase!</span>
+            <span>Nomes do menu lateral atualizados com sucesso no menu e sincronizados com a Google Drive!</span>
           </div>
         )}
 

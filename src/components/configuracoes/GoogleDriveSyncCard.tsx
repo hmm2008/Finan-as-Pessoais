@@ -404,7 +404,7 @@ export function GoogleDriveSyncCard() {
       queryClient.invalidateQueries();
       window.dispatchEvent(new Event('storage'));
       refreshAuditLogs();
-      setSuccessMsg('Limpeza total concluída! Todos os registos no Google Drive, na base de dados e na aplicação foram eliminados definitivamente.');
+      setSuccessMsg('Limpeza total concluída! Todos os registos no Google Drive, e na aplicação foram eliminados definitivamente.');
     } catch (err: any) {
       console.error(err);
       setErrorMsg('Erro ao limpar folha no Google Sheets: ' + (err.message || err));
@@ -441,7 +441,7 @@ export function GoogleDriveSyncCard() {
       scheduleSheetsBackgroundSync(100);
       setSuccessMsg('Modo Híbrido ativado! As alterações serão sincronizadas com o Google Sheets em tempo real.');
     } else {
-      setSuccessMsg('Modo Local/Firebase ativado. O Google Sheets será atualizado apenas em exportações manuais.');
+      setSuccessMsg('Modo Local/Drive ativado. O Google Sheets será atualizado apenas em exportações manuais.');
     }
   };
 
@@ -787,14 +787,14 @@ export function GoogleDriveSyncCard() {
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="font-semibold text-xs text-foreground flex items-center gap-1.5">
                     <Database className="w-3.5 h-3.5 text-slate-500" />
-                    Apenas Local / Firebase
+                    Apenas Local / Drive
                   </span>
                   <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${storageMode === 'local_only' ? 'border-indigo-600 bg-indigo-600' : 'border-muted-foreground'}`}>
                     {storageMode === 'local_only' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Mantém os dados apenas localmente/Firebase, usando o Google Sheets como ponto de backup estático sob demanda.
+                  Mantém os dados apenas localmente, usando o Google Sheets como ponto de backup estático sob demanda.
                 </p>
               </div>
             </div>
@@ -927,7 +927,7 @@ export function GoogleDriveSyncCard() {
                 <span>4. Reorganização Estrutural de Receitas</span>
               </div>
               <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/50 px-2.5 py-0.5 rounded-full">
-                Google Sheets & Firebase
+                Google Sheets & Local
               </span>
             </div>
 
@@ -952,9 +952,9 @@ export function GoogleDriveSyncCard() {
 
               <div className="p-2.5 bg-card border border-border rounded-lg space-y-1">
                 <div className="font-semibold text-foreground flex items-center gap-1 text-[11px]">
-                  <span className="w-2 h-2 rounded-full bg-blue-500" /> 3. Migrar Firebase
+                  <span className="w-2 h-2 rounded-full bg-blue-500" /> 3. Sincronizar Tudo
                 </div>
-                <p className="text-[11px] text-muted-foreground">Atualiza e reconcilia documentos na base de dados</p>
+                <p className="text-[11px] text-muted-foreground">Atualiza e reconcilia documentos </p>
               </div>
             </div>
 
@@ -966,7 +966,7 @@ export function GoogleDriveSyncCard() {
                 <p className="text-[11px] text-muted-foreground">
                   • <strong>{reorganizeResult.incomesPunctualMigrated}</strong> receitas pontuais migradas para <code>Receitas_Pontuais</code><br />
                   • <strong>{reorganizeResult.incomesFixedRegisteredMigrated}</strong> receitas fixas registadas migradas para <code>Receitas_Fixas_Registadas</code><br />
-                  • Folha antiga <code>Receitas</code> eliminada e Firebase sincronizado.
+                  • Folha antiga <code>Receitas</code> eliminada e Sincronizado.
                 </p>
               </div>
             )}
@@ -983,7 +983,7 @@ export function GoogleDriveSyncCard() {
                   </>
                 ) : (
                   <>
-                    <GitFork className="w-4 h-4" /> Reorganizar Receitas no Google Sheets e Firebase
+                    <GitFork className="w-4 h-4" /> Reorganizar Receitas no Google Sheets e Local
                   </>
                 )}
               </Button>
@@ -1080,7 +1080,7 @@ export function GoogleDriveSyncCard() {
             <div className="text-xs space-y-1.5">
               <p className="font-bold text-sm text-foreground">Tem a certeza que deseja esvaziar todos os registos na Google Drive e na Aplicação?</p>
               <p className="text-muted-foreground leading-relaxed">
-                Esta ação irá <strong className="text-rose-600 dark:text-rose-400">apagar permanentemente</strong> todas as linhas de dados em todas as abas do seu ficheiro no Google Drive (Despesas, Receitas_Pontuais, Receitas_Fixas_Registadas, Despesas_Fixas, Ativos, Veículos, Metas, etc.), esvaziando também a base de dados e a aplicação para garantir a eliminação definitiva sem ressurreição de dados velhos.
+                Esta ação irá <strong className="text-rose-600 dark:text-rose-400">apagar permanentemente</strong> todas as linhas de dados em todas as abas do seu ficheiro no Google Drive (Despesas, Receitas_Pontuais, Receitas_Fixas_Registadas, Despesas_Fixas, Ativos, Veículos, Metas, etc.), esvaziando também a Google Drive e a aplicação para garantir a eliminação definitiva sem ressurreição de dados velhos.
               </p>
               <p className="text-muted-foreground font-medium">
                 Esta operação é irreversível.

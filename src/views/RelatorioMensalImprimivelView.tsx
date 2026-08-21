@@ -335,7 +335,7 @@ export default function RelatorioMensalImprimivelView() {
         {/* Footer Notes */}
         <div className="mt-12 pt-5 border-t border-slate-300 text-center text-[10px] text-slate-500 space-y-1">
           <p className="font-semibold text-slate-700">Gestão Financeira Pessoal — Controlo & Independência Financeira</p>
-          <p>Este extrato foi consolidado via base de dados local segura e processado em conformidade com as normas contabilísticas de uso privado.</p>
+          <p>Este extrato foi consolidado via Google Drive local segura e processado em conformidade com as normas contabilísticas de uso privado.</p>
         </div>
 
       </div>

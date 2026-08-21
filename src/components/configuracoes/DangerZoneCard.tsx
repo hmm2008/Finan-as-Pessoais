@@ -38,7 +38,7 @@ export function DangerZoneCard() {
 
       queryClient.invalidateQueries();
       window.dispatchEvent(new Event('storage'));
-      addNotification('Sucesso', 'Todos os registos da sua conta (Base de Dados e Aplicação) foram eliminados definitivamente.', 'success');
+      addNotification('Sucesso', 'Todos os registos da sua conta (Aplicação) foram eliminados definitivamente.', 'success');
     } catch (e: any) {
       console.error('Erro no Danger Zone Wipe:', e);
       addNotification('Erro', 'Ocorreu um erro ao tentar eliminar alguns dados: ' + (e.message || e), 'error');
@@ -66,7 +66,7 @@ export function DangerZoneCard() {
             <div className="space-y-1 max-w-[70%]">
               <h4 className="text-sm font-semibold text-rose-700 dark:text-rose-300">Apagar Todos os Dados da Aplicação</h4>
               <p className="text-xs text-rose-600/70 dark:text-rose-400/70 leading-relaxed">
-                Esta ação vai eliminar permanentemente todos os registos (despesas, receitas, contas, metas, etc.) da <strong>Base de Dados (Firestore)</strong>, do seu dispositivo local e também da sua <strong>folha do Google Drive</strong>, caso esteja ligada.
+                Esta ação vai eliminar permanentemente todos os registos (despesas, receitas, contas, metas, etc.) da <strong>Google Drive (Firestore)</strong>, do seu dispositivo local e também da sua <strong>folha do Google Drive</strong>, caso esteja ligada.
               </p>
             </div>
             <Button 
@@ -97,7 +97,7 @@ export function DangerZoneCard() {
                 Esta ação é <strong className="text-rose-600 dark:text-rose-400">100% irreversível</strong>. Todos os seus dados serão apagados instantaneamente de:
               </p>
               <ul className="list-disc pl-5 text-muted-foreground space-y-1 mt-1">
-                <li>Base de Dados na Nuvem (Firestore)</li>
+                <li>Armazenamento na Cloud</li>
                 <li>Armazenamento do Dispositivo (Cache Local)</li>
                 <li>Ficheiro Finanças Pessoais no Google Drive (se associado)</li>
               </ul>

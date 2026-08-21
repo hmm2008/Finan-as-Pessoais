@@ -233,7 +233,7 @@ export function PageTitlesCustomizer() {
           </div>
           <div>
             <p className="font-semibold text-white">Títulos das Páginas Guardados!</p>
-            <p className="text-xs text-emerald-100">Atualizado nos cabeçalhos e sincronizado na Firebase.</p>
+            <p className="text-xs text-emerald-100">Atualizado nos cabeçalhos e sincronizado na Google Drive.</p>
           </div>
         </div>
       )}
@@ -300,7 +300,7 @@ export function PageTitlesCustomizer() {
         {savedSuccess && (
           <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-sm flex items-center gap-2">
             <Check className="w-4 h-4 shrink-0" />
-            <span>Títulos e cabeçalhos das páginas atualizados com sucesso e sincronizados com a Firebase!</span>
+            <span>Títulos e cabeçalhos das páginas atualizados com sucesso e sincronizados com a Google Drive!</span>
           </div>
         )}
 

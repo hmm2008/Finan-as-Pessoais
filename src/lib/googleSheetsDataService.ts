@@ -1063,7 +1063,7 @@ export interface ReorganizeResult {
 }
 
 /**
- * Reorganizes income structure across Google Sheets, LocalStorage, and Firebase.
+ * Reorganizes income structure across Google Sheets, LocalStorage, .
  * - Removes old "Receitas" and "Receitas_Fixas_Reg" sheets
  * - Creates & populates "Receitas_Pontuais" and "Receitas_Fixas_Registadas"
  * - Updates Firebase Firestore collections and LocalStorage
@@ -1073,7 +1073,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
   spreadsheetId: string,
   onProgress?: (status: string, percent: number) => void
 ): Promise<ReorganizeResult> {
-  notifySyncStatus('syncing', 'A reorganizar estrutura de receitas no Google Sheets & Firebase...');
+  notifySyncStatus('syncing', 'A reorganizar estrutura de receitas no Google Sheets...');
   onProgress?.('A inspecionar abas do Google Sheets...', 10);
 
   // 1. Fetch spreadsheet metadata to get existing sheet IDs and names
@@ -1281,11 +1281,11 @@ export async function reorganizeIncomeSheetsAndDatabase(
     });
   }
 
-  // 7. Update Firebase Firestore collections
+  // 7. Updat Firestore collections
   let firebaseMigrated = false;
   const user = auth.currentUser;
   if (user) {
-    onProgress?.('A sincronizar e atualizar coleções no Firebase...', 85);
+    onProgress?.('A sincronizar coleções...', 85);
     try {
       for (const inc of localPunctual) {
 //
@@ -1297,7 +1297,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
       }
       firebaseMigrated = true;
     } catch (fbErr) {
-      console.warn('Aviso na migração Firebase:', fbErr);
+      console.warn('Aviso na migração:', fbErr);
     }
   }
 
@@ -1536,8 +1536,8 @@ export async function clearAllSpreadsheetData(
   spreadsheetId: string,
   onProgress?: (status: string, percent: number) => void
 ): Promise<SyncStats> {
-  notifySyncStatus('syncing', 'A apagar todos os registos na Google Sheets, na Base de Dados e na Aplicação...');
-  onProgress?.('A esvaziar dados na base de dados e no armazenamento local...', 10);
+  notifySyncStatus('syncing', 'A apagar todos os registos na Google Sheets, e na Aplicação...');
+  onProgress?.('A esvaziar dados  e no armazenamento local...', 10);
 
   // 1. Wipe local storage and Firestore documents so old data never resurrects
   await wipeAllLocalAndFirestoreData();
@@ -1671,11 +1671,11 @@ export async function clearAllSpreadsheetData(
   addSyncAuditLog({
     action: 'export',
     status: 'success',
-    details: 'Todos os registos na Google Drive, base de dados e aplicação foram eliminados definitivamente.',
+    details: 'Todos os registos na Google Drive, Google Drive e aplicação foram eliminados definitivamente.',
     recordsCount: 0
   });
 
-  notifySyncStatus('synced', 'Google Sheets, Base de Dados e Aplicação totalmente limpos.');
+  notifySyncStatus('synced', 'Google Sheets, Aplicação totalmente limpos.');
   onProgress?.('Concluído! Todos os dados foram apagados.', 100);
 
   return cleanStats;

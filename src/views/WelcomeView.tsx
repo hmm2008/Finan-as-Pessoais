@@ -76,12 +76,12 @@ export default function WelcomeView() {
             )}
             {authError === 'unauthorized_domain' && (
               <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-medium text-center border border-amber-500/20 leading-relaxed">
-                Domínio não autorizado. Adicione o seu domínio da Vercel (ex: <code className="bg-amber-500/20 px-1 rounded">seu-app.vercel.app</code>) em <strong>Firebase Console &gt; Authentication &gt; Settings &gt; Authorized domains</strong>.
+                Domínio não autorizado. Adicione o seu domínio da Vercel (ex: <code className="bg-amber-500/20 px-1 rounded">seu-app.vercel.app</code>) em <strong>Painel &gt; Authentication &gt; Settings &gt; Authorized domains</strong>.
               </div>
             )}
             {authError === 'operation_not_allowed' && (
               <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium text-center border border-destructive/20">
-                A autenticação com a Google não está ativada na sua consola do Firebase.
+                A autenticação com a Google não está ativada na consola.
               </div>
             )}
             {authError === 'popup_blocked' && (
@@ -109,7 +109,7 @@ export default function WelcomeView() {
             
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-8">
               <Lock className="w-3 h-3" />
-              <span>Autenticação segura via Firebase</span>
+              <span>Autenticação segura via Google</span>
             </div>
           </CardContent>
         </Card>
