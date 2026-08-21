@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
@@ -68,14 +68,45 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
 
 interface PreferencesContextType {
   prefs: UserPreferences;
-  updatePrefs: (newPrefs: Partial<UserPreferences>) => void;
-  resetToDefaults: () => void;
+  updatePrefs: (newPrefs: Partial<UserPreferences>) => Promise<void>;
+  resetToDefaults: () => Promise<void>;
   getUserPrefs: () => Promise<UserPreferences>;
   requestPinReset: (email: string) => Promise<{ success: boolean; message: string }>;
   resetPin: (email: string, code: string, newPin: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
+
+/**
+ * Structural deep equality comparison that handles key declaration ordering
+ */
+function isDeepEqual(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!isDeepEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const key of keysA) {
+    if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+    if (!isDeepEqual(a[key], b[key])) return false;
+  }
+  return true;
+}
+
+/**
+ * Sanitizes object for Firestore serialization (removes undefined)
+ */
+function sanitizeForFirestore(obj: any): any {
+  return JSON.parse(JSON.stringify(obj, (key, value) => (value === undefined ? null : value)));
+}
 
 function getLocalPrefs(): UserPreferences {
   try {
@@ -98,58 +129,77 @@ function getLocalPrefs(): UserPreferences {
 
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState<UserPreferences>(getLocalPrefs);
+  const prefsRef = useRef<UserPreferences>(prefs);
+  const lastLocalUpdateTimestampRef = useRef<number>(0);
 
-  // Helper function to persist payload to Firestore in the background
-  const saveToFirestore = (payload: UserPreferences) => {
+  // Synchronize ref with latest state to prevent stale closures
+  useEffect(() => {
+    prefsRef.current = prefs;
+  }, [prefs]);
+
+  // Async Firestore persistence helper
+  const saveToFirestore = useCallback(async (payload: UserPreferences) => {
     const user = auth.currentUser;
     const targetId = user ? user.uid : 'global_shared';
-    const cleanData = JSON.parse(JSON.stringify(payload));
+    const cleanData = sanitizeForFirestore(payload);
 
-    // Save to user or global_shared doc asynchronously
-    setDoc(doc(db, 'user_preferences', targetId), {
-      ...cleanData,
-      userId: targetId,
-      created_by_id: targetId
-    }, { merge: true }).catch(err => {
-      console.warn('Error persisting user preferences to Firestore:', err);
-    });
-
-    // If logged in, also mirror to global_shared as fallback
-    if (user) {
-      setDoc(doc(db, 'user_preferences', 'global_shared'), {
+    try {
+      await setDoc(doc(db, 'user_preferences', targetId), {
         ...cleanData,
-        userId: 'global_shared',
-        created_by_id: 'global_shared'
-      }, { merge: true }).catch(() => {});
-    }
-  };
+        userId: targetId,
+        created_by_id: targetId
+      }, { merge: true });
 
-  // Sync with Firestore (READ-ONLY listener, strictly never writes to Firestore)
+      if (user) {
+        await setDoc(doc(db, 'user_preferences', 'global_shared'), {
+          ...cleanData,
+          userId: 'global_shared',
+          created_by_id: 'global_shared'
+        }, { merge: true }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('Error persisting user preferences to Firestore:', err);
+    }
+  }, []);
+
+  // Sync with Firestore (Listener)
   useEffect(() => {
     let unsubscribeListener: (() => void) | null = null;
 
-    const applyCloudData = (cloudData: Partial<UserPreferences>) => {
-      setPrefs(prev => {
-        const merged: UserPreferences = {
-          ...prev,
-          ...cloudData,
-          navLabels: { ...(prev.navLabels || {}), ...(cloudData.navLabels || {}) },
-          pageTitles: { ...(prev.pageTitles || {}), ...(cloudData.pageTitles || {}) },
-          pageSubtitles: { ...(prev.pageSubtitles || {}), ...(cloudData.pageSubtitles || {}) },
-          updatedAt: cloudData.updatedAt || prev.updatedAt
-        };
+    const handleCloudSnapshot = (cloudData: Partial<UserPreferences>) => {
+      const current = prefsRef.current;
 
-        // Guard against redundant state updates / re-renders
-        if (JSON.stringify(merged) === JSON.stringify(prev)) {
-          return prev;
-        }
+      // Ignore echoes from recent local user interactions (within 2 seconds)
+      if (Date.now() - lastLocalUpdateTimestampRef.current < 2000) {
+        return;
+      }
 
-        try {
-          localStorage.setItem('finanas_user_prefs', JSON.stringify(merged));
-        } catch (e) {}
+      // Check timestamp ordering
+      const localTime = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
+      const cloudTime = cloudData.updatedAt ? new Date(cloudData.updatedAt).getTime() : 0;
 
-        return merged;
-      });
+      if (cloudTime > 0 && localTime > 0 && cloudTime < localTime) {
+        return;
+      }
+
+      const merged: UserPreferences = {
+        ...current,
+        ...cloudData,
+        navLabels: { ...(current.navLabels || {}), ...(cloudData.navLabels || {}) },
+        pageTitles: { ...(current.pageTitles || {}), ...(cloudData.pageTitles || {}) },
+        pageSubtitles: { ...(current.pageSubtitles || {}), ...(cloudData.pageSubtitles || {}) },
+        updatedAt: cloudData.updatedAt || current.updatedAt
+      };
+
+      // Strict deep equality check to prevent redundant re-renders / loops
+      if (isDeepEqual(merged, current)) {
+        return;
+      }
+
+      setPrefs(merged);
+      try {
+        localStorage.setItem('finanas_user_prefs', JSON.stringify(merged));
+      } catch (e) {}
     };
 
     const attachListener = (targetId: string) => {
@@ -160,18 +210,18 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
       const docRef = doc(db, 'user_preferences', targetId);
       unsubscribeListener = onSnapshot(docRef, async (snap) => {
-        // Ignora snapshots temporários de edições locais pendentes
+        // Ignore snapshots with pending local writes
         if (snap.metadata.hasPendingWrites) {
           return;
         }
 
         if (snap.exists()) {
-          applyCloudData(snap.data() as Partial<UserPreferences>);
+          handleCloudSnapshot(snap.data() as Partial<UserPreferences>);
         } else if (targetId !== 'global_shared') {
           try {
             const globalSnap = await getDoc(doc(db, 'user_preferences', 'global_shared'));
             if (globalSnap.exists()) {
-              applyCloudData(globalSnap.data() as Partial<UserPreferences>);
+              handleCloudSnapshot(globalSnap.data() as Partial<UserPreferences>);
             }
           } catch (err) {
             console.warn('Error reading fallback global_shared:', err);
@@ -230,38 +280,45 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     root.setAttribute('data-density', prefs.density);
   }, [prefs]);
 
-  const updatePrefs = async (newPrefs: Partial<UserPreferences>) => {
+  const updatePrefs = useCallback(async (newPrefs: Partial<UserPreferences>) => {
     const now = new Date().toISOString();
-    
-    // 1. Atualiza estado local e localStorage de forma instantânea
-    let updatedPayload: UserPreferences = DEFAULT_PREFERENCES;
-    setPrefs(prev => {
-      updatedPayload = {
-        ...prev,
-        ...newPrefs,
-        navLabels: { ...(prev.navLabels || {}), ...(newPrefs.navLabels || {}) },
-        pageTitles: { ...(prev.pageTitles || {}), ...(newPrefs.pageTitles || {}) },
-        pageSubtitles: { ...(prev.pageSubtitles || {}), ...(newPrefs.pageSubtitles || {}) },
-        updatedAt: now
-      };
+    lastLocalUpdateTimestampRef.current = Date.now();
 
-      try {
-        localStorage.setItem('finanas_user_prefs', JSON.stringify(updatedPayload));
-      } catch (e) {
-        console.warn('LocalStorage save error:', e);
-      }
-      
-      return updatedPayload;
-    });
+    const current = prefsRef.current;
+    const updatedPayload: UserPreferences = {
+      ...current,
+      ...newPrefs,
+      navLabels: { ...(current.navLabels || {}), ...(newPrefs.navLabels || {}) },
+      pageTitles: { ...(current.pageTitles || {}), ...(newPrefs.pageTitles || {}) },
+      pageSubtitles: { ...(current.pageSubtitles || {}), ...(newPrefs.pageSubtitles || {}) },
+      updatedAt: now
+    };
 
-    // 2. Envia para a Firestore diretamente em background sem bloquear a UI
-    saveToFirestore(updatedPayload);
-  };
+    if (isDeepEqual(updatedPayload, current)) {
+      return;
+    }
 
-  const resetToDefaults = async () => {
+    // 1. Instant local state update
+    setPrefs(updatedPayload);
+
+    // 2. Local storage persistence
+    try {
+      localStorage.setItem('finanas_user_prefs', JSON.stringify(updatedPayload));
+    } catch (e) {
+      console.warn('LocalStorage save error:', e);
+    }
+
+    // 3. Firestore persistence
+    await saveToFirestore(updatedPayload);
+  }, [saveToFirestore]);
+
+  const resetToDefaults = useCallback(async () => {
+    const now = new Date().toISOString();
+    lastLocalUpdateTimestampRef.current = Date.now();
+
     const resetPayload: UserPreferences = {
       ...DEFAULT_PREFERENCES,
-      updatedAt: new Date().toISOString()
+      updatedAt: now
     };
 
     setPrefs(resetPayload);
@@ -269,12 +326,12 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       localStorage.setItem('finanas_user_prefs', JSON.stringify(resetPayload));
     } catch (e) {}
 
-    saveToFirestore(resetPayload);
-  };
+    await saveToFirestore(resetPayload);
+  }, [saveToFirestore]);
 
-  const getUserPrefs = async (): Promise<UserPreferences> => prefs;
+  const getUserPrefs = useCallback(async (): Promise<UserPreferences> => prefsRef.current, []);
 
-  const requestPinReset = async (email: string) => {
+  const requestPinReset = useCallback(async (email: string) => {
     if (!email.includes('@')) {
       return { success: false, message: 'Endereço de e-mail inválido.' };
     }
@@ -293,9 +350,9 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     } catch (err: any) {
       return { success: false, message: 'Erro de ligação ao servidor.' };
     }
-  };
+  }, []);
 
-  const resetPin = async (email: string, resetCode: string, newPin: string) => {
+  const resetPin = useCallback(async (email: string, resetCode: string, newPin: string) => {
     if (resetCode.length !== 6) {
       return { success: false, message: 'Código de verificação incorreto (deve ter 6 dígitos).' };
     }
@@ -323,7 +380,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     } catch (err: any) {
       return { success: false, message: 'Erro de ligação ao servidor.' };
     }
-  };
+  }, []);
 
   return (
     <PreferencesContext.Provider

@@ -31,6 +31,11 @@ initLocalStorage('fin_categorization_rules', []);
 // -----------------------------------------
 // Helper: Synchronous Local-First Reader & Cloud Sync
 // -----------------------------------------
+export function sanitizeForFirestore<T>(obj: T): any {
+  if (obj === null || obj === undefined) return null;
+  return JSON.parse(JSON.stringify(obj, (key, value) => (value === undefined ? null : value)));
+}
+
 export function getLocalEntityList<T>(localStorageKey: string): T[] {
   try {
     const raw = localStorage.getItem(localStorageKey);
@@ -58,7 +63,7 @@ export function getLocalEntityList<T>(localStorageKey: string): T[] {
   }
 }
 
-async function getEntityList<T>(localStorageKey: string, firestoreCollectionName: string): Promise<T[]> {
+async function getEntityList<T extends { id?: string }>(localStorageKey: string, firestoreCollectionName: string): Promise<T[]> {
   const user = auth.currentUser;
   
   // 1. Read local cache synchronously
@@ -68,7 +73,8 @@ async function getEntityList<T>(localStorageKey: string, firestoreCollectionName
   if (user) {
     try {
       const fetchPromise = (async () => {
-        const cloudList: T[] = [];
+        const cloudMap = new Map<string, T>();
+
         try {
           const q1 = query(collection(db, firestoreCollectionName), where('userId', '==', user.uid));
           const snap1 = await getDocs(q1);
@@ -77,7 +83,7 @@ async function getEntityList<T>(localStorageKey: string, firestoreCollectionName
             if (isBannedDemoRecord(data)) {
               deleteDoc(doc(db, firestoreCollectionName, docSnap.id)).catch(() => {});
             } else {
-              cloudList.push(data as T);
+              cloudMap.set(docSnap.id, data as T);
             }
           });
         } catch (e1) {
@@ -91,31 +97,45 @@ async function getEntityList<T>(localStorageKey: string, firestoreCollectionName
             const data = { id: docSnap.id, ...docSnap.data() };
             if (isBannedDemoRecord(data)) {
               deleteDoc(doc(db, firestoreCollectionName, docSnap.id)).catch(() => {});
-            } else if (!cloudList.some((item: any) => item.id === docSnap.id)) {
-              cloudList.push(data as T);
+            } else if (!cloudMap.has(docSnap.id)) {
+              cloudMap.set(docSnap.id, data as T);
             }
           });
         } catch (e2) {
           console.warn(`Firestore q2 query failed for ${firestoreCollectionName}`, e2);
         }
 
-        if (cloudList && cloudList.length > 0) {
-          // Merge with local list so no locally stored historical items are deleted
-          const merged = [...cloudList];
-          localList.forEach((locItem: any) => {
-            if (!merged.some((clItem: any) => clItem.id === locItem.id) && !isBannedDemoRecord(locItem)) {
-              merged.push(locItem);
-            }
-          });
-          localStorage.setItem(localStorageKey, JSON.stringify(merged));
-          return merged;
+        // BI-DIRECTIONAL SYNC: Upload local items that are missing from Firestore
+        const pushPromises: Promise<void>[] = [];
+        localList.forEach((locItem: any) => {
+          if (locItem && locItem.id && !cloudMap.has(locItem.id) && !isBannedDemoRecord(locItem)) {
+            cloudMap.set(locItem.id, locItem);
+            const payload = sanitizeForFirestore({
+              ...locItem,
+              userId: user.uid,
+              created_by_id: user.uid,
+              createdAt: locItem.createdAt || new Date().toISOString()
+            });
+            pushPromises.push(
+              setDoc(doc(db, firestoreCollectionName, locItem.id), payload, { merge: true }).catch(err => {
+                console.warn(`Error auto-syncing local item ${locItem.id} to Firestore ${firestoreCollectionName}:`, err);
+              })
+            );
+          }
+        });
+
+        if (pushPromises.length > 0) {
+          await Promise.all(pushPromises);
         }
-        return localList;
+
+        const merged = Array.from(cloudMap.values());
+        localStorage.setItem(localStorageKey, JSON.stringify(merged));
+        return merged;
       })();
 
-      // 2.5 second timeout to never block user render if Firestore network is slow
+      // 3.5 second timeout to never block user render if Firestore network is slow
       const timeoutPromise = new Promise<T[]>((resolve) => 
-        setTimeout(() => resolve(localList), 2500)
+        setTimeout(() => resolve(localList), 3500)
       );
 
       return await Promise.race([fetchPromise, timeoutPromise]);
@@ -140,19 +160,23 @@ async function saveEntity<T extends { id?: string }>(
   // 1. Write to LocalStorage
   const raw = localStorage.getItem(localStorageKey);
   const currentList: T[] = raw ? JSON.parse(raw) : [];
-  currentList.unshift(itemWithId);
-  localStorage.setItem(localStorageKey, JSON.stringify(currentList));
+  const filtered = currentList.filter((existing: any) => existing.id !== id);
+  filtered.unshift(itemWithId);
+  localStorage.setItem(localStorageKey, JSON.stringify(filtered));
 
   // 2. Write to Firestore if connected
   if (user) {
-    setDoc(doc(db, firestoreCollectionName, itemWithId.id), {
-      ...itemWithId,
-      userId: user.uid,
-      created_by_id: user.uid,
-      createdAt: new Date().toISOString()
-    }).catch(e => {
-      console.warn(`Firestore create failed for ${firestoreCollectionName}, saved locally`, e);
-    });
+    try {
+      const payload = sanitizeForFirestore({
+        ...itemWithId,
+        userId: user.uid,
+        created_by_id: user.uid,
+        createdAt: (itemWithId as any).createdAt || new Date().toISOString()
+      });
+      await setDoc(doc(db, firestoreCollectionName, id), payload, { merge: true });
+    } catch (e) {
+      console.warn(`Firestore create failed for ${firestoreCollectionName}, saved locally:`, e);
+    }
   }
 
   // 3. Trigger Google Sheets Auto-Sync (Phase 3)
@@ -181,19 +205,18 @@ async function updateEntity<T extends { id: string }>(
 
   // 2. Write to Firestore if connected
   if (user) {
-    (async () => {
-      try {
-        const docRef = doc(db, firestoreCollectionName, item.id);
-        await setDoc(docRef, {
-          ...(item as any),
-          userId: user.uid,
-          created_by_id: user.uid,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      } catch (e) {
-        console.warn(`Firestore update failed for ${firestoreCollectionName}, updated locally`, e);
-      }
-    })();
+    try {
+      const docRef = doc(db, firestoreCollectionName, item.id);
+      const payload = sanitizeForFirestore({
+        ...item,
+        userId: user.uid,
+        created_by_id: user.uid,
+        updatedAt: new Date().toISOString()
+      });
+      await setDoc(docRef, payload, { merge: true });
+    } catch (e) {
+      console.warn(`Firestore update failed for ${firestoreCollectionName}, updated locally:`, e);
+    }
   }
 
   // 3. Trigger Google Sheets Auto-Sync (Phase 3)
@@ -803,3 +826,50 @@ export function useCategorizationRules() {
     deleteRule: deleteMutation.mutateAsync
   };
 }
+
+// -----------------------------------------
+// Helper: Global Cloud Migration & Sweep
+// -----------------------------------------
+export async function syncAllLocalEntitiesToFirestore(userUid: string): Promise<void> {
+  if (!userUid) return;
+
+  const mappings: { storageKey: string; collectionName: string }[] = [
+    { storageKey: 'fin_expenses', collectionName: 'expenses' },
+    { storageKey: 'fin_incomes', collectionName: 'incomes' },
+    { storageKey: 'fin_incomes_fixed_realized', collectionName: 'incomes_fixed_realized' },
+    { storageKey: 'fin_fixed_expenses', collectionName: 'fixed_expenses' },
+    { storageKey: 'fin_fixed_incomes', collectionName: 'fixed_incomes' },
+    { storageKey: 'fin_assets', collectionName: 'assets' },
+    { storageKey: 'fin_vehicles', collectionName: 'vehicles' },
+    { storageKey: 'fin_vehicle_tasks', collectionName: 'vehicle_tasks' },
+    { storageKey: 'fin_goals', collectionName: 'goals' },
+    { storageKey: 'fin_budgets', collectionName: 'budgets' },
+    { storageKey: 'fin_categorization_rules', collectionName: 'categorization_rules' },
+    { storageKey: 'finanas_trash_items', collectionName: 'trash' },
+    { storageKey: 'finanas_archives', collectionName: 'archives' },
+  ];
+
+  for (const { storageKey, collectionName } of mappings) {
+    try {
+      const localItems = getLocalEntityList<any>(storageKey);
+      if (localItems && localItems.length > 0) {
+        const batchPromises = localItems.map(item => {
+          if (!item || !item.id || isBannedDemoRecord(item)) return Promise.resolve();
+          const payload = sanitizeForFirestore({
+            ...item,
+            userId: userUid,
+            created_by_id: userUid,
+            createdAt: item.createdAt || new Date().toISOString()
+          });
+          return setDoc(doc(db, collectionName, item.id), payload, { merge: true }).catch(err => {
+            console.warn(`Error syncing local item ${item.id} to Firestore collection ${collectionName}:`, err);
+          });
+        });
+        await Promise.all(batchPromises);
+      }
+    } catch (err) {
+      console.warn(`Error during sync for ${storageKey}:`, err);
+    }
+  }
+}
+

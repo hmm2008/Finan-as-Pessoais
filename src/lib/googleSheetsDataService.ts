@@ -1,6 +1,7 @@
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { getCachedDriveToken, setCachedDriveToken, formatAndStyleFinanceSpreadsheet } from './googleDriveService';
+import { sanitizeForFirestore } from '../hooks/queries';
 
 export interface SyncStats {
   expensesCount: number;
@@ -896,22 +897,22 @@ export async function importAllDataFromSheets(
   const user = auth.currentUser;
   if (user) {
     try {
-      parsedExpenses.forEach(exp => setDoc(doc(db, 'expenses', exp.id), { ...exp, userId: user.uid, created_by_id: user.uid }).catch(() => {}));
+      parsedExpenses.forEach(exp => setDoc(doc(db, 'expenses', exp.id), sanitizeForFirestore({ ...exp, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
       parsedIncomes.forEach(inc => {
-        setDoc(doc(db, 'incomes', inc.id), { ...inc, userId: user.uid, created_by_id: user.uid }).catch(() => {});
-        setDoc(doc(db, 'incomes_punctual', inc.id), { ...inc, userId: user.uid, created_by_id: user.uid }).catch(() => {});
+        setDoc(doc(db, 'incomes', inc.id), sanitizeForFirestore({ ...inc, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {});
+        setDoc(doc(db, 'incomes_punctual', inc.id), sanitizeForFirestore({ ...inc, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {});
       });
       parsedFixedIncomesRealized.forEach(inc => {
-        setDoc(doc(db, 'incomes_fixed_realized', inc.id), { ...inc, userId: user.uid, created_by_id: user.uid }).catch(() => {});
-        setDoc(doc(db, 'incomes_fixed_registered', inc.id), { ...inc, userId: user.uid, created_by_id: user.uid }).catch(() => {});
+        setDoc(doc(db, 'incomes_fixed_realized', inc.id), sanitizeForFirestore({ ...inc, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {});
+        setDoc(doc(db, 'incomes_fixed_registered', inc.id), sanitizeForFirestore({ ...inc, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {});
       });
-      parsedFixedExpenses.forEach(fe => setDoc(doc(db, 'fixed_expenses', fe.id), { ...fe, userId: user.uid, created_by_id: user.uid }).catch(() => {}));
-      parsedFixedIncomes.forEach(fi => setDoc(doc(db, 'fixed_incomes', fi.id), { ...fi, userId: user.uid, created_by_id: user.uid }).catch(() => {}));
-      parsedAccounts.forEach(acc => setDoc(doc(db, 'assets', acc.id), { ...acc, userId: user.uid, created_by_id: user.uid }).catch(() => {}));
-      parsedPatrimonio.forEach(pat => setDoc(doc(db, 'assets', pat.id), { ...pat, userId: user.uid, created_by_id: user.uid }).catch(() => {}));
-      parsedVehicles.forEach(veh => setDoc(doc(db, 'vehicles', veh.id), { ...veh, userId: user.uid, created_by_id: user.uid }).catch(() => {}));
-      parsedBudgets.forEach(b => setDoc(doc(db, 'budgets', b.id), { ...b, userId: user.uid, created_by_id: user.uid }).catch(() => {}));
-      parsedGoals.forEach(g => setDoc(doc(db, 'savings_goals', g.id), { ...g, userId: user.uid, created_by_id: user.uid }).catch(() => {}));
+      parsedFixedExpenses.forEach(fe => setDoc(doc(db, 'fixed_expenses', fe.id), sanitizeForFirestore({ ...fe, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
+      parsedFixedIncomes.forEach(fi => setDoc(doc(db, 'fixed_incomes', fi.id), sanitizeForFirestore({ ...fi, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
+      parsedAccounts.forEach(acc => setDoc(doc(db, 'assets', acc.id), sanitizeForFirestore({ ...acc, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
+      parsedPatrimonio.forEach(pat => setDoc(doc(db, 'assets', pat.id), sanitizeForFirestore({ ...pat, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
+      parsedVehicles.forEach(veh => setDoc(doc(db, 'vehicles', veh.id), sanitizeForFirestore({ ...veh, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
+      parsedBudgets.forEach(b => setDoc(doc(db, 'budgets', b.id), sanitizeForFirestore({ ...b, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
+      parsedGoals.forEach(g => setDoc(doc(db, 'savings_goals', g.id), sanitizeForFirestore({ ...g, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
     } catch {
       // ignore
     }

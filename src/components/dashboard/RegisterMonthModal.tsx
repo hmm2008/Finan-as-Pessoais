@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Button } from '../ui/button';
 import { X, ChevronLeft, ChevronRight, Calendar, CalendarPlus, CheckCircle2, Loader2 } from 'lucide-react';
 import { useDashboard } from '../../contexts';
-import { useExpenses, useFixedExpenses, useIncomes, useFixedIncomes } from '../../hooks/queries';
+import { useExpenses, useFixedExpenses, useIncomes, useFixedIncomes, sanitizeForFirestore } from '../../hooks/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import { db, auth } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -227,11 +227,13 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
         // Firestore sync
         if (user) {
           newlyAddedExpenses.forEach(exp => {
-            setDoc(doc(db, 'expenses', exp.id), {
+            const payload = sanitizeForFirestore({
               ...exp,
               userId: user.uid,
+              created_by_id: user.uid,
               createdAt: new Date().toISOString()
-            }).catch(() => {});
+            });
+            setDoc(doc(db, 'expenses', exp.id), payload, { merge: true }).catch(() => {});
           });
         }
       }
@@ -244,11 +246,13 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
         // Firestore sync
         if (user) {
           newlyAddedIncomes.forEach(inc => {
-            setDoc(doc(db, 'incomes_fixed_realized', inc.id), {
+            const payload = sanitizeForFirestore({
               ...inc,
               userId: user.uid,
+              created_by_id: user.uid,
               createdAt: new Date().toISOString()
-            }).catch(() => {});
+            });
+            setDoc(doc(db, 'incomes_fixed_realized', inc.id), payload, { merge: true }).catch(() => {});
           });
         }
       }

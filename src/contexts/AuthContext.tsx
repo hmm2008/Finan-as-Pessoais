@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { purgeDemoRecordsFromLocalAndFirebase } from '../utils/cleanupDemoData';
+import { syncAllLocalEntitiesToFirestore } from '../hooks/queries';
 
 interface AuthContextType {
   user: User | null;
@@ -28,8 +29,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         try {
           await purgeDemoRecordsFromLocalAndFirebase();
+          await syncAllLocalEntitiesToFirestore(currentUser.uid);
         } catch (err) {
-          console.error("Failed to purge demo records after login", err);
+          console.error("Failed to sync/purge records after login", err);
         }
       } else {
         purgeDemoRecordsFromLocalAndFirebase().catch(() => {});

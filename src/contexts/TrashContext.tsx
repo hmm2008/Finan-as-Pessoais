@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { auth, db } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { sanitizeForFirestore } from '../hooks/queries';
 
 export interface TrashItem {
   id: string; // Unique trash record ID
@@ -169,11 +170,14 @@ export function TrashProvider({ children }: { children: React.ReactNode }) {
 
           const user = auth.currentUser;
           if (user && collectionName) {
-            setDoc(doc(db, collectionName, item.data.id), {
+            const payload = sanitizeForFirestore({
               ...item.data,
               userId: user.uid,
+              created_by_id: user.uid,
               createdAt: item.data.createdAt || new Date().toISOString()
-            }).catch(e => console.warn('Firestore restore sync failed', e));
+            });
+            setDoc(doc(db, collectionName, item.data.id), payload, { merge: true })
+              .catch(e => console.warn('Firestore restore sync failed', e));
           }
         }
       }
