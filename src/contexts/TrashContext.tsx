@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { auth, db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { sanitizeForFirestore } from '../hooks/queries';
 
@@ -168,17 +168,9 @@ export function TrashProvider({ children }: { children: React.ReactNode }) {
             console.error('Error restoring item to localStorage:', e);
           }
 
-          const user = auth.currentUser;
-          if (user && collectionName) {
-            const payload = sanitizeForFirestore({
-              ...item.data,
-              userId: user.uid,
-              created_by_id: user.uid,
-              createdAt: item.data.createdAt || new Date().toISOString()
-            });
-            setDoc(doc(db, collectionName, item.data.id), payload, { merge: true })
-              .catch(e => console.warn('Firestore restore sync failed', e));
-          }
+          // Sync to sheets
+          const { scheduleSheetsBackgroundSync } = require('../lib/googleSheetsDataService');
+          scheduleSheetsBackgroundSync();
         }
       }
     }

@@ -1,5 +1,5 @@
-import { collection, addDoc } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+//
+import { auth } from '../lib/firebase';
 
 export interface AppLog {
   id: string;
@@ -47,7 +47,7 @@ export async function logEvent(
 
   // 2. Write to Firestore if connected (non-blocking)
   try {
-    await addDoc(collection(db, 'app_logs'), {
+//
       ...logEntry,
       id
     });

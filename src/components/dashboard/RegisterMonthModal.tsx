@@ -4,7 +4,8 @@ import { X, ChevronLeft, ChevronRight, Calendar, CalendarPlus, CheckCircle2, Loa
 import { useDashboard } from '../../contexts';
 import { useExpenses, useFixedExpenses, useIncomes, useFixedIncomes, sanitizeForFirestore } from '../../hooks/queries';
 import { useQueryClient } from '@tanstack/react-query';
-import { db, auth } from '../../lib/firebase';
+import { auth } from '../../lib/firebase';
+import { scheduleSheetsBackgroundSync } from '../../lib/googleSheetsDataService';
 import { doc, setDoc } from 'firebase/firestore';
 
 interface RegisterMonthModalProps {
@@ -233,7 +234,7 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
               created_by_id: user.uid,
               createdAt: new Date().toISOString()
             });
-            setDoc(doc(db, 'expenses', exp.id), payload, { merge: true }).catch(() => {});
+            scheduleSheetsBackgroundSync();
           });
         }
       }
@@ -252,7 +253,7 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
               created_by_id: user.uid,
               createdAt: new Date().toISOString()
             });
-            setDoc(doc(db, 'incomes_fixed_realized', inc.id), payload, { merge: true }).catch(() => {});
+            scheduleSheetsBackgroundSync();
           });
         }
       }

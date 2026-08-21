@@ -1,6 +1,6 @@
 import { generateMonthArchivePDF, MonthArchiveSummary } from '../components/arquivo/utils/archivePDF';
-import { db } from '../lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { auth } from '../lib/firebase';
+//
 
 export interface ArchiveEntity {
   id: string;
@@ -47,7 +47,7 @@ export async function archivePDF(summary: MonthArchiveSummary): Promise<ArchiveE
 
   // 2. Persist to Firestore if possible (non-blocking)
   try {
-    await addDoc(collection(db, 'archives'), {
+//
       ...archiveEntry,
       id
     });

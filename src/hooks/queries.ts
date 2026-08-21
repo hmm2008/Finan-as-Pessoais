@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db, auth } from '../lib/firebase';
-import { collection, getDocs, setDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { auth } from '../lib/firebase';
 import { scheduleSheetsBackgroundSync, partitionIncomes, isFixedIncomeItem } from '../lib/googleSheetsDataService';
 import { isBannedDemoRecord } from '../utils/cleanupDemoData';
 
@@ -64,80 +63,7 @@ export function getLocalEntityList<T>(localStorageKey: string): T[] {
 }
 
 async function getEntityList<T extends { id?: string }>(localStorageKey: string, firestoreCollectionName: string): Promise<T[]> {
-  const user = auth.currentUser;
-  
-  // 1. Read local cache synchronously
   const localList = getLocalEntityList<T>(localStorageKey);
-
-  // 2. If user is logged in, sync in background with a fast network timeout
-  if (user) {
-    try {
-      const fetchPromise = (async () => {
-        const cloudMap = new Map<string, T>();
-
-        try {
-          const q1 = query(collection(db, firestoreCollectionName), where('userId', '==', user.uid));
-          const snap1 = await getDocs(q1);
-          snap1.forEach(docSnap => {
-            const data = { id: docSnap.id, ...docSnap.data() };
-            if (isBannedDemoRecord(data)) {
-              deleteDoc(doc(db, firestoreCollectionName, docSnap.id)).catch(() => {});
-            } else {
-              cloudMap.set(docSnap.id, data as T);
-            }
-          });
-        } catch (e1) {
-          console.warn(`Firestore q1 query failed for ${firestoreCollectionName}`, e1);
-        }
-
-        try {
-          const q2 = query(collection(db, firestoreCollectionName), where('created_by_id', '==', user.uid));
-          const snap2 = await getDocs(q2);
-          snap2.forEach(docSnap => {
-            const data = { id: docSnap.id, ...docSnap.data() };
-            if (isBannedDemoRecord(data)) {
-              deleteDoc(doc(db, firestoreCollectionName, docSnap.id)).catch(() => {});
-            } else if (!cloudMap.has(docSnap.id)) {
-              cloudMap.set(docSnap.id, data as T);
-            }
-          });
-        } catch (e2) {
-          console.warn(`Firestore q2 query failed for ${firestoreCollectionName}`, e2);
-        }
-
-        // BI-DIRECTIONAL SYNC: Upload local items that are missing from Firestore
-        localList.forEach((locItem: any) => {
-          if (locItem && locItem.id && !cloudMap.has(locItem.id) && !isBannedDemoRecord(locItem)) {
-            cloudMap.set(locItem.id, locItem);
-            const payload = sanitizeForFirestore({
-              ...locItem,
-              userId: user.uid,
-              created_by_id: user.uid,
-              createdAt: locItem.createdAt || new Date().toISOString()
-            });
-            setDoc(doc(db, firestoreCollectionName, locItem.id), payload, { merge: true }).catch(err => {
-              console.warn(`Error auto-syncing local item ${locItem.id} to Firestore ${firestoreCollectionName}:`, err);
-            });
-          }
-        });
-
-        const merged = Array.from(cloudMap.values());
-        localStorage.setItem(localStorageKey, JSON.stringify(merged));
-        return merged;
-      })();
-
-      // 3.5 second timeout to never block user render if Firestore network is slow
-      const timeoutPromise = new Promise<T[]>((resolve) => 
-        setTimeout(() => resolve(localList), 3500)
-      );
-
-      return await Promise.race([fetchPromise, timeoutPromise]);
-    } catch (e) {
-      console.warn(`Firestore read failed for ${firestoreCollectionName}, using local cache`, e);
-      return localList;
-    }
-  }
-
   return localList;
 }
 
@@ -146,7 +72,6 @@ async function saveEntity<T extends { id?: string }>(
   firestoreCollectionName: string,
   item: T
 ): Promise<T> {
-  const user = auth.currentUser;
   const id = item.id || `id_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
   const itemWithId = { ...item, id };
 
@@ -157,23 +82,7 @@ async function saveEntity<T extends { id?: string }>(
   filtered.unshift(itemWithId);
   localStorage.setItem(localStorageKey, JSON.stringify(filtered));
 
-  // 2. Write to Firestore if connected
-  if (user) {
-    try {
-      const payload = sanitizeForFirestore({
-        ...itemWithId,
-        userId: user.uid,
-        created_by_id: user.uid,
-        createdAt: (itemWithId as any).createdAt || new Date().toISOString()
-      });
-      setDoc(doc(db, firestoreCollectionName, id), payload, { merge: true })
-        .catch(e => console.warn(`Firestore create failed for ${firestoreCollectionName}, saved locally:`, e));
-    } catch (e) {
-      console.warn(`Firestore payload sanitization failed:`, e);
-    }
-  }
-
-  // 3. Trigger Google Sheets Auto-Sync (Phase 3)
+  // 2. Trigger Google Sheets Auto-Sync
   scheduleSheetsBackgroundSync();
 
   return itemWithId;
@@ -184,37 +93,13 @@ async function updateEntity<T extends { id: string }>(
   firestoreCollectionName: string,
   item: T
 ): Promise<T> {
-  const user = auth.currentUser;
+  const currentList = getLocalEntityList<T>(localStorageKey);
+  const updatedList = currentList.map((existing: any) =>
+    existing.id === item.id ? { ...existing, ...item } : existing
+  );
+  localStorage.setItem(localStorageKey, JSON.stringify(updatedList));
 
-  // 1. Write to LocalStorage
-  const raw = localStorage.getItem(localStorageKey);
-  let currentList: T[] = raw ? JSON.parse(raw) : [];
-  const exists = currentList.some(existing => existing.id === item.id);
-  if (exists) {
-    currentList = currentList.map(existing => existing.id === item.id ? { ...existing, ...item } : existing);
-  } else {
-    currentList = [item, ...currentList];
-  }
-  localStorage.setItem(localStorageKey, JSON.stringify(currentList));
-
-  // 2. Write to Firestore if connected
-  if (user) {
-    try {
-      const docRef = doc(db, firestoreCollectionName, item.id);
-      const payload = sanitizeForFirestore({
-        ...item,
-        userId: user.uid,
-        created_by_id: user.uid,
-        updatedAt: new Date().toISOString()
-      });
-      setDoc(docRef, payload, { merge: true })
-        .catch(e => console.warn(`Firestore update failed for ${firestoreCollectionName}, updated locally:`, e));
-    } catch (e) {
-      console.warn(`Firestore payload sanitization failed:`, e);
-    }
-  }
-
-  // 3. Trigger Google Sheets Auto-Sync (Phase 3)
+  // Trigger Google Sheets sync
   scheduleSheetsBackgroundSync();
 
   return item;
@@ -225,27 +110,11 @@ async function deleteEntity(
   firestoreCollectionName: string,
   id: string
 ): Promise<string> {
-  const user = auth.currentUser;
+  const currentList = getLocalEntityList<any>(localStorageKey);
+  const filtered = currentList.filter((existing: any) => existing.id !== id);
+  localStorage.setItem(localStorageKey, JSON.stringify(filtered));
 
-  // 1. Write to LocalStorage
-  const raw = localStorage.getItem(localStorageKey);
-  let currentList: any[] = raw ? JSON.parse(raw) : [];
-  currentList = currentList.filter(item => item.id !== id);
-  localStorage.setItem(localStorageKey, JSON.stringify(currentList));
-
-  // 2. Write to Firestore if connected
-  if (user) {
-    (async () => {
-      try {
-        const docRef = doc(db, firestoreCollectionName, id);
-        await deleteDoc(docRef);
-      } catch (e) {
-        console.warn(`Firestore delete failed for ${firestoreCollectionName}, deleted locally`, e);
-      }
-    })();
-  }
-
-  // 3. Trigger Google Sheets Auto-Sync (Phase 3)
+  // Trigger Google Sheets sync
   scheduleSheetsBackgroundSync();
 
   return id;
@@ -332,19 +201,11 @@ export function useIncomes() {
         const itemToSave = { ...newInc, isFixed: true };
         const saved = await saveEntity<any>('fin_incomes_fixed_realized', 'incomes_fixed_realized', itemToSave);
         // Also mirror to incomes_fixed_registered for compatibility
-        const user = auth.currentUser;
-        if (user) {
-          setDoc(doc(db, 'incomes_fixed_registered', saved.id), { ...saved, userId: user.uid, created_by_id: user.uid }).catch(() => {});
-        }
         return saved;
       } else {
         const itemToSave = { ...newInc, isFixed: false };
         const saved = await saveEntity<any>('fin_incomes', 'incomes', itemToSave);
         // Also mirror to incomes_punctual for compatibility
-        const user = auth.currentUser;
-        if (user) {
-          setDoc(doc(db, 'incomes_punctual', saved.id), { ...saved, userId: user.uid, created_by_id: user.uid }).catch(() => {});
-        }
         return saved;
       }
     },
@@ -364,12 +225,6 @@ export function useIncomes() {
           localStorage.setItem('fin_incomes', JSON.stringify(list));
         }
         const updated = await updateEntity<any>('fin_incomes_fixed_realized', 'incomes_fixed_realized', { ...updatedInc, isFixed: true });
-        const user = auth.currentUser;
-        if (user) {
-          setDoc(doc(db, 'incomes_fixed_registered', updated.id), { ...updated, userId: user.uid, created_by_id: user.uid }, { merge: true }).catch(() => {});
-          deleteDoc(doc(db, 'incomes_punctual', updated.id)).catch(() => {});
-          deleteDoc(doc(db, 'incomes', updated.id)).catch(() => {});
-        }
         return updated;
       } else {
         // Remove from fixed local list if it was previously there
@@ -379,12 +234,6 @@ export function useIncomes() {
           localStorage.setItem('fin_incomes_fixed_realized', JSON.stringify(list));
         }
         const updated = await updateEntity<any>('fin_incomes', 'incomes', { ...updatedInc, isFixed: false });
-        const user = auth.currentUser;
-        if (user) {
-          setDoc(doc(db, 'incomes_punctual', updated.id), { ...updated, userId: user.uid, created_by_id: user.uid }, { merge: true }).catch(() => {});
-          deleteDoc(doc(db, 'incomes_fixed_registered', updated.id)).catch(() => {});
-          deleteDoc(doc(db, 'incomes_fixed_realized', updated.id)).catch(() => {});
-        }
         return updated;
       }
     },
@@ -406,11 +255,6 @@ export function useIncomes() {
     mutationFn: async (id: string) => {
       await deleteEntity('fin_incomes_fixed_realized', 'incomes_fixed_realized', id);
       await deleteEntity('fin_incomes', 'incomes', id);
-      const user = auth.currentUser;
-      if (user) {
-        deleteDoc(doc(db, 'incomes_fixed_registered', id)).catch(() => {});
-        deleteDoc(doc(db, 'incomes_punctual', id)).catch(() => {});
-      }
       return id;
     },
     onSuccess: (_, id) => {
@@ -826,44 +670,7 @@ export function useCategorizationRules() {
 // Helper: Global Cloud Migration & Sweep
 // -----------------------------------------
 export async function syncAllLocalEntitiesToFirestore(userUid: string): Promise<void> {
-  if (!userUid) return;
-
-  const mappings: { storageKey: string; collectionName: string }[] = [
-    { storageKey: 'fin_expenses', collectionName: 'expenses' },
-    { storageKey: 'fin_incomes', collectionName: 'incomes' },
-    { storageKey: 'fin_incomes_fixed_realized', collectionName: 'incomes_fixed_realized' },
-    { storageKey: 'fin_fixed_expenses', collectionName: 'fixed_expenses' },
-    { storageKey: 'fin_fixed_incomes', collectionName: 'fixed_incomes' },
-    { storageKey: 'fin_assets', collectionName: 'assets' },
-    { storageKey: 'fin_vehicles', collectionName: 'vehicles' },
-    { storageKey: 'fin_vehicle_tasks', collectionName: 'vehicle_tasks' },
-    { storageKey: 'fin_goals', collectionName: 'goals' },
-    { storageKey: 'fin_budgets', collectionName: 'budgets' },
-    { storageKey: 'fin_categorization_rules', collectionName: 'categorization_rules' },
-    { storageKey: 'finanas_trash_items', collectionName: 'trash' },
-    { storageKey: 'finanas_archives', collectionName: 'archives' },
-  ];
-
-  for (const { storageKey, collectionName } of mappings) {
-    try {
-      const localItems = getLocalEntityList<any>(storageKey);
-      if (localItems && localItems.length > 0) {
-        localItems.forEach(item => {
-          if (!item || !item.id || isBannedDemoRecord(item)) return;
-          const payload = sanitizeForFirestore({
-            ...item,
-            userId: userUid,
-            created_by_id: userUid,
-            createdAt: item.createdAt || new Date().toISOString()
-          });
-          setDoc(doc(db, collectionName, item.id), payload, { merge: true }).catch(err => {
-            console.warn(`Error syncing local item ${item.id} to Firestore collection ${collectionName}:`, err);
-          });
-        });
-      }
-    } catch (err) {
-      console.warn(`Error during sync for ${storageKey}:`, err);
-    }
-  }
+  // Disconnected from Firestore. Data sync runs only through Google Sheets now.
+  console.log('Firestore sync disabled. Re-routing all syncs to Google Sheets.');
 }
 

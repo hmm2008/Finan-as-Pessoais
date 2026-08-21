@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
+import { scheduleSheetsBackgroundSync } from '../lib/googleSheetsDataService';
 
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
@@ -139,111 +139,12 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
   // Async Firestore persistence helper
   const saveToFirestore = useCallback(async (payload: UserPreferences) => {
-    const user = auth.currentUser;
-    const targetId = user ? user.uid : 'global_shared';
-    const cleanData = sanitizeForFirestore(payload);
-
-    try {
-      setDoc(doc(db, 'user_preferences', targetId), {
-        ...cleanData,
-        userId: targetId,
-        created_by_id: targetId
-      }, { merge: true }).catch(err => {
-        console.warn('Error persisting user preferences to Firestore:', err);
-      });
-
-      if (user) {
-        setDoc(doc(db, 'user_preferences', 'global_shared'), {
-          ...cleanData,
-          userId: 'global_shared',
-          created_by_id: 'global_shared'
-        }, { merge: true }).catch(() => {});
-      }
-    } catch (err) {
-      console.warn('Error during preference sanitization:', err);
-    }
+    // Only Google Sheets sync now
+    scheduleSheetsBackgroundSync();
   }, []);
 
   // Sync with Firestore (Listener)
-  useEffect(() => {
-    let unsubscribeListener: (() => void) | null = null;
-
-    const handleCloudSnapshot = (cloudData: Partial<UserPreferences>) => {
-      const current = prefsRef.current;
-
-      // Ignore echoes from recent local user interactions (within 2 seconds)
-      if (Date.now() - lastLocalUpdateTimestampRef.current < 2000) {
-        return;
-      }
-
-      // Check timestamp ordering
-      const localTime = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
-      const cloudTime = cloudData.updatedAt ? new Date(cloudData.updatedAt).getTime() : 0;
-
-      if (cloudTime > 0 && localTime > 0 && cloudTime < localTime) {
-        return;
-      }
-
-      const merged: UserPreferences = {
-        ...current,
-        ...cloudData,
-        navLabels: { ...(current.navLabels || {}), ...(cloudData.navLabels || {}) },
-        pageTitles: { ...(current.pageTitles || {}), ...(cloudData.pageTitles || {}) },
-        pageSubtitles: { ...(current.pageSubtitles || {}), ...(cloudData.pageSubtitles || {}) },
-        updatedAt: cloudData.updatedAt || current.updatedAt
-      };
-
-      // Strict deep equality check to prevent redundant re-renders / loops
-      if (isDeepEqual(merged, current)) {
-        return;
-      }
-
-      setPrefs(merged);
-      try {
-        localStorage.setItem('finanas_user_prefs', JSON.stringify(merged));
-      } catch (e) {}
-    };
-
-    const attachListener = (targetId: string) => {
-      if (unsubscribeListener) {
-        unsubscribeListener();
-        unsubscribeListener = null;
-      }
-
-      const docRef = doc(db, 'user_preferences', targetId);
-      unsubscribeListener = onSnapshot(docRef, async (snap) => {
-        // Ignore snapshots with pending local writes
-        if (snap.metadata.hasPendingWrites) {
-          return;
-        }
-
-        if (snap.exists()) {
-          handleCloudSnapshot(snap.data() as Partial<UserPreferences>);
-        } else if (targetId !== 'global_shared') {
-          try {
-            const globalSnap = await getDoc(doc(db, 'user_preferences', 'global_shared'));
-            if (globalSnap.exists()) {
-              handleCloudSnapshot(globalSnap.data() as Partial<UserPreferences>);
-            }
-          } catch (err) {
-            console.warn('Error reading fallback global_shared:', err);
-          }
-        }
-      }, (err) => {
-        console.warn(`Firestore user_preferences (${targetId}) listener error:`, err);
-      });
-    };
-
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      const targetId = user ? user.uid : 'global_shared';
-      attachListener(targetId);
-    });
-
-    return () => {
-      if (unsubscribeListener) unsubscribeListener();
-      unsubscribeAuth();
-    };
-  }, []);
+// Firestore listener removed for full Google Drive integration
 
   // Sync to DOM
   useEffect(() => {

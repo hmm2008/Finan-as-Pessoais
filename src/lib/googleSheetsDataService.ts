@@ -1,4 +1,4 @@
-import { db, auth } from './firebase';
+import { auth } from './firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { getCachedDriveToken, setCachedDriveToken, formatAndStyleFinanceSpreadsheet } from './googleDriveService';
 import { sanitizeForFirestore } from '../hooks/queries';
@@ -897,22 +897,7 @@ export async function importAllDataFromSheets(
   const user = auth.currentUser;
   if (user) {
     try {
-      parsedExpenses.forEach(exp => setDoc(doc(db, 'expenses', exp.id), sanitizeForFirestore({ ...exp, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
-      parsedIncomes.forEach(inc => {
-        setDoc(doc(db, 'incomes', inc.id), sanitizeForFirestore({ ...inc, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {});
-        setDoc(doc(db, 'incomes_punctual', inc.id), sanitizeForFirestore({ ...inc, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {});
-      });
-      parsedFixedIncomesRealized.forEach(inc => {
-        setDoc(doc(db, 'incomes_fixed_realized', inc.id), sanitizeForFirestore({ ...inc, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {});
-        setDoc(doc(db, 'incomes_fixed_registered', inc.id), sanitizeForFirestore({ ...inc, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {});
-      });
-      parsedFixedExpenses.forEach(fe => setDoc(doc(db, 'fixed_expenses', fe.id), sanitizeForFirestore({ ...fe, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
-      parsedFixedIncomes.forEach(fi => setDoc(doc(db, 'fixed_incomes', fi.id), sanitizeForFirestore({ ...fi, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
-      parsedAccounts.forEach(acc => setDoc(doc(db, 'assets', acc.id), sanitizeForFirestore({ ...acc, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
-      parsedPatrimonio.forEach(pat => setDoc(doc(db, 'assets', pat.id), sanitizeForFirestore({ ...pat, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
-      parsedVehicles.forEach(veh => setDoc(doc(db, 'vehicles', veh.id), sanitizeForFirestore({ ...veh, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
-      parsedBudgets.forEach(b => setDoc(doc(db, 'budgets', b.id), sanitizeForFirestore({ ...b, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
-      parsedGoals.forEach(g => setDoc(doc(db, 'savings_goals', g.id), sanitizeForFirestore({ ...g, userId: user.uid, created_by_id: user.uid }), { merge: true }).catch(() => {}));
+      // Firestore mirroring removed.
     } catch {
       // ignore
     }
@@ -1183,12 +1168,12 @@ export async function reorganizeIncomeSheetsAndDatabase(
     onProgress?.('A sincronizar e atualizar coleções no Firebase...', 85);
     try {
       for (const inc of localPunctual) {
-        await setDoc(doc(db, 'incomes', inc.id), { ...inc, userId: user.uid, created_by_id: user.uid, type: 'punctual' }).catch(() => {});
-        await setDoc(doc(db, 'incomes_punctual', inc.id), { ...inc, userId: user.uid, created_by_id: user.uid }).catch(() => {});
+//
+//
       }
       for (const inc of localFixedRealized) {
-        await setDoc(doc(db, 'incomes_fixed_realized', inc.id), { ...inc, userId: user.uid, created_by_id: user.uid, type: 'fixed_registered' }).catch(() => {});
-        await setDoc(doc(db, 'incomes_fixed_registered', inc.id), { ...inc, userId: user.uid, created_by_id: user.uid }).catch(() => {});
+//
+//
       }
       firebaseMigrated = true;
     } catch (fbErr) {
@@ -1400,19 +1385,19 @@ export async function wipeAllLocalAndFirestoreData(): Promise<void> {
     for (const collName of FIRESTORE_COLLECTIONS) {
       deletePromises.push((async () => {
         try {
-          const q = query(collection(db, collName), where('userId', '==', user.uid));
-          const snap = await getDocs(q);
-          const docsToDelete = snap.docs.map(docSnap => deleteDoc(doc(db, collName, docSnap.id)).catch(() => {}));
-          await Promise.all(docsToDelete);
+          
+          const snap = { docs: [] };
+          
+          
         } catch (e) {
           // Ignore
         }
 
         try {
-          const q2 = query(collection(db, collName), where('created_by_id', '==', user.uid));
-          const snap2 = await getDocs(q2);
-          const docsToDelete2 = snap2.docs.map(docSnap => deleteDoc(doc(db, collName, docSnap.id)).catch(() => {}));
-          await Promise.all(docsToDelete2);
+          
+          const snap2 = { docs: [] };
+          
+          
         } catch (e2) {
           // Ignore
         }
