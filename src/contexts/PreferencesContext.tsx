@@ -137,10 +137,23 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     prefsRef.current = prefs;
   }, [prefs]);
 
-  // Async Firestore persistence helper
+  // Sync state when preferences are updated externally (e.g. imported from Google Sheets)
+  useEffect(() => {
+    const handleSyncEvent = () => {
+      setPrefs(getLocalPrefs());
+    };
+    window.addEventListener('storage', handleSyncEvent);
+    window.addEventListener('finanas_prefs_updated', handleSyncEvent);
+    return () => {
+      window.removeEventListener('storage', handleSyncEvent);
+      window.removeEventListener('finanas_prefs_updated', handleSyncEvent);
+    };
+  }, []);
+
+  // Async Google Sheets persistence helper
   const saveToFirestore = useCallback(async (payload: UserPreferences) => {
-    // Only Google Sheets sync now
-    scheduleSheetsBackgroundSync();
+    // Sync preferences to Google Sheets if connected
+    scheduleSheetsBackgroundSync(600, true);
   }, []);
 
   // Sync with Firestore (Listener)

@@ -586,6 +586,10 @@ export async function exportAllDataToSheets(
       'Orcamentos',
       'Metas',
       'Reciclagem',
+      'Preferencias',
+      'Regras_Categorizacao',
+      'Notificacoes',
+      'Arquivo',
       'Dashboard_Calculos',
       'Receitas'
     ].filter(s => activeSheetTitles.includes(s));
@@ -630,6 +634,10 @@ export async function exportAllDataToSheets(
   if (activeSheetTitles.includes('Orcamentos') && budRows.length > 0) dataPayload.push({ range: 'Orcamentos!A1:D' + budRows.length, values: budRows });
   if (activeSheetTitles.includes('Metas') && goalRows.length > 0) dataPayload.push({ range: 'Metas!A1:E' + goalRows.length, values: goalRows });
   if (activeSheetTitles.includes('Reciclagem') && trashRows.length > 0) dataPayload.push({ range: 'Reciclagem!A1:D' + trashRows.length, values: trashRows });
+  if (activeSheetTitles.includes('Preferencias') && prefsRows.length > 0) dataPayload.push({ range: 'Preferencias!A1:C' + prefsRows.length, values: prefsRows });
+  if (activeSheetTitles.includes('Regras_Categorizacao') && catRulesRows.length > 0) dataPayload.push({ range: 'Regras_Categorizacao!A1:E' + catRulesRows.length, values: catRulesRows });
+  if (activeSheetTitles.includes('Notificacoes') && notifRows.length > 0) dataPayload.push({ range: 'Notificacoes!A1:F' + notifRows.length, values: notifRows });
+  if (activeSheetTitles.includes('Arquivo') && archiveRows.length > 0) dataPayload.push({ range: 'Arquivo!A1:E' + archiveRows.length, values: archiveRows });
 
   if (dataPayload.length === 0) {
     onProgress?.('Concluído!', 100);
@@ -970,6 +978,9 @@ export async function importAllDataFromSheets(
     try {
       const prefsData = JSON.parse(prefsRowsData[0][1]);
       localStorage.setItem('finanas_user_prefs', JSON.stringify(prefsData));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_prefs_updated'));
+      }
     } catch (e) {
       console.warn('Erro ao parsear preferências', e);
     }
@@ -1359,8 +1370,8 @@ let backgroundSyncTimer: any = null;
  * Schedules debounced background synchronization to Google Sheets.
  * Called automatically by mutations in Phase 3/4.
  */
-export function scheduleSheetsBackgroundSync(delayMs = 1200) {
-  if (!isAutoSyncEnabled()) return;
+export function scheduleSheetsBackgroundSync(delayMs = 1200, force = false) {
+  if (!force && !isAutoSyncEnabled()) return;
 
   const token = getCachedDriveToken();
   const spreadsheetId = getStoredSpreadsheetId();
