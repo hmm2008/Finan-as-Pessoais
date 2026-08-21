@@ -251,7 +251,11 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     'Veiculos',
     'Orcamentos',
     'Metas',
-    'Reciclagem'
+    'Reciclagem',
+    'Preferencias',
+    'Regras_Categorizacao',
+    'Notificacoes',
+    'Arquivo'
   ];
 
   try {
@@ -295,7 +299,11 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
         'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
         'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês"],
         'Metas': ["ID", "Nome", "Valor Alvo (€)", "Valor Atual (€)", "Data Limite"],
-        'Reciclagem': ["ID", "Tipo", "Dados JSON", "Data Eliminação"]
+        'Reciclagem': ["ID", "Tipo", "Dados JSON", "Data Eliminação"],
+    'Preferencias': ["Chave", "Dados JSON", "Atualizado Em"],
+    'Regras_Categorizacao': ["ID", "Keyword", "Categoria", "Tipo", "Prioridade"],
+    'Notificacoes': ["ID", "Título", "Mensagem", "Data", "Lida", "Tipo"],
+    'Arquivo': ["ID", "Título", "Data", "Dados JSON", "Tipo"]
       };
 
       const headerData = missingSheets
@@ -369,6 +377,11 @@ export async function exportAllDataToSheets(
   let budgets = getLocalData('fin_budgets');
   let goals = getLocalData('fin_goals');
   let trash = getLocalData('fin_trash');
+  let userPrefsStr = localStorage.getItem('finanas_user_prefs');
+  let userPrefs = userPrefsStr ? JSON.parse(userPrefsStr) : {};
+  let categorizationRules = getLocalData('fin_categorization_rules');
+  let notifications = getLocalData('finanas_notifications');
+  let archives = getLocalData('finanas_archives');
   if (trash.length === 0) {
     trash = getLocalData('finanas_trash_items');
   }
@@ -511,9 +524,48 @@ export async function exportAllDataToSheets(
     ["ID", "Tipo", "Dados JSON", "Data Eliminação"],
     ...trash.map((t: any) => [
       t.id || '',
-      t.type || t.entityType || 'Item',
-      JSON.stringify(t),
-      t.deletedAt || new Date().toISOString()
+      t.type || '',
+      JSON.stringify(t.data || {}),
+      t.deletedAt || t.createdAt || ''
+    ])
+  ];
+
+  const prefsRows = [
+    ["Chave", "Dados JSON", "Atualizado Em"],
+    ["Preferencias", JSON.stringify(userPrefs || {}), userPrefs.updatedAt || '']
+  ];
+
+  const catRulesRows = [
+    ["ID", "Keyword", "Categoria", "Tipo", "Prioridade"],
+    ...categorizationRules.map((r: any) => [
+      r.id || '',
+      r.keyword || '',
+      r.category || '',
+      r.type || '',
+      r.priority || 0
+    ])
+  ];
+
+  const notifRows = [
+    ["ID", "Título", "Mensagem", "Data", "Lida", "Tipo"],
+    ...notifications.map((n: any) => [
+      n.id || '',
+      n.title || '',
+      n.message || '',
+      n.createdAt || '',
+      n.read ? 'Sim' : 'Não',
+      n.type || ''
+    ])
+  ];
+
+  const archiveRows = [
+    ["ID", "Título", "Data", "Dados JSON", "Tipo"],
+    ...archives.map((a: any) => [
+      a.id || '',
+      a.title || '',
+      a.createdAt || '',
+      JSON.stringify(a.data || {}),
+      a.type || ''
     ])
   ];
 
@@ -712,7 +764,11 @@ export async function importAllDataFromSheets(
     'Veiculos!A1:E1000',
     'Orcamentos!A1:D1000',
     'Metas!A1:E1000',
-    'Reciclagem!A1:D1000'
+    'Reciclagem!A1:D1000',
+    'Preferencias!A1:C5',
+    'Regras_Categorizacao!A1:E1000',
+    'Notificacoes!A1:F1000',
+    'Arquivo!A1:E1000'
   ];
 
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?` + 
@@ -892,6 +948,70 @@ export async function importAllDataFromSheets(
   setLocalData('fin_vehicles', parsedVehicles);
   setLocalData('fin_budgets', parsedBudgets);
   setLocalData('fin_goals', parsedGoals);
+
+  // Parse Trash
+  const trashRowsData = getRows(10);
+  const parsedTrash = trashRowsData.map((row: any[], i: number) => {
+    let dataObj = {};
+    try { dataObj = JSON.parse(row[2]); } catch (e) {}
+    return {
+      id: row[0] || `trash_${i}`,
+      type: row[1] || '',
+      data: dataObj,
+      deletedAt: row[3] || '',
+      createdAt: row[3] || ''
+    };
+  }).filter((t: any) => t.type);
+  setLocalData('finanas_trash_items', parsedTrash);
+
+  // Parse Preferences
+  const prefsRowsData = getRows(11);
+  if (prefsRowsData.length > 0 && prefsRowsData[0][1]) {
+    try {
+      const prefsData = JSON.parse(prefsRowsData[0][1]);
+      localStorage.setItem('finanas_user_prefs', JSON.stringify(prefsData));
+    } catch (e) {
+      console.warn('Erro ao parsear preferências', e);
+    }
+  }
+
+  // Parse Categorization Rules
+  const catRulesRowsData = getRows(12);
+  const parsedCatRules = catRulesRowsData.map((row: any[], i: number) => ({
+    id: row[0] || `rule_${i}`,
+    keyword: row[1] || '',
+    category: row[2] || '',
+    type: row[3] || '',
+    priority: parseNum(row[4])
+  })).filter((r: any) => r.keyword);
+  setLocalData('fin_categorization_rules', parsedCatRules);
+
+  // Parse Notifications
+  const notifRowsData = getRows(13);
+  const parsedNotifs = notifRowsData.map((row: any[], i: number) => ({
+    id: row[0] || `notif_${i}`,
+    title: row[1] || '',
+    message: row[2] || '',
+    createdAt: row[3] || '',
+    read: row[4] === 'Sim',
+    type: row[5] || ''
+  })).filter((n: any) => n.title);
+  setLocalData('finanas_notifications', parsedNotifs);
+
+  // Parse Archives
+  const archiveRowsData = getRows(14);
+  const parsedArchives = archiveRowsData.map((row: any[], i: number) => {
+    let dataObj = {};
+    try { dataObj = JSON.parse(row[3]); } catch (e) {}
+    return {
+      id: row[0] || `arch_${i}`,
+      title: row[1] || '',
+      createdAt: row[2] || '',
+      data: dataObj,
+      type: row[4] || ''
+    };
+  }).filter((a: any) => a.title);
+  setLocalData('finanas_archives', parsedArchives);
 
   // Firestore optional background sync if user is logged in
   const user = auth.currentUser;
@@ -1489,7 +1609,11 @@ export async function clearAllSpreadsheetData(
     'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
     'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês"],
     'Metas': ["ID", "Nome", "Valor Alvo (€)", "Valor Atual (€)", "Data Limite"],
-    'Reciclagem': ["ID", "Tipo", "Dados JSON", "Data Eliminação"]
+    'Reciclagem': ["ID", "Tipo", "Dados JSON", "Data Eliminação"],
+    'Preferencias': ["Chave", "Dados JSON", "Atualizado Em"],
+    'Regras_Categorizacao': ["ID", "Keyword", "Categoria", "Tipo", "Prioridade"],
+    'Notificacoes': ["ID", "Título", "Mensagem", "Data", "Lida", "Tipo"],
+    'Arquivo': ["ID", "Título", "Data", "Dados JSON", "Tipo"]
   };
 
   const headerPayload = Object.keys(allHeaders)
