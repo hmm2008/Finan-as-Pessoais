@@ -289,6 +289,8 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       });
       const data = await response.json();
       if (response.ok) {
+        // Update the PIN in local preferences natively since server won't store it
+        updatePrefs({ pin: newPin });
         return { success: true, message: data.message || 'PIN redefinido com sucesso!' };
       } else {
         return { success: false, message: data.error || 'Erro ao redefinir PIN.' };

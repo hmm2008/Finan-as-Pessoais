@@ -251,17 +251,12 @@ app.post('/api/cron/check-budget-alerts', async (req, res) => {
 // 19.3 suggestSavings
 // -----------------------------------------
 app.post('/api/suggest-savings', async (req, res) => {
-  const { userId } = req.body;
-  if (!userId) {
-    return res.status(400).json({ error: 'userId is required' });
+  const { expenses } = req.body;
+  if (!expenses || !Array.isArray(expenses)) {
+    return res.status(400).json({ error: 'expenses array is required in body' });
   }
 
   try {
-    // Retrieve expenses for context
-    const expQuery = query(collection(db, 'expenses'), where('userId', '==', userId));
-    const expSnap = await getDocs(expQuery);
-    const expenses = expSnap.docs.map(doc => doc.data() as any);
-
     // Group expenses by category
     const totals: Record<string, number> = {};
     expenses.forEach(e => {
@@ -630,6 +625,11 @@ app.get('/api/user-prefs', async (req, res) => {
 
 // -----------------------------------------
 // 19.8 requestPinReset
+// In-memory store for pin resets since we removed Firestore
+const pinResets = new Map<string, { code: string; expiresAt: string }>();
+
+// -----------------------------------------
+// 19.8 requestPinReset
 // -----------------------------------------
 app.post('/api/request-pin-reset', async (req, res) => {
   const { email } = req.body;
@@ -642,21 +642,15 @@ app.post('/api/request-pin-reset', async (req, res) => {
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // +15 mins
 
-    // Save in pin_resets
-    await addDoc(collection(db, 'pin_resets'), {
-      email,
-      code: resetCode,
-      expiresAt,
-      used: false,
-      createdAt: new Date().toISOString()
-    });
+    // Save in memory
+    pinResets.set(email, { code: resetCode, expiresAt });
 
     // SendEmail Simulation / Log
     console.log(`[SendEmail] Envio de e-mail para ${email}: O seu código de recuperação do PIN é: ${resetCode}. Expira em 15 minutos.`);
 
     res.json({ 
       success: true, 
-      message: `Código de verificação enviado com sucesso para ${email}.` 
+      message: `Código de verificação enviado com sucesso para ${email}. (ver consola do servidor)` 
     });
   } catch (error: any) {
     console.error('Error requesting pin reset:', error);
@@ -669,59 +663,29 @@ app.post('/api/request-pin-reset', async (req, res) => {
 // -----------------------------------------
 app.post('/api/reset-pin', async (req, res) => {
   const { email, code, newPin, userId } = req.body;
-
   if (!email || !code || !newPin) {
     return res.status(400).json({ error: 'Todos os campos (email, code, newPin) são obrigatórios.' });
   }
 
   try {
     const now = new Date().toISOString();
+    const resetData = pinResets.get(email);
 
-    // Query active pin_reset
-    const prQuery = query(
-      collection(db, 'pin_resets'),
-      where('email', '==', email),
-      where('code', '==', code),
-      where('used', '==', false)
-    );
-    const snap = await getDocs(prQuery);
-
-    if (snap.empty) {
+    if (!resetData || resetData.code !== code) {
       return res.status(400).json({ error: 'Código de verificação inválido ou já utilizado.' });
     }
 
-    const resetDoc = snap.docs[0];
-    const resetData = resetDoc.data();
-
     // Check expiration
     if (resetData.expiresAt < now) {
+      pinResets.delete(email);
       return res.status(400).json({ error: 'O código de verificação expirou.' });
     }
 
-    // Mark reset code as used
-    await updateDoc(doc(db, 'pin_resets', resetDoc.id), { used: true });
+    // Mark reset code as used (delete from memory)
+    pinResets.delete(email);
 
-    // Update user's pin preference in user_preferences
-    if (userId) {
-      const prefQuery = query(collection(db, 'user_preferences'), where('userId', '==', userId), limit(1));
-      const prefSnap = await getDocs(prefQuery);
-
-      if (!prefSnap.empty) {
-        const prefDocId = prefSnap.docs[0].id;
-        await updateDoc(doc(db, 'user_preferences', prefDocId), { pin: newPin });
-      } else {
-        // Create new preference document with PIN
-        await addDoc(collection(db, 'user_preferences'), {
-          userId,
-          pin: newPin,
-          theme: 'system',
-          accentColor: '#059669',
-          fontFamily: 'inter',
-          baseFontSize: 'base',
-          createdAt: new Date().toISOString()
-        });
-      }
-    }
+    // The frontend should update the local pin in localStorage via its context provider.
+    // The server doesn't need to persist it anymore since there is no Firestore.
 
     res.json({ success: true, message: 'PIN redefinido com sucesso!' });
   } catch (error: any) {

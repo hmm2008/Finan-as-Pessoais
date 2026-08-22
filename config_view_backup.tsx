@@ -23,6 +23,7 @@ import {
   Volume2
 } from 'lucide-react';
 import { PageHeader } from '../components/layout';
+import SyncToCalendarModal from '../components/configuracoes/SyncToCalendarModal';
 import { GoogleDriveSyncCard } from '../components/configuracoes/GoogleDriveSyncCard';
 import { PaymentMethodsCustomizer } from '../components/configuracoes/PaymentMethodsCustomizer';
 import { SidebarLabelsCustomizer } from '../components/configuracoes/SidebarLabelsCustomizer';
@@ -33,6 +34,7 @@ import { DangerZoneCard } from '../components/configuracoes/DangerZoneCard';
 export default function ConfiguracoesView() {
   const { prefs, updatePrefs, resetToDefaults, requestPinReset, resetPin } = usePreferences();
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
 
   // General States
   const [loading, setLoading] = useState<string | null>(null);
@@ -64,82 +66,38 @@ export default function ConfiguracoesView() {
     setConsoleLogs(prev => [`[${timestamp}] ${log}`, ...prev]);
   };
 
-  const handleClientSideAction = async (action: string) => {
-    setLoading(action);
+  const handleTriggerAction = async (endpoint: string, actionName: string, method = 'POST', body: any = {}) => {
+    setLoading(actionName);
     setErrorMessage(null);
     setSuccessMessage(null);
-    addLog(`A iniciar: ${action}...`);
+    addLog(`A solicitar: ${actionName} (${method} ${endpoint})...`);
+
+    const finalBody = { userId: currentUser?.uid, ...body };
 
     try {
-      if (action === 'Manutenção Noturna') {
-        const trashRaw = localStorage.getItem('fin_trash');
-        let trashDeleted = 0;
-        if (trashRaw) {
-          const trash = JSON.parse(trashRaw);
-          const ninetyDaysAgo = new Date();
-          ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-          
-          const filteredTrash = trash.filter((item: any) => {
-            if (item.deletedAt && new Date(item.deletedAt) < ninetyDaysAgo) {
-              trashDeleted++;
-              return false;
-            }
-            return true;
-          });
-          
-          if (trashDeleted > 0) {
-            localStorage.setItem('fin_trash', JSON.stringify(filteredTrash));
-            window.dispatchEvent(new Event('storage'));
-          }
-        }
-        setSuccessMessage(`Manutenção concluída. ${trashDeleted} itens antigos apagados.`);
-        addLog(`Sucesso: ${trashDeleted} itens antigos apagados da lixeira.`);
-      } 
-      else if (action === 'Validação de Integridade') {
-        const expensesRaw = localStorage.getItem('fin_expenses');
-        const vehiclesRaw = localStorage.getItem('fin_vehicles');
-        let issues = 0;
-        
-        if (expensesRaw && vehiclesRaw) {
-          const expenses = JSON.parse(expensesRaw);
-          const vehicles = JSON.parse(vehiclesRaw);
-          const vehicleIds = new Set(vehicles.map((v: any) => v.id));
-          
-          expenses.forEach((exp: any) => {
-            if (exp.vehicleId && !vehicleIds.has(exp.vehicleId)) {
-              issues++;
-              addLog(`Aviso: Despesa "${exp.description}" tem vehicleId inválido (${exp.vehicleId}).`);
-            }
-          });
-        }
-        
-        if (issues > 0) {
-          setErrorMessage(`Encontradas ${issues} inconsistências de dados.`);
-          addLog(`Aviso: Validação encontrou inconsistências.`);
-        } else {
-          setSuccessMessage('A base de dados local está íntegra.');
-          addLog(`Sucesso: Nenhuma inconsistência encontrada.`);
-        }
-      }
-      else if (action === 'Alerta Despesas Fixas') {
-        const fixedRaw = localStorage.getItem('fin_fixed_expenses');
-        if (fixedRaw) {
-           const fixed = JSON.parse(fixedRaw);
-           addLog(`Analisadas ${fixed.length} despesas fixas.`);
-        }
-        setSuccessMessage('Verificação de despesas fixas executada.');
-      }
-      else if (action === 'Alertas de Orçamentos') {
-        const budgetsRaw = localStorage.getItem('fin_budgets');
-        if (budgetsRaw) {
-           const budgets = JSON.parse(budgetsRaw);
-           addLog(`Analisados ${budgets.length} orçamentos.`);
-        }
-        setSuccessMessage('Verificação de orçamentos executada.');
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer SIMULATED_GOOGLE_OAUTH_TOKEN'
+        },
+        ...(method === 'POST' ? { body: JSON.stringify(finalBody) } : {})
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        addLog(`Sucesso: ${actionName} completado.`);
+        addLog(`Resposta do servidor: ${JSON.stringify(data, null, 2)}`);
+        setSuccessMessage(`${actionName} executado com sucesso!`);
+      } else {
+        const errorText = data.error || data.message || 'Erro desconhecido.';
+        addLog(`Erro: ${actionName} falhou - ${errorText}`);
+        setErrorMessage(`Falha ao executar ${actionName}: ${errorText}`);
       }
     } catch (err: any) {
-      addLog(`Erro crítico: ${err.message}`);
-      setErrorMessage(`Erro ao executar a ação: ${err.message}`);
+      addLog(`Erro crítico de rede: ${err.message}`);
+      setErrorMessage(`Erro ao comunicar com o servidor: ${err.message}`);
     } finally {
       setLoading(null);
     }
@@ -202,13 +160,10 @@ export default function ConfiguracoesView() {
     addLog('A solicitar conselhos de poupança personalizados à IA...');
 
     try {
-      const expensesRaw = localStorage.getItem('fin_expenses');
-      const expenses = expensesRaw ? JSON.parse(expensesRaw) : [];
-
       const response = await fetch('/api/suggest-savings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expenses })
+        body: JSON.stringify({ userId: currentUser?.uid })
       });
 
       const data = await response.json();
@@ -505,39 +460,71 @@ export default function ConfiguracoesView() {
           </Card>
         </div>
 
-        {/* Col 2: Local & Drive Operations & Logs */}
+        {/* Col 2: Server API Triggers & Logs */}
         <div className="space-y-6">
           <Card className="border border-border bg-card shadow-sm rounded-xl">
             <CardHeader className="border-b border-border/50">
               <div className="flex items-center gap-2">
                 <Terminal className="w-5 h-5 text-primary" />
                 <div>
-                  <CardTitle className="text-lg">Operações do Sistema Local</CardTitle>
-                  <CardDescription>Triggers manuais para tarefas de manutenção</CardDescription>
+                  <CardTitle className="text-lg">Operações do Servidor</CardTitle>
+                  <CardDescription>Triggers diretos e tarefas agendadas (Cron)</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               
+              {/* Sync Calendar */}
+              <div className="p-3 bg-secondary/30 rounded-lg border border-border/50 flex flex-col gap-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-blue-500" />
+                      Sincronizar Calendário (19.4, 21.1)
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">Sincroniza faturas fixas com Google Calendar</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-xs font-medium"
+                    onClick={() => setIsCalendarModalOpen(true)}
+                  >
+                    Configurar Conector
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="default" 
+                    className="text-xs font-semibold"
+                    onClick={() => handleTriggerAction('/api/sync-calendar', 'Sincronização com o Calendário')}
+                    disabled={loading !== null}
+                  >
+                    {loading === 'Sincronização com o Calendário' ? 'Sincronizando...' : 'Sincronizar Agora'}
+                  </Button>
+                </div>
+              </div>
+
               {/* Check Bill Alerts (19.1) */}
               <div className="p-3 bg-secondary/30 rounded-lg border border-border/50 flex flex-col gap-2">
                 <div className="flex justify-between items-start">
                   <div>
                     <h4 className="text-sm font-semibold flex items-center gap-1.5">
                       <Clock className="w-4 h-4 text-amber-500" />
-                      Alertar Despesas Fixas
+                      Alertar Despesas Fixas (19.1)
                     </h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">Verifica as despesas pendentes</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Simula o Cron diário das 09h00</p>
                   </div>
                 </div>
                 <Button 
                   size="sm" 
                   variant="outline"
                   className="w-full text-xs font-medium"
-                  onClick={() => handleClientSideAction('Alerta Despesas Fixas')}
+                  onClick={() => handleTriggerAction('/api/cron/send-fixed-expense-alerts', 'Alerta Despesas Fixas')}
                   disabled={loading !== null}
                 >
-                  {loading === 'Alerta Despesas Fixas' ? 'A verificar...' : 'Executar Verificação'}
+                  {loading === 'Alerta Despesas Fixas' ? 'A verificar...' : 'Executar Cron (09h)'}
                 </Button>
               </div>
 
@@ -547,19 +534,19 @@ export default function ConfiguracoesView() {
                   <div>
                     <h4 className="text-sm font-semibold flex items-center gap-1.5">
                       <ShieldAlert className="w-4 h-4 text-primary" />
-                      Controlo Orçamental
+                      Controlo Orçamental (19.2)
                     </h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">Verifica o limite dos orçamentos</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Simula o Cron diário das 20h00 (80% / 100%)</p>
                   </div>
                 </div>
                 <Button 
                   size="sm" 
                   variant="outline"
                   className="w-full text-xs font-medium"
-                  onClick={() => handleClientSideAction('Alertas de Orçamentos')}
+                  onClick={() => handleTriggerAction('/api/cron/check-budget-alerts', 'Alertas de Orçamentos')}
                   disabled={loading !== null}
                 >
-                  {loading === 'Alertas de Orçamentos' ? 'A processar...' : 'Executar Verificação'}
+                  {loading === 'Alertas de Orçamentos' ? 'A processar...' : 'Executar Cron (20h)'}
                 </Button>
               </div>
 
@@ -569,19 +556,19 @@ export default function ConfiguracoesView() {
                   <div>
                     <h4 className="text-sm font-semibold flex items-center gap-1.5">
                       <Database className="w-4 h-4 text-purple-500" />
-                      Manutenção de Dados
+                      Manutenção Noturna (19.5)
                     </h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">Limpa Lixeira com &gt; 90 dias</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Executa Cron 02h00: Lixeira e Arquivo</p>
                   </div>
                 </div>
                 <Button 
                   size="sm" 
                   variant="outline"
                   className="w-full text-xs font-medium"
-                  onClick={() => handleClientSideAction('Manutenção Noturna')}
+                  onClick={() => handleTriggerAction('/api/cron/nightly-maintenance', 'Manutenção Geral')}
                   disabled={loading !== null}
                 >
-                  {loading === 'Manutenção Noturna' ? 'A limpar...' : 'Limpar Cache Antiga'}
+                  {loading === 'Manutenção Geral' ? 'A limpar...' : 'Executar Cron (02h)'}
                 </Button>
               </div>
 
@@ -591,7 +578,7 @@ export default function ConfiguracoesView() {
                   <div>
                     <h4 className="text-sm font-semibold flex items-center gap-1.5">
                       <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                      Integridade de Dados
+                      Integridade de Dados (19.6)
                     </h4>
                     <p className="text-xs text-muted-foreground mt-0.5">Verifica despesas sem veículos válidos</p>
                   </div>
@@ -600,7 +587,7 @@ export default function ConfiguracoesView() {
                   size="sm" 
                   variant="outline"
                   className="w-full text-xs font-medium"
-                  onClick={() => handleClientSideAction('Validação de Integridade')}
+                  onClick={() => handleTriggerAction('/api/validate-integrity', 'Validação de Integridade')}
                   disabled={loading !== null}
                 >
                   {loading === 'Validação de Integridade' ? 'A analisar...' : 'Validar Integridade'}
@@ -637,6 +624,11 @@ export default function ConfiguracoesView() {
         </div>
 
       </div>
+      
+      <SyncToCalendarModal 
+        isOpen={isCalendarModalOpen} 
+        onClose={() => setIsCalendarModalOpen(false)} 
+      />
     </div>
   );
 }
