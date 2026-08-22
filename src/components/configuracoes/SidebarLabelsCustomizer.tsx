@@ -43,7 +43,8 @@ export const DEFAULT_NAV_ITEMS: NavItemConfig[] = [
   { id: '/objectivos', defaultLabel: 'Objetivos', icon: Target, description: 'Metas de poupança e fundos de emergência' },
   { id: '/utilitarios', defaultLabel: 'Utilitários', icon: Wrench, description: 'Geração de relatórios mensais/anuais e backups' },
   { id: '/lixeira', defaultLabel: 'Lixeira', icon: Trash2, description: 'Recuperação de itens e registos eliminados' },
-  { id: '/configuracoes', defaultLabel: 'Configurações', icon: Settings, description: 'Definições da conta e preferências da app' }
+  { id: '/configuracoes', defaultLabel: 'Configurações', icon: Settings, description: 'Definições da conta e preferências da app' },
+  { id: 'drive_connect', defaultLabel: 'Conectar à Drive', icon: Database, description: 'Botão para conectar a aplicação à Google Drive' }
 ];
 
 export function SidebarLabelsCustomizer() {
