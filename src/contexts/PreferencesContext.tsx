@@ -36,8 +36,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     '/objectivos': 'Objetivos',
     '/utilitarios': 'Utilitários',
     '/lixeira': 'Lixeira',
-    '/configuracoes': 'Configurações',
-    'drive_connect': 'Conectar à Drive'
+    '/configuracoes': 'Configurações'
   },
   pageTitles: {
     '/': 'Visão Geral',
