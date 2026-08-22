@@ -5,6 +5,7 @@ import { importAllDataFromSheets } from '../lib/googleSheetsDataService';
 
 export function useConnectDrive() {
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ title: string; desc: string; type: 'success' | 'error' | 'info' } | null>(null);
   const queryClient = useQueryClient();
@@ -110,13 +111,63 @@ export function useConnectDrive() {
     }
   };
 
+  const handleSyncDriveData = async () => {
+    setIsRefreshing(true);
+    setToastMsg({ title: 'A ler dados...', desc: 'A importar dados atualizados da Google Drive.', type: 'info' });
+
+    try {
+      let token = getCachedDriveToken();
+      let infoRaw = localStorage.getItem('google_drive_spreadsheet_info');
+      let info = infoRaw ? JSON.parse(infoRaw) : null;
+
+      if (!token || !info?.id) {
+        const res = await connectGoogleDrive();
+        if (!res) {
+          setIsRefreshing(false);
+          setToastMsg(null);
+          return;
+        }
+        token = res.accessToken;
+        info = await findOrCreateFinanceSpreadsheet(token);
+        localStorage.setItem('google_drive_spreadsheet_info', JSON.stringify(info));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('finanas_drive_connected'));
+        }
+      }
+
+      await importAllDataFromSheets(token, info.id, () => {});
+      queryClient.invalidateQueries();
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_prefs_updated'));
+        window.dispatchEvent(new Event('finanas_data_imported'));
+        window.dispatchEvent(new Event('storage'));
+      }
+
+      setToastMsg({ title: 'Aplicação Atualizada!', desc: 'Dados lidos com sucesso da Google Drive.', type: 'success' });
+      setTimeout(() => setToastMsg(null), 3000);
+    } catch (err: any) {
+      console.error('Erro ao atualizar dados da Drive:', err);
+      if (err.message?.includes('expirada') || err.message?.includes('Token')) {
+        setToastMsg({ title: 'Sessão Expirada', desc: 'Por favor, reconecte a sua conta Google Drive.', type: 'error' });
+      } else {
+        setToastMsg({ title: 'Erro de Atualização', desc: err.message || 'Falha ao ler dados da Drive.', type: 'error' });
+      }
+      setTimeout(() => setToastMsg(null), 4000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return { 
     isConnecting, 
+    isRefreshing,
     isConnected, 
     toastMsg, 
     handleConnectDrive, 
     handleDisconnectDrive, 
     toggleDriveConnection,
+    handleSyncDriveData,
     showDisconnectModal,
     confirmDisconnect,
     cancelDisconnect

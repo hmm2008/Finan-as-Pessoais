@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Sun, Moon, Eye, EyeOff, Lock, Database, Loader2, Check, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Menu, Sun, Moon, Eye, EyeOff, Lock, Database, Loader2, Check, AlertCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { NotificationDropdown } from './NotificationDropdown';
 import { useAuth, usePrivacy, usePin, usePreferences } from '../../contexts';
 import { Button } from '../ui/button';
@@ -15,9 +15,11 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const navigate = useNavigate();
   const { 
     isConnecting, 
+    isRefreshing,
     isConnected, 
     toastMsg, 
     toggleDriveConnection,
+    handleSyncDriveData,
     showDisconnectModal,
     confirmDisconnect,
     cancelDisconnect
@@ -46,8 +48,18 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <Button 
           variant="ghost" 
           size="icon"
+          onClick={handleSyncDriveData}
+          disabled={isRefreshing || isConnecting}
+          title="Atualizar / Ler dados da Google Drive"
+        >
+          <RefreshCw className={`h-5 w-5 text-muted-foreground hover:text-foreground transition-transform ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
+        </Button>
+
+        <Button 
+          variant="ghost" 
+          size="icon"
           onClick={toggleDriveConnection}
-          disabled={isConnecting}
+          disabled={isConnecting || isRefreshing}
           title={isConnected ? 'Desconectar da Drive' : (userPrefs.navLabels?.['drive_connect'] || 'Conectar à Drive')}
         >
           {isConnecting ? (
