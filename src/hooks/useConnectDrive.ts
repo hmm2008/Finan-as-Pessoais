@@ -80,17 +80,26 @@ export function useConnectDrive() {
     }
   };
 
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+
   const handleDisconnectDrive = () => {
-    if (window.confirm('Tem a certeza que deseja desconectar a aplicação da sua Google Drive?')) {
-      localStorage.removeItem('google_drive_access_token');
-      localStorage.removeItem('google_drive_spreadsheet_info');
-      localStorage.removeItem('google_drive_sync_stats');
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('finanas_drive_connected'));
-      }
-      setToastMsg({ title: 'Drive Desconectada', desc: 'A sincronização foi interrompida.', type: 'info' });
-      setTimeout(() => setToastMsg(null), 3000);
+    setShowDisconnectModal(true);
+  };
+
+  const confirmDisconnect = () => {
+    localStorage.removeItem('google_drive_access_token');
+    localStorage.removeItem('google_drive_spreadsheet_info');
+    localStorage.removeItem('google_drive_sync_stats');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('finanas_drive_connected'));
     }
+    setToastMsg({ title: 'Drive Desconectada', desc: 'A sincronização foi interrompida.', type: 'info' });
+    setTimeout(() => setToastMsg(null), 3000);
+    setShowDisconnectModal(false);
+  };
+
+  const cancelDisconnect = () => {
+    setShowDisconnectModal(false);
   };
 
   const toggleDriveConnection = () => {
@@ -101,5 +110,15 @@ export function useConnectDrive() {
     }
   };
 
-  return { isConnecting, isConnected, toastMsg, handleConnectDrive, handleDisconnectDrive, toggleDriveConnection };
+  return { 
+    isConnecting, 
+    isConnected, 
+    toastMsg, 
+    handleConnectDrive, 
+    handleDisconnectDrive, 
+    toggleDriveConnection,
+    showDisconnectModal,
+    confirmDisconnect,
+    cancelDisconnect
+  };
 }

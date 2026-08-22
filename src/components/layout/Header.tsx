@@ -1,10 +1,11 @@
 import React from 'react';
-import { Menu, Sun, Moon, Eye, EyeOff, Lock, Database, Loader2, Check, AlertCircle } from 'lucide-react';
+import { Menu, Sun, Moon, Eye, EyeOff, Lock, Database, Loader2, Check, AlertCircle, AlertTriangle } from 'lucide-react';
 import { NotificationDropdown } from './NotificationDropdown';
 import { useAuth, usePrivacy, usePin, usePreferences } from '../../contexts';
 import { Button } from '../ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useConnectDrive } from '../../hooks/useConnectDrive';
+import { Modal } from '../ui/Modal';
 
 export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const { user } = useAuth();
@@ -12,7 +13,15 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const { hasPin, lock } = usePin();
   const { prefs: userPrefs, updatePrefs } = usePreferences();
   const navigate = useNavigate();
-  const { isConnecting, isConnected, toastMsg, toggleDriveConnection } = useConnectDrive();
+  const { 
+    isConnecting, 
+    isConnected, 
+    toastMsg, 
+    toggleDriveConnection,
+    showDisconnectModal,
+    confirmDisconnect,
+    cancelDisconnect
+  } = useConnectDrive();
   
   const toggleTheme = () => {
     const currentTheme = userPrefs.theme === 'system'
@@ -94,6 +103,32 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
           </div>
         </div>
       )}
+
+      {/* Disconnect Drive Confirmation Modal */}
+      <Modal open={showDisconnectModal} onClose={cancelDisconnect} title="Desconectar Google Drive">
+        <div className="space-y-5">
+          <div className="flex items-center gap-3 p-4 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-xl">
+            <AlertTriangle className="w-6 h-6 shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium">A sincronização será interrompida</p>
+              <p className="opacity-90">A sua base de dados deixará de atualizar para a Google Drive.</p>
+            </div>
+          </div>
+          
+          <p className="text-sm text-muted-foreground">
+            Os dados locais no seu dispositivo não serão afetados, mas quaisquer alterações feitas a partir de agora deixarão de ser sincronizadas com outros dispositivos ou com a folha de cálculo.
+          </p>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={cancelDisconnect}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmDisconnect}>
+              Desconectar Drive
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </header>
   );
 }
