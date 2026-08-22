@@ -80,5 +80,26 @@ export function useConnectDrive() {
     }
   };
 
-  return { isConnecting, isConnected, toastMsg, handleConnectDrive };
+  const handleDisconnectDrive = () => {
+    if (window.confirm('Tem a certeza que deseja desconectar a aplicação da sua Google Drive?')) {
+      localStorage.removeItem('google_drive_access_token');
+      localStorage.removeItem('google_drive_spreadsheet_info');
+      localStorage.removeItem('google_drive_sync_stats');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_drive_connected'));
+      }
+      setToastMsg({ title: 'Drive Desconectada', desc: 'A sincronização foi interrompida.', type: 'info' });
+      setTimeout(() => setToastMsg(null), 3000);
+    }
+  };
+
+  const toggleDriveConnection = () => {
+    if (isConnected) {
+      handleDisconnectDrive();
+    } else {
+      handleConnectDrive();
+    }
+  };
+
+  return { isConnecting, isConnected, toastMsg, handleConnectDrive, handleDisconnectDrive, toggleDriveConnection };
 }

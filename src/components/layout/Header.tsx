@@ -12,7 +12,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const { hasPin, lock } = usePin();
   const { prefs: userPrefs, updatePrefs } = usePreferences();
   const navigate = useNavigate();
-  const { isConnecting, isConnected, toastMsg, handleConnectDrive } = useConnectDrive();
+  const { isConnecting, isConnected, toastMsg, toggleDriveConnection } = useConnectDrive();
   
   const toggleTheme = () => {
     const currentTheme = userPrefs.theme === 'system'
@@ -35,22 +35,17 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
       
       <div className="flex items-center gap-2 sm:gap-4">
         <Button 
-          variant="outline" 
-          size="sm"
-          onClick={handleConnectDrive}
+          variant="ghost" 
+          size="icon"
+          onClick={toggleDriveConnection}
           disabled={isConnecting}
-          className="hidden sm:flex items-center gap-2 h-9 border-border/50 bg-secondary/20 hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
-          title={userPrefs.navLabels?.['drive_connect'] || 'Conectar à Drive'}
+          title={isConnected ? 'Desconectar da Drive' : (userPrefs.navLabels?.['drive_connect'] || 'Conectar à Drive')}
         >
           {isConnecting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           ) : (
-            <Database className="h-4 w-4" />
+            <Database className={`h-5 w-5 ${isConnected ? 'text-emerald-500' : 'text-red-500'}`} />
           )}
-          <span className="hidden lg:inline-block text-xs font-medium">
-            {userPrefs.navLabels?.['drive_connect'] || 'Conectar à Drive'}
-          </span>
-          <div className={`ml-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`} title={isConnected ? 'Conectado à Drive' : 'Offline'} />
         </Button>
 
         <NotificationDropdown 
