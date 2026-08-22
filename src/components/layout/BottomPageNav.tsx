@@ -9,7 +9,7 @@ export function BottomPageNav() {
   const { unlocked } = usePin();
   const { prefs } = usePreferences();
   const location = useLocation();
-  const { isConnecting, toastMsg, handleConnectDrive } = useConnectDrive();
+  const { isConnecting, isConnected, toastMsg, handleConnectDrive } = useConnectDrive();
   const customLabels = prefs.navLabels || {};
 
   const allLinks = [
@@ -60,7 +60,8 @@ export function BottomPageNav() {
             className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap transition-all duration-150 text-emerald-600 hover:text-emerald-700 bg-emerald-500/10 hover:bg-emerald-500/20"
           >
             {isConnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
-            {customLabels['drive_connect'] || 'Conectar à Drive'}
+            <span>{customLabels['drive_connect'] || 'Conectar à Drive'}</span>
+            <div className={`ml-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`} title={isConnected ? 'Conectado à Drive' : 'Offline'} />
           </button>
         </div>
       </div>

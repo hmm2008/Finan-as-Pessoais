@@ -482,6 +482,9 @@ export function GoogleDriveSyncCard() {
     setSyncStats(null);
     localStorage.removeItem('google_drive_spreadsheet_info');
     localStorage.removeItem('google_drive_sync_stats');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('finanas_drive_connected'));
+    }
     setSuccessMsg('Conexão Google Drive removida.');
   };
 

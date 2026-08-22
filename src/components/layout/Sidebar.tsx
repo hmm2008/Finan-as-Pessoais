@@ -14,7 +14,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const { hasPin, lock, unlocked } = usePin();
   const { prefs } = usePreferences();
   const navigate = useNavigate();
-  const { isConnecting, toastMsg, handleConnectDrive } = useConnectDrive();
+  const { isConnecting, isConnected, toastMsg, handleConnectDrive } = useConnectDrive();
   
   const customLabels = prefs.navLabels || {};
 
@@ -105,14 +105,17 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         <button 
           onClick={handleConnectDrive}
           disabled={isConnecting}
-          className="group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 hover:bg-emerald-500/10 hover:text-emerald-400 text-muted-foreground hover:translate-x-1"
+          className="group flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 hover:bg-emerald-500/10 hover:text-emerald-400 text-muted-foreground hover:translate-x-1"
         >
-          {isConnecting ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <Database className="h-5 w-5 transition-transform duration-150 group-hover:scale-110" />
-          )}
-          <span>{customLabels['drive_connect'] || 'Conectar à Drive'}</span>
+          <div className="flex items-center gap-3">
+            {isConnecting ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Database className="h-5 w-5 transition-transform duration-150 group-hover:scale-110" />
+            )}
+            <span>{customLabels['drive_connect'] || 'Conectar à Drive'}</span>
+          </div>
+          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`} title={isConnected ? 'Conectado à Drive' : 'Offline'} />
         </button>
         
         <button 

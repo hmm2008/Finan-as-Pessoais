@@ -1,12 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { connectGoogleDrive, findOrCreateFinanceSpreadsheet } from '../lib/googleDriveService';
+import { connectGoogleDrive, findOrCreateFinanceSpreadsheet, getCachedDriveToken } from '../lib/googleDriveService';
 import { importAllDataFromSheets } from '../lib/googleSheetsDataService';
 
 export function useConnectDrive() {
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ title: string; desc: string; type: 'success' | 'error' | 'info' } | null>(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const checkConnection = () => {
+      const token = getCachedDriveToken();
+      const hasSpreadsheet = !!localStorage.getItem('google_drive_spreadsheet_info');
+      const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      setIsConnected(!!token && hasSpreadsheet && isOnline);
+    };
+
+    checkConnection();
+
+    window.addEventListener('finanas_drive_connected', checkConnection);
+    // Also listen to storage to catch deletions from GoogleDriveSyncCard
+    window.addEventListener('storage', checkConnection);
+    window.addEventListener('online', checkConnection);
+    window.addEventListener('offline', checkConnection);
+    
+    return () => {
+      window.removeEventListener('finanas_drive_connected', checkConnection);
+      window.removeEventListener('storage', checkConnection);
+      window.removeEventListener('online', checkConnection);
+      window.removeEventListener('offline', checkConnection);
+    };
+  }, []);
 
   const handleConnectDrive = async () => {
     setIsConnecting(true);
@@ -20,6 +45,10 @@ export function useConnectDrive() {
       
       const info = await findOrCreateFinanceSpreadsheet(res.accessToken);
       localStorage.setItem('google_drive_spreadsheet_info', JSON.stringify(info));
+      
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_drive_connected'));
+      }
       
       if (info.createdNow) {
         setToastMsg({ title: 'Drive Conectada!', desc: 'Nova folha criada com sucesso.', type: 'success' });
@@ -51,5 +80,5 @@ export function useConnectDrive() {
     }
   };
 
-  return { isConnecting, toastMsg, handleConnectDrive };
+  return { isConnecting, isConnected, toastMsg, handleConnectDrive };
 }
