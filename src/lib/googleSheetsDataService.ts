@@ -1,6 +1,6 @@
 import { auth } from './firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
-import { getCachedDriveToken, setCachedDriveToken, formatAndStyleFinanceSpreadsheet } from './googleDriveService';
+import { getCachedDriveToken, setCachedDriveToken, formatAndStyleFinanceSpreadsheet, getSpreadsheetModifiedTime } from './googleDriveService';
 import { sanitizeForFirestore } from '../hooks/queries';
 
 export interface SyncStats {
@@ -717,6 +717,16 @@ export async function exportAllDataToSheets(
   };
 
   localStorage.setItem('google_drive_sync_stats', JSON.stringify(stats));
+  
+  // Update last synced modifiedTime asynchronously so auto-sync knows local user made the edit
+  setTimeout(() => {
+    getSpreadsheetModifiedTime(accessToken, spreadsheetId).then(modTime => {
+      if (modTime) {
+        localStorage.setItem('google_drive_last_synced_modified_time', modTime);
+      }
+    }).catch(() => {});
+  }, 1000);
+
   notifySyncStatus('synced', 'Dados sincronizados com o Google Sheets');
   
   addSyncAuditLog({
@@ -1051,6 +1061,14 @@ export async function importAllDataFromSheets(
   };
 
   localStorage.setItem('google_drive_sync_stats', JSON.stringify(stats));
+
+  // Save current modifiedTime from Drive
+  getSpreadsheetModifiedTime(accessToken, spreadsheetId).then(modTime => {
+    if (modTime) {
+      localStorage.setItem('google_drive_last_synced_modified_time', modTime);
+    }
+  }).catch(() => {});
+
   notifySyncStatus('synced', 'Dados importados com sucesso do Google Sheets');
   
   addSyncAuditLog({

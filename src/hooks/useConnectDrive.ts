@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { connectGoogleDrive, findOrCreateFinanceSpreadsheet, getCachedDriveToken } from '../lib/googleDriveService';
+import { connectGoogleDrive, findOrCreateFinanceSpreadsheet, getCachedDriveToken, getSpreadsheetModifiedTime } from '../lib/googleDriveService';
 import { importAllDataFromSheets } from '../lib/googleSheetsDataService';
 
 export function useConnectDrive() {
@@ -9,6 +9,8 @@ export function useConnectDrive() {
   const [isConnected, setIsConnected] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ title: string; desc: string; type: 'success' | 'error' | 'info' } | null>(null);
   const queryClient = useQueryClient();
+  const lastAutoCheckRef = useRef<number>(0);
+  const isAutoSyncingRef = useRef<boolean>(false);
 
   useEffect(() => {
     const checkConnection = () => {
@@ -33,6 +35,78 @@ export function useConnectDrive() {
       window.removeEventListener('offline', checkConnection);
     };
   }, []);
+
+  // Auto-sync detector when working across devices or mobile
+  useEffect(() => {
+    const checkAndAutoSync = async () => {
+      const now = Date.now();
+      // Throttle auto-check to once every 10 seconds
+      if (now - lastAutoCheckRef.current < 10000 || isAutoSyncingRef.current) {
+        return;
+      }
+      
+      const token = getCachedDriveToken();
+      const infoRaw = localStorage.getItem('google_drive_spreadsheet_info');
+      const info = infoRaw ? JSON.parse(infoRaw) : null;
+
+      if (!token || !info?.id || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+        return;
+      }
+
+      lastAutoCheckRef.current = now;
+      isAutoSyncingRef.current = true;
+
+      try {
+        const remoteModTime = await getSpreadsheetModifiedTime(token, info.id);
+        const lastSyncedModTime = localStorage.getItem('google_drive_last_synced_modified_time');
+
+        if (remoteModTime && lastSyncedModTime && remoteModTime !== lastSyncedModTime) {
+          setIsRefreshing(true);
+          setToastMsg({ title: 'Sincronização Automática', desc: 'Novos dados detetados na Google Drive. A atualizar...', type: 'info' });
+
+          await importAllDataFromSheets(token, info.id, () => {});
+          queryClient.invalidateQueries();
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('finanas_prefs_updated'));
+            window.dispatchEvent(new Event('finanas_data_imported'));
+            window.dispatchEvent(new Event('storage'));
+          }
+
+          setToastMsg({ title: 'Aplicação Atualizada!', desc: 'Dados sincronizados automaticamente da Google Drive.', type: 'success' });
+          setTimeout(() => setToastMsg(null), 3000);
+        }
+      } catch (err) {
+        console.warn('Auto-sync check error:', err);
+      } finally {
+        isAutoSyncingRef.current = false;
+        setIsRefreshing(false);
+      }
+    };
+
+    const handleFocusOrVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        checkAndAutoSync();
+      }
+    };
+
+    // Listen to tab visibility change (e.g. switching back to tab or unlocking mobile)
+    document.addEventListener('visibilitychange', handleFocusOrVisibility);
+    window.addEventListener('focus', handleFocusOrVisibility);
+
+    // Periodic check every 60 seconds if tab is active
+    const intervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        checkAndAutoSync();
+      }
+    }, 60000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleFocusOrVisibility);
+      window.removeEventListener('focus', handleFocusOrVisibility);
+      clearInterval(intervalId);
+    };
+  }, [queryClient]);
 
   const handleConnectDrive = async () => {
     setIsConnecting(true);

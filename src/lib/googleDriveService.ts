@@ -396,3 +396,25 @@ export async function testSpreadsheetHealth(accessToken: string, spreadsheetId: 
     return false;
   }
 }
+
+/**
+ * Fetches the modifiedTime metadata of a Google Drive file.
+ */
+export async function getSpreadsheetModifiedTime(accessToken: string, spreadsheetId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${spreadsheetId}?fields=modifiedTime`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        setCachedDriveToken(null);
+      }
+      return null;
+    }
+    const data = await res.json();
+    return data.modifiedTime || null;
+  } catch (err) {
+    console.error('Erro ao consultar modifiedTime na Drive:', err);
+    return null;
+  }
+}
