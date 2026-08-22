@@ -212,7 +212,25 @@ export function GoogleDriveSyncCard() {
       if (info.createdNow) {
         setSuccessMsg('Nova folha de cálculo "Finanças Pessoais" criada com sucesso na sua Google Drive!');
       } else {
-        setSuccessMsg('Folha de cálculo "Finanças Pessoais" localizada e associada com sucesso!');
+        setSuccessMsg('Folha de cálculo "Finanças Pessoais" localizada e associada! A descarregar dados...');
+        
+        // Auto-pull existing data since the user is connecting on a device that likely has empty data
+        try {
+          const stats = await importAllDataFromSheets(activeToken, info.id, (status, percent) => {
+            setSyncProgress({ status, percent });
+          });
+          setSyncStats(stats);
+          refreshAuditLogs();
+          queryClient.invalidateQueries();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('finanas_prefs_updated'));
+            window.dispatchEvent(new Event('finanas_data_imported'));
+          }
+          setSuccessMsg(`Folha localizada e dados importados com sucesso! (${stats.expensesCount} despesas, ${stats.incomesCount} receitas)`);
+        } catch (pullErr: any) {
+          console.error(pullErr);
+          setErrorMsg('Folha localizada, mas falhou ao importar dados: ' + pullErr.message);
+        }
       }
     } catch (err: any) {
       console.error(err);

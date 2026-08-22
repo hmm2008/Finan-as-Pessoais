@@ -1448,6 +1448,25 @@ export function initOfflineSyncListeners() {
       flushPendingSyncQueue().catch(() => {});
     }
   });
+
+  // Auto-pull from Google Sheets on app startup if auto-sync is enabled and no pending local changes
+  setTimeout(() => {
+    if (typeof navigator !== 'undefined' && navigator.onLine && isAutoSyncEnabled() && getPendingSyncQueueCount() === 0) {
+      const token = getCachedDriveToken();
+      const spreadsheetId = getStoredSpreadsheetId();
+      if (token && spreadsheetId) {
+        console.log('[SyncEngine] Arranque detetado: A sincronizar a versão mais recente da Google Drive (Auto-Pull)...');
+        importAllDataFromSheets(token, spreadsheetId, () => {}).then(() => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('finanas_prefs_updated'));
+            window.dispatchEvent(new Event('finanas_data_imported'));
+          }
+        }).catch(err => {
+          console.error('[SyncEngine] Erro no auto-pull no arranque:', err);
+        });
+      }
+    }
+  }, 2500); // Atraso curto para não bloquear a renderização inicial
 }
 
 /**

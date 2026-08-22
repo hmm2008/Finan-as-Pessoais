@@ -26,6 +26,13 @@ const queryClient = new QueryClient({
   }
 });
 
+// Auto-invalidate queries when background auto-pull finishes
+if (typeof window !== 'undefined') {
+  window.addEventListener('finanas_data_imported', () => {
+    queryClient.invalidateQueries();
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppErrorBoundary>
