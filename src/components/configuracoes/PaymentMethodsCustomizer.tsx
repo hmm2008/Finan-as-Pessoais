@@ -121,15 +121,6 @@ export function PaymentMethodsCustomizer() {
                   <div className="flex items-center gap-2 truncate">
                     <CreditCard className={`w-3.5 h-3.5 shrink-0 ${isCustom ? 'text-primary' : 'text-muted-foreground'}`} />
                     <span className="font-medium truncate">{method}</span>
-                    {isCustom ? (
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary border-primary/30">
-                        Personalizado
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 text-muted-foreground">
-                        Padrão
-                      </Badge>
-                    )}
                   </div>
 
                   {isCustom && (

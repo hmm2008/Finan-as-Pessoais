@@ -111,11 +111,6 @@ export function PaymentMethodSelector({
                 <span className="flex items-center gap-1.5">
                   <CreditCard className="w-3 h-3 text-muted-foreground shrink-0" />
                   <span>{m}</span>
-                  {customMethods.includes(m) && (
-                    <span className="text-[9px] px-1 py-0.2 bg-primary/10 text-primary rounded-xs ml-1">
-                      Personalizado
-                    </span>
-                  )}
                 </span>
               </SelectItem>
             ))}
