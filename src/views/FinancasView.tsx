@@ -379,7 +379,7 @@ export default function FinancasView() {
 
     // 3. Despesas registadas from the database for the period (pontuais)
     const periodExpenses = expenses.filter((e: any) => periodMatch(e.date));
-    const despesasRegistadas = periodExpenses
+    const despesasPontuais = periodExpenses
       .filter((e: any) => (!e.recurring || e.recurring === 'false' || e.recurring === 'Não') && !e.isFixed && !e.fixedExpenseId)
       .reduce((acc: number, val: any) => acc + (Number(val.amount) || 0), 0);
 
@@ -415,13 +415,15 @@ export default function FinancasView() {
 
     despesasFixas += recurringExpensesFromPeriod;
 
-    const totalDespesas = despesasRegistadas + despesasFixas;
+    const totalDespesas = despesasPontuais + despesasFixas;
+    const despesasRegistadas = totalDespesas; // Total despesas inclui despesas registadas + despesas fixas
     const saldo = totalReceitas - totalDespesas;
 
     return {
       receitasFixas,
       receitasPontuais,
       totalReceitas,
+      despesasPontuais,
       despesasRegistadas,
       despesasFixas,
       totalDespesas,
