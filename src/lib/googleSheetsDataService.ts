@@ -354,6 +354,41 @@ export async function exportAllDataToSheets(
   onProgress?.('A verificar estrutura da folha...', 15);
   const activeSheetTitles = await ensureMissingSheetsExist(accessToken, spreadsheetId);
 
+  // 0. Pre-export Safe Merge: Fetch remote data first and merge with LocalStorage by ID
+  // to prevent overwriting edits/additions made on other devices!
+  try {
+    const remote = await fetchAndParseRemoteSheets(accessToken, spreadsheetId);
+    
+    // Build set of trashed item IDs to prevent resurrecting intentionally deleted items
+    const localTrash = getLocalData('finanas_trash_items');
+    const trashedIds = new Set<string>();
+    localTrash.forEach((t: any) => {
+      if (t?.data?.id) trashedIds.add(t.data.id);
+      if (t?.id) trashedIds.add(t.id);
+    });
+    remote.parsedTrash.forEach((t: any) => {
+      if (t?.data?.id) trashedIds.add(t.data.id);
+      if (t?.id) trashedIds.add(t.id);
+    });
+
+    mergeCollection('fin_expenses', remote.parsedExpenses, trashedIds);
+    mergeCollection('fin_incomes', remote.parsedIncomes, trashedIds);
+    mergeCollection('fin_incomes_fixed_realized', remote.parsedFixedIncomesRealized, trashedIds);
+    mergeCollection('fin_fixed_expenses', remote.parsedFixedExpenses, trashedIds);
+    mergeCollection('fin_fixed_incomes', remote.parsedFixedIncomes, trashedIds);
+    mergeCollection('fin_assets', remote.parsedAccounts.concat(remote.parsedPatrimonio), trashedIds);
+    mergeCollection('fin_patrimonio', remote.parsedPatrimonio, trashedIds);
+    mergeCollection('fin_vehicles', remote.parsedVehicles, trashedIds);
+    mergeCollection('fin_budgets', remote.parsedBudgets, trashedIds);
+    mergeCollection('fin_goals', remote.parsedGoals, trashedIds);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('finanas_data_imported'));
+    }
+  } catch (err) {
+    console.warn('[SyncEngine] Aviso: Não foi possível obter dados remotos antes de exportar. Procedendo com dados locais:', err);
+  }
+
   // 1. Gather Data using correct LocalStorage keys mapped to queries.ts
   let expenses = getLocalData('fin_expenses');
   let rawIncomesPunctual = getLocalData('fin_incomes');
@@ -740,16 +775,43 @@ export async function exportAllDataToSheets(
 }
 
 /**
- * Fetch all financial data from Google Sheets spreadsheet and populate local state / localStorage / Firestore.
+ * Safely merges a remote array into a local collection stored in LocalStorage by entity ID.
+ * Items present in trashedIds are excluded to preserve local user deletions.
  */
-export async function importAllDataFromSheets(
-  accessToken: string,
-  spreadsheetId: string,
-  onProgress?: (status: string, percent: number) => void
-): Promise<SyncStats> {
-  notifySyncStatus('syncing', 'A descarregar dados da Google Drive...');
-  onProgress?.('A inspecionar abas e descarregar do Google Sheets...', 15);
+export function mergeCollection<T extends { id?: string }>(
+  localKey: string,
+  remoteList: T[],
+  trashedIds: Set<string>
+): T[] {
+  const localList: T[] = getLocalData(localKey);
+  const map = new Map<string, T>();
 
+  // 1. First add remote items that were not deleted locally
+  for (const rItem of remoteList) {
+    if (rItem && rItem.id && !trashedIds.has(rItem.id)) {
+      map.set(rItem.id, rItem);
+    }
+  }
+
+  // 2. Add/Override local items (local unsaved edits or additions have precedence)
+  for (const lItem of localList) {
+    if (lItem && lItem.id) {
+      map.set(lItem.id, lItem);
+    }
+  }
+
+  const merged = Array.from(map.values());
+  setLocalData(localKey, merged);
+  return merged;
+}
+
+/**
+ * Fetches and parses all remote financial collections from Google Sheets.
+ */
+export async function fetchAndParseRemoteSheets(
+  accessToken: string,
+  spreadsheetId: string
+) {
   let titles: string[] = [];
   try {
     const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
@@ -760,7 +822,7 @@ export async function importAllDataFromSheets(
       titles = (metaData.sheets || []).map((s: any) => s.properties?.title);
     }
   } catch (e) {
-    console.warn('Erro ao ler metadados para import:', e);
+    console.warn('Erro ao ler metadados:', e);
   }
 
   const incSheet = titles.includes('Receitas_Pontuais')
@@ -797,32 +859,14 @@ export async function importAllDataFromSheets(
   });
 
   if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    const detail = errData.error?.message || `Status HTTP ${res.status}`;
-    let errorText = detail;
-    if (res.status === 401 || res.status === 403) {
-      setCachedDriveToken(null);
-      errorText = 'Sessão Google expirada ou sem permissões. Por favor, reconecte a conta Google.';
-    } else {
-      errorText = `Erro ao ler dados da Google Sheets: ${detail}`;
-    }
-    notifySyncStatus('error', errorText);
-    addSyncAuditLog({
-      action: 'import',
-      status: 'error',
-      details: errorText
-    });
-    throw new Error(errorText);
+    throw new Error(`Erro de resposta Google Sheets HTTP ${res.status}`);
   }
 
   const data = await res.json();
   const valueRanges = data.valueRanges || [];
 
-  onProgress?.('A processar e converter linhas...', 50);
-
   const getRows = (idx: number) => {
     const rows = valueRanges[idx]?.values || [];
-    // Skip the first row since it contains column headers
     return rows.length > 1 ? rows.slice(1) : [];
   };
 
@@ -868,7 +912,6 @@ export async function importAllDataFromSheets(
     isFixed: true
   })).filter((i: any) => i.amount > 0 || i.entity);
 
-  // Separate incomes cleanly in case fixed incomes were placed in Receitas_Pontuais
   const { punctual: parsedIncomes, fixedRealized: parsedFixedIncomesRealized } = partitionIncomes([
     ...rawParsedIncomes,
     ...rawParsedFixedIncomesRealized
@@ -914,7 +957,7 @@ export async function importAllDataFromSheets(
     active: parseBool(row[5])
   })).filter((a: any) => a.name !== 'Conta Principal' || a.balance > 0);
 
-  // Parse Assets
+  // Parse Patrimonio
   const patRows = getRows(6);
   const parsedPatrimonio = patRows.map((row: any[], i: number) => ({
     id: row[0] || `pat_${i}`,
@@ -953,20 +996,6 @@ export async function importAllDataFromSheets(
     deadline: row[4] || ''
   }));
 
-  onProgress?.('A guardar dados no armazenamento local...', 80);
-
-  // Update LocalStorage unconditionally so emptied sheets clear local data
-  setLocalData('fin_expenses', parsedExpenses);
-  setLocalData('fin_incomes', parsedIncomes);
-  setLocalData('fin_incomes_fixed_realized', parsedFixedIncomesRealized);
-  setLocalData('fin_fixed_expenses', parsedFixedExpenses);
-  setLocalData('fin_fixed_incomes', parsedFixedIncomes);
-  setLocalData('fin_assets', parsedAccounts.concat(parsedPatrimonio));
-  setLocalData('fin_patrimonio', parsedPatrimonio);
-  setLocalData('fin_vehicles', parsedVehicles);
-  setLocalData('fin_budgets', parsedBudgets);
-  setLocalData('fin_goals', parsedGoals);
-
   // Parse Trash
   const trashRowsData = getRows(10);
   const parsedTrash = trashRowsData.map((row: any[], i: number) => {
@@ -980,17 +1009,13 @@ export async function importAllDataFromSheets(
       createdAt: row[3] || ''
     };
   }).filter((t: any) => t.type);
-  setLocalData('finanas_trash_items', parsedTrash);
 
   // Parse Preferences
   const prefsRowsData = getRows(11);
+  let userPrefs: any = null;
   if (prefsRowsData.length > 0 && prefsRowsData[0][1]) {
     try {
-      const prefsData = JSON.parse(prefsRowsData[0][1]);
-      localStorage.setItem('finanas_user_prefs', JSON.stringify(prefsData));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('finanas_prefs_updated'));
-      }
+      userPrefs = JSON.parse(prefsRowsData[0][1]);
     } catch (e) {
       console.warn('Erro ao parsear preferências', e);
     }
@@ -1005,7 +1030,6 @@ export async function importAllDataFromSheets(
     type: row[3] || '',
     priority: parseNum(row[4])
   })).filter((r: any) => r.keyword);
-  setLocalData('fin_categorization_rules', parsedCatRules);
 
   // Parse Notifications
   const notifRowsData = getRows(13);
@@ -1017,7 +1041,6 @@ export async function importAllDataFromSheets(
     read: row[4] === 'Sim',
     type: row[5] || ''
   })).filter((n: any) => n.title);
-  setLocalData('finanas_notifications', parsedNotifs);
 
   // Parse Archives
   const archiveRowsData = getRows(14);
@@ -1032,16 +1055,97 @@ export async function importAllDataFromSheets(
       type: row[4] || ''
     };
   }).filter((a: any) => a.title);
-  setLocalData('finanas_archives', parsedArchives);
 
-  // Firestore optional background sync if user is logged in
-  const user = auth.currentUser;
-  if (user) {
-    try {
-      // Firestore mirroring removed.
-    } catch {
-      // ignore
+  return {
+    parsedExpenses,
+    parsedIncomes,
+    parsedFixedIncomesRealized,
+    parsedFixedExpenses,
+    parsedFixedIncomes,
+    parsedAccounts,
+    parsedPatrimonio,
+    parsedVehicles,
+    parsedBudgets,
+    parsedGoals,
+    parsedTrash,
+    userPrefs,
+    parsedCatRules,
+    parsedNotifs,
+    parsedArchives
+  };
+}
+
+/**
+ * Fetch all financial data from Google Sheets spreadsheet and populate local state / localStorage / Firestore.
+ */
+export async function importAllDataFromSheets(
+  accessToken: string,
+  spreadsheetId: string,
+  onProgress?: (status: string, percent: number) => void
+): Promise<SyncStats> {
+  notifySyncStatus('syncing', 'A descarregar dados da Google Drive...');
+  onProgress?.('A inspecionar abas e descarregar do Google Sheets...', 15);
+
+  let remote;
+  try {
+    remote = await fetchAndParseRemoteSheets(accessToken, spreadsheetId);
+  } catch (err: any) {
+    let errorText = err?.message || 'Erro ao ler dados da Google Sheets';
+    if (err?.status === 401 || err?.status === 403) {
+      setCachedDriveToken(null);
+      errorText = 'Sessão Google expirada ou sem permissões. Por favor, reconecte a conta Google.';
     }
+    notifySyncStatus('error', errorText);
+    addSyncAuditLog({
+      action: 'import',
+      status: 'error',
+      details: errorText
+    });
+    throw new Error(errorText);
+  }
+
+  onProgress?.('A processar e fundir dados no armazenamento local...', 60);
+
+  // Build trashed IDs set
+  const localTrash = getLocalData('finanas_trash_items');
+  const trashedIds = new Set<string>();
+  localTrash.forEach((t: any) => {
+    if (t?.data?.id) trashedIds.add(t.data.id);
+    if (t?.id) trashedIds.add(t.id);
+  });
+  remote.parsedTrash.forEach((t: any) => {
+    if (t?.data?.id) trashedIds.add(t.data.id);
+    if (t?.id) trashedIds.add(t.id);
+  });
+
+  const parsedExpenses = mergeCollection('fin_expenses', remote.parsedExpenses, trashedIds);
+  const parsedIncomes = mergeCollection('fin_incomes', remote.parsedIncomes, trashedIds);
+  const parsedFixedIncomesRealized = mergeCollection('fin_incomes_fixed_realized', remote.parsedFixedIncomesRealized, trashedIds);
+  const parsedFixedExpenses = mergeCollection('fin_fixed_expenses', remote.parsedFixedExpenses, trashedIds);
+  const parsedFixedIncomes = mergeCollection('fin_fixed_incomes', remote.parsedFixedIncomes, trashedIds);
+  const parsedAccounts = mergeCollection('fin_assets', remote.parsedAccounts.concat(remote.parsedPatrimonio), trashedIds);
+  const parsedPatrimonio = mergeCollection('fin_patrimonio', remote.parsedPatrimonio, trashedIds);
+  const parsedVehicles = mergeCollection('fin_vehicles', remote.parsedVehicles, trashedIds);
+  const parsedBudgets = mergeCollection('fin_budgets', remote.parsedBudgets, trashedIds);
+  const parsedGoals = mergeCollection('fin_goals', remote.parsedGoals, trashedIds);
+
+  setLocalData('finanas_trash_items', remote.parsedTrash);
+
+  if (remote.userPrefs) {
+    localStorage.setItem('finanas_user_prefs', JSON.stringify(remote.userPrefs));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('finanas_prefs_updated'));
+    }
+  }
+
+  if (remote.parsedCatRules.length > 0) {
+    setLocalData('fin_categorization_rules', remote.parsedCatRules);
+  }
+  if (remote.parsedNotifs.length > 0) {
+    setLocalData('finanas_notifications', remote.parsedNotifs);
+  }
+  if (remote.parsedArchives.length > 0) {
+    setLocalData('finanas_archives', remote.parsedArchives);
   }
 
   onProgress?.('Concluído!', 100);
@@ -1056,7 +1160,7 @@ export async function importAllDataFromSheets(
     vehiclesCount: parsedVehicles.length,
     budgetsCount: parsedBudgets.length,
     goalsCount: parsedGoals.length,
-    trashCount: getRows(9).length,
+    trashCount: remote.parsedTrash.length,
     lastSyncedAt: new Date().toISOString()
   };
 

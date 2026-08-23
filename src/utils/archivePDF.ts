@@ -47,10 +47,7 @@ export async function archivePDF(summary: MonthArchiveSummary): Promise<ArchiveE
 
   // 2. Persist to Firestore if possible (non-blocking)
   try {
-//
-      ...archiveEntry,
-      id
-    });
+    // Firestore mirroring removed.
   } catch (error) {
     console.warn('Could not archive to firestore, saved locally:', error);
   }

@@ -47,10 +47,7 @@ export async function logEvent(
 
   // 2. Write to Firestore if connected (non-blocking)
   try {
-//
-      ...logEntry,
-      id
-    });
+    // Firestore mirroring removed.
   } catch (e) {
     // Fail silently to prevent app from breaking due to offline/permission state
   }
