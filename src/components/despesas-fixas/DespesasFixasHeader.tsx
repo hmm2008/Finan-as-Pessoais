@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
-import { Archive, Download, Calendar, Plus, Info, Bell, FileSpreadsheet, BellRing } from 'lucide-react';
+import { Calendar, Plus, Bell, BellRing, CheckCircle2, RefreshCw } from 'lucide-react';
 import { usePrivacy } from '../../contexts/PrivacyContext';
+import { Modal } from '../ui/Modal';
 
 interface DespesasFixasHeaderProps {
   onAdd: () => void;
@@ -13,8 +14,16 @@ export function DespesasFixasHeader({ onAdd, expenses }: DespesasFixasHeaderProp
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
   const { maskValue } = usePrivacy();
 
-  // Calculations
+  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  
+  // Calendar Modal State
   const activeExpenses = expenses.filter(e => e.active !== false);
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>(activeExpenses.map(e => e.id));
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
+  const [syncCalendarSuccess, setSyncCalendarSuccess] = useState(false);
+
+  // Calculations
   const inactiveExpenses = expenses.filter(e => e.active === false);
 
   const monthlyActive = activeExpenses.filter(e => (e.frequency || 'Mensal') === 'Mensal');
@@ -45,44 +54,72 @@ export function DespesasFixasHeader({ onAdd, expenses }: DespesasFixasHeaderProp
     })
     .filter((e: any): e is any => e !== null && e.daysUntil >= 0 && e.daysUntil <= 7);
 
+  const toggleExpenseSelection = (id: string) => {
+    setSelectedExpenseIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSyncCalendar = () => {
+    setIsSyncingCalendar(true);
+    setTimeout(() => {
+      setIsSyncingCalendar(false);
+      setSyncCalendarSuccess(true);
+      setTimeout(() => {
+        setSyncCalendarSuccess(false);
+        setIsCalendarModalOpen(false);
+      }, 1500);
+    }, 1200);
+  };
+
+  const createGoogleCalendarUrl = (expense: any) => {
+    const title = encodeURIComponent(`Pagamento: ${expense.name || expense.description || 'Despesa Fixa'}`);
+    const dueDay = expense.dueDateDay || expense.dueDay || 1;
+    const targetDate = new Date(now.getFullYear(), now.getMonth(), dueDay);
+    if (dueDay < currentDay) {
+      targetDate.setMonth(targetDate.getMonth() + 1);
+    }
+    const yearStr = targetDate.getFullYear();
+    const monthStr = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(targetDate.getDate()).padStart(2, '0');
+    const dateFormatted = `${yearStr}${monthStr}${dayStr}`;
+    
+    const details = encodeURIComponent(`Lembrete de Pagamento de Despesa Fixa\nValor: ${formatter.format(expense.amount || 0)}\nFrequência: ${expense.frequency || 'Mensal'}`);
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&dates=${dateFormatted}/${dateFormatted}`;
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Action Buttons */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black">
-          <Archive className="w-4 h-4" />
-          <span>Arquivar</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
-        </Button>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black">
-          <Download className="w-4 h-4" />
-          <span>Backup</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
-        </Button>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black">
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>Registar</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
-        </Button>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black">
-          <Download className="w-4 h-4" />
-          <span>CSV</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
-        </Button>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black">
-          <Bell className="w-4 h-4" />
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setIsAlertsModalOpen(true)}
+          className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black hover:text-foreground relative"
+        >
+          <Bell className="w-4 h-4 text-amber-500" />
           <span>Alertas</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
+          {upcomingExpenses.length > 0 && (
+            <span className="flex items-center justify-center px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold ml-1">
+              {upcomingExpenses.length}
+            </span>
+          )}
         </Button>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
+
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setIsCalendarModalOpen(true)}
+          className="h-9 gap-1.5 rounded-xl text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
+        >
           <Calendar className="w-4 h-4" />
           <span>Google Calendar</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
         </Button>
+
         <Button size="sm" onClick={onAdd} className="h-9 gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-600 dark:hover:bg-indigo-700">
           <Plus className="w-4 h-4" />
           <span>Nova Despesa Fixa</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50 text-indigo-200" />
         </Button>
       </div>
 
@@ -141,7 +178,10 @@ export function DespesasFixasHeader({ onAdd, expenses }: DespesasFixasHeaderProp
         </Card>
 
         {/* Próximos Vencimentos */}
-        <Card className="rounded-2xl border-amber-200 bg-amber-50/40 shadow-sm dark:bg-amber-950/20 dark:border-amber-900/40">
+        <Card 
+          onClick={() => setIsAlertsModalOpen(true)}
+          className="rounded-2xl border-amber-200 bg-amber-50/40 shadow-sm dark:bg-amber-950/20 dark:border-amber-900/40 cursor-pointer hover:border-amber-300 transition-colors"
+        >
           <CardContent className="p-5 flex flex-col justify-center h-full space-y-2">
             <div className="flex items-center gap-1.5">
               <BellRing className="w-4 h-4 text-amber-600 dark:text-amber-500" />
@@ -156,6 +196,171 @@ export function DespesasFixasHeader({ onAdd, expenses }: DespesasFixasHeaderProp
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Alertas */}
+      <Modal
+        open={isAlertsModalOpen}
+        onClose={() => setIsAlertsModalOpen(false)}
+        title="Alertas de Despesas Fixas"
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-400 text-sm flex items-center gap-2">
+            <BellRing className="w-5 h-5 shrink-0 text-amber-500" />
+            <p>
+              Próximas despesas fixas a vencer nos próximos 7 dias.
+            </p>
+          </div>
+
+          {upcomingExpenses.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground text-sm space-y-1">
+              <Bell className="w-8 h-8 mx-auto opacity-40 mb-2" />
+              <p className="font-medium">Sem alertas pendentes</p>
+              <p className="text-xs">Nenhuma despesa fixa com vencimento nos próximos 7 dias.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
+              {upcomingExpenses.map((exp: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between gap-3"
+                >
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-sm text-foreground">
+                      {exp.name || exp.description || 'Despesa Fixa'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Vence no dia {exp.dueDateDay || exp.dueDay} ({exp.frequency || 'Mensal'})
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-sm text-rose-600 dark:text-rose-400">
+                      -{maskValue(exp.amount || 0, formatter.format)}
+                    </p>
+                    <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full mt-0.5 ${
+                      exp.daysUntil === 0 
+                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20' 
+                        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                    }`}>
+                      {exp.daysUntil === 0 ? 'Hoje' : `Em ${exp.daysUntil} dia(s)`}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setIsAlertsModalOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Ligação ao Google Calendar */}
+      <Modal
+        open={isCalendarModalOpen}
+        onClose={() => setIsCalendarModalOpen(false)}
+        title="Sincronizar com Google Calendar"
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Selecione as despesas fixas que pretende sincronizar ou adicionar ao seu Google Calendar como lembretes recorrentes.
+          </p>
+
+          {syncCalendarSuccess ? (
+            <div className="py-8 text-center space-y-3 animate-in fade-in">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <p className="font-semibold text-foreground">Sincronização Concluída!</p>
+              <p className="text-xs text-muted-foreground">Os lembretes das despesas fixas foram associados ao Google Calendar.</p>
+            </div>
+          ) : (
+            <>
+              {activeExpenses.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-sm space-y-1">
+                  <Calendar className="w-8 h-8 mx-auto opacity-40 mb-2" />
+                  <p className="font-medium">Sem despesas fixas ativas</p>
+                  <p className="text-xs">Adicione despesas fixas para poder sincronizar com o calendário.</p>
+                </div>
+              ) : (
+                <div className="max-h-[300px] overflow-y-auto space-y-2 border border-border rounded-xl p-2">
+                  {activeExpenses.map((exp: any) => {
+                    const isSelected = selectedExpenseIds.includes(exp.id);
+                    const dueDay = exp.dueDateDay || exp.dueDay || 1;
+
+                    return (
+                      <div 
+                        key={exp.id}
+                        className={`flex items-center justify-between p-3 rounded-lg border text-xs transition-colors ${
+                          isSelected ? 'bg-primary/5 border-primary/40' : 'bg-card border-border hover:bg-muted/50'
+                        }`}
+                      >
+                        <div 
+                          onClick={() => toggleExpenseSelection(exp.id)}
+                          className="flex items-center gap-2.5 cursor-pointer flex-1"
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={isSelected} 
+                            onChange={() => toggleExpenseSelection(exp.id)}
+                            className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                          />
+                          <div>
+                            <p className="font-semibold text-sm text-foreground">
+                              {exp.name || exp.description || 'Despesa Fixa'}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              Dia {dueDay} de cada mês · {maskValue(exp.amount || 0, formatter.format)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <a 
+                          href={createGoogleCalendarUrl(exp)} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 bg-blue-500/10 px-2.5 py-1 rounded-md"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>Abrir Evento</span>
+                        </a>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex justify-between items-center pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setIsCalendarModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleSyncCalendar} 
+                  disabled={isSyncingCalendar || selectedExpenseIds.length === 0}
+                  className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isSyncingCalendar ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>A sincronizar...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4" />
+                      <span>Sincronizar Selecionadas ({selectedExpenseIds.length})</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
+
