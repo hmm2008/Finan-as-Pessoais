@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
-import { Archive, Download, Calendar, Plus, Info, Bell, FileSpreadsheet, BellRing } from 'lucide-react';
+import { Plus, Bell, BellRing } from 'lucide-react';
 import { usePrivacy } from '../../contexts/PrivacyContext';
+import { Modal } from '../ui/Modal';
 
 interface ReceitasFixasHeaderProps {
   onAdd: () => void;
@@ -12,6 +13,7 @@ interface ReceitasFixasHeaderProps {
 export function ReceitasFixasHeader({ onAdd, incomes = [] }: ReceitasFixasHeaderProps) {
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
   const { maskValue } = usePrivacy();
+  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
 
   // Calculations
   const activeIncomes = incomes.filter(e => e.active !== false);
@@ -49,35 +51,23 @@ export function ReceitasFixasHeader({ onAdd, incomes = [] }: ReceitasFixasHeader
     <div className="space-y-6">
       {/* Top Action Buttons */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black">
-          <Archive className="w-4 h-4" />
-          <span>Arquivar</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
-        </Button>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black">
-          <Download className="w-4 h-4" />
-          <span>Backup</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
-        </Button>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black">
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>Registar</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
-        </Button>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black">
-          <Download className="w-4 h-4" />
-          <span>CSV</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
-        </Button>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black">
-          <Bell className="w-4 h-4" />
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setIsAlertsModalOpen(true)}
+          className="h-9 gap-1.5 rounded-xl text-muted-foreground bg-white dark:bg-black hover:text-foreground relative"
+        >
+          <Bell className="w-4 h-4 text-amber-500" />
           <span>Alertas</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50" />
+          {upcomingIncomes.length > 0 && (
+            <span className="flex items-center justify-center px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold ml-1">
+              {upcomingIncomes.length}
+            </span>
+          )}
         </Button>
         <Button size="sm" onClick={onAdd} className="h-9 gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-600 dark:hover:bg-emerald-700">
           <Plus className="w-4 h-4" />
           <span>Nova Receita Fixa</span>
-          <Info className="w-3.5 h-3.5 ml-1 opacity-50 text-emerald-200" />
         </Button>
       </div>
 
@@ -135,8 +125,11 @@ export function ReceitasFixasHeader({ onAdd, incomes = [] }: ReceitasFixasHeader
           </CardContent>
         </Card>
 
-        {/* Próximos Vencimentos */}
-        <Card className="rounded-2xl border-amber-200 bg-amber-50/40 shadow-sm dark:bg-amber-950/20 dark:border-amber-900/40">
+        {/* Próximos Vencimentos / Alertas */}
+        <Card 
+          onClick={() => setIsAlertsModalOpen(true)}
+          className="rounded-2xl border-amber-200 bg-amber-50/40 shadow-sm dark:bg-amber-950/20 dark:border-amber-900/40 cursor-pointer hover:border-amber-300 transition-colors"
+        >
           <CardContent className="p-5 flex flex-col justify-center h-full space-y-2">
             <div className="flex items-center gap-1.5">
               <BellRing className="w-4 h-4 text-amber-600 dark:text-amber-500" />
@@ -151,6 +144,68 @@ export function ReceitasFixasHeader({ onAdd, incomes = [] }: ReceitasFixasHeader
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Alertas */}
+      <Modal
+        open={isAlertsModalOpen}
+        onClose={() => setIsAlertsModalOpen(false)}
+        title="Alertas de Receitas Fixas"
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-400 text-sm flex items-center gap-2">
+            <BellRing className="w-5 h-5 shrink-0 text-amber-500" />
+            <p>
+              Próximos recebimentos previstos para os próximos 7 dias.
+            </p>
+          </div>
+
+          {upcomingIncomes.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground text-sm space-y-1">
+              <Bell className="w-8 h-8 mx-auto opacity-40 mb-2" />
+              <p className="font-medium">Sem alertas pendentes</p>
+              <p className="text-xs">Nenhuma receita fixa com vencimento nos próximos 7 dias.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
+              {upcomingIncomes.map((inc: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between gap-3"
+                >
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-sm text-foreground">
+                      {inc.name || inc.description || 'Receita Fixa'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Vence no dia {inc.dueDateDay || inc.dueDay} ({inc.frequency || 'Mensal'})
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                      +{maskValue(inc.amount || 0, formatter.format)}
+                    </p>
+                    <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full mt-0.5 ${
+                      inc.daysUntil === 0 
+                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20' 
+                        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                    }`}>
+                      {inc.daysUntil === 0 ? 'Hoje' : `Em ${inc.daysUntil} dia(s)`}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setIsAlertsModalOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
+
