@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { connectGoogleDrive, findOrCreateFinanceSpreadsheet, getCachedDriveToken, getSpreadsheetModifiedTime } from '../lib/googleDriveService';
-import { importAllDataFromSheets } from '../lib/googleSheetsDataService';
+import { connectGoogleDrive, findOrCreateFinanceSpreadsheet, getCachedDriveToken } from '../lib/googleDriveService';
+import { importAllDataFromSheets, exportAllDataToSheets } from '../lib/googleSheetsDataService';
 
 export function useConnectDrive() {
   const [isConnecting, setIsConnecting] = useState(false);
@@ -9,8 +9,6 @@ export function useConnectDrive() {
   const [isConnected, setIsConnected] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ title: string; desc: string; type: 'success' | 'error' | 'info' } | null>(null);
   const queryClient = useQueryClient();
-  const lastAutoCheckRef = useRef<number>(0);
-  const isAutoSyncingRef = useRef<boolean>(false);
 
   useEffect(() => {
     const checkConnection = () => {
@@ -23,7 +21,6 @@ export function useConnectDrive() {
     checkConnection();
 
     window.addEventListener('finanas_drive_connected', checkConnection);
-    // Also listen to storage to catch deletions from GoogleDriveSyncCard
     window.addEventListener('storage', checkConnection);
     window.addEventListener('online', checkConnection);
     window.addEventListener('offline', checkConnection);
@@ -35,78 +32,6 @@ export function useConnectDrive() {
       window.removeEventListener('offline', checkConnection);
     };
   }, []);
-
-  // Auto-sync detector when working across devices or mobile
-  useEffect(() => {
-    const checkAndAutoSync = async () => {
-      const now = Date.now();
-      // Throttle auto-check to once every 10 seconds
-      if (now - lastAutoCheckRef.current < 10000 || isAutoSyncingRef.current) {
-        return;
-      }
-      
-      const token = getCachedDriveToken();
-      const infoRaw = localStorage.getItem('google_drive_spreadsheet_info');
-      const info = infoRaw ? JSON.parse(infoRaw) : null;
-
-      if (!token || !info?.id || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-        return;
-      }
-
-      lastAutoCheckRef.current = now;
-      isAutoSyncingRef.current = true;
-
-      try {
-        const remoteModTime = await getSpreadsheetModifiedTime(token, info.id);
-        const lastSyncedModTime = localStorage.getItem('google_drive_last_synced_modified_time');
-
-        if (remoteModTime && lastSyncedModTime && remoteModTime !== lastSyncedModTime) {
-          setIsRefreshing(true);
-          setToastMsg({ title: 'Sincronização Automática', desc: 'Novos dados detetados na Google Drive. A atualizar...', type: 'info' });
-
-          await importAllDataFromSheets(token, info.id, () => {});
-          queryClient.invalidateQueries();
-
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('finanas_prefs_updated'));
-            window.dispatchEvent(new Event('finanas_data_imported'));
-            window.dispatchEvent(new Event('storage'));
-          }
-
-          setToastMsg({ title: 'Aplicação Atualizada!', desc: 'Dados sincronizados automaticamente da Google Drive.', type: 'success' });
-          setTimeout(() => setToastMsg(null), 3000);
-        }
-      } catch (err) {
-        console.warn('Auto-sync check error:', err);
-      } finally {
-        isAutoSyncingRef.current = false;
-        setIsRefreshing(false);
-      }
-    };
-
-    const handleFocusOrVisibility = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        checkAndAutoSync();
-      }
-    };
-
-    // Listen to tab visibility change (e.g. switching back to tab or unlocking mobile)
-    document.addEventListener('visibilitychange', handleFocusOrVisibility);
-    window.addEventListener('focus', handleFocusOrVisibility);
-
-    // Periodic check every 60 seconds if tab is active
-    const intervalId = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        checkAndAutoSync();
-      }
-    }, 60000);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleFocusOrVisibility);
-      window.removeEventListener('focus', handleFocusOrVisibility);
-      clearInterval(intervalId);
-    };
-  }, [queryClient]);
 
   const handleConnectDrive = async () => {
     setIsConnecting(true);
@@ -129,7 +54,7 @@ export function useConnectDrive() {
         setToastMsg({ title: 'Drive Conectada!', desc: 'Nova folha criada com sucesso.', type: 'success' });
         setTimeout(() => setToastMsg(null), 3000);
       } else {
-        setToastMsg({ title: 'A importar dados...', desc: 'A sincronizar dados da Google Drive.', type: 'info' });
+        setToastMsg({ title: 'A importar dados...', desc: 'A descarregar dados da Google Drive.', type: 'info' });
         
         try {
           await importAllDataFromSheets(res.accessToken, info.id, () => {});
@@ -185,9 +110,12 @@ export function useConnectDrive() {
     }
   };
 
-  const handleSyncDriveData = async () => {
+  /**
+   * Directly exports / sends all current application data to Google Drive.
+   */
+  const handleExportDriveData = async () => {
     setIsRefreshing(true);
-    setToastMsg({ title: 'A ler dados...', desc: 'A importar dados atualizados da Google Drive.', type: 'info' });
+    setToastMsg({ title: 'A enviar dados...', desc: 'A enviar dados para a Google Drive.', type: 'info' });
 
     try {
       let token = getCachedDriveToken();
@@ -209,23 +137,16 @@ export function useConnectDrive() {
         }
       }
 
-      await importAllDataFromSheets(token, info.id, () => {});
-      queryClient.invalidateQueries();
+      await exportAllDataToSheets(token, info.id, () => {});
 
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('finanas_prefs_updated'));
-        window.dispatchEvent(new Event('finanas_data_imported'));
-        window.dispatchEvent(new Event('storage'));
-      }
-
-      setToastMsg({ title: 'Aplicação Atualizada!', desc: 'Dados lidos com sucesso da Google Drive.', type: 'success' });
+      setToastMsg({ title: 'Dados Enviados!', desc: 'Dados guardados na Google Drive com sucesso.', type: 'success' });
       setTimeout(() => setToastMsg(null), 3000);
     } catch (err: any) {
-      console.error('Erro ao atualizar dados da Drive:', err);
+      console.error('Erro ao enviar dados para a Drive:', err);
       if (err.message?.includes('expirada') || err.message?.includes('Token')) {
         setToastMsg({ title: 'Sessão Expirada', desc: 'Por favor, reconecte a sua conta Google Drive.', type: 'error' });
       } else {
-        setToastMsg({ title: 'Erro de Atualização', desc: err.message || 'Falha ao ler dados da Drive.', type: 'error' });
+        setToastMsg({ title: 'Erro de Envio', desc: err.message || 'Falha ao enviar dados para a Drive.', type: 'error' });
       }
       setTimeout(() => setToastMsg(null), 4000);
     } finally {
@@ -241,7 +162,8 @@ export function useConnectDrive() {
     handleConnectDrive, 
     handleDisconnectDrive, 
     toggleDriveConnection,
-    handleSyncDriveData,
+    handleSyncDriveData: handleExportDriveData,
+    handleExportDriveData,
     showDisconnectModal,
     confirmDisconnect,
     cancelDisconnect

@@ -354,42 +354,7 @@ export async function exportAllDataToSheets(
   onProgress?.('A verificar estrutura da folha...', 15);
   const activeSheetTitles = await ensureMissingSheetsExist(accessToken, spreadsheetId);
 
-  // 0. Pre-export Safe Merge: Fetch remote data first and merge with LocalStorage by ID
-  // to prevent overwriting edits/additions made on other devices!
-  try {
-    const remote = await fetchAndParseRemoteSheets(accessToken, spreadsheetId);
-    
-    // Build set of trashed item IDs to prevent resurrecting intentionally deleted items
-    const localTrash = getLocalData('finanas_trash_items');
-    const trashedIds = new Set<string>();
-    localTrash.forEach((t: any) => {
-      if (t?.data?.id) trashedIds.add(t.data.id);
-      if (t?.id) trashedIds.add(t.id);
-    });
-    remote.parsedTrash.forEach((t: any) => {
-      if (t?.data?.id) trashedIds.add(t.data.id);
-      if (t?.id) trashedIds.add(t.id);
-    });
-
-    mergeCollection('fin_expenses', remote.parsedExpenses, trashedIds);
-    mergeCollection('fin_incomes', remote.parsedIncomes, trashedIds);
-    mergeCollection('fin_incomes_fixed_realized', remote.parsedFixedIncomesRealized, trashedIds);
-    mergeCollection('fin_fixed_expenses', remote.parsedFixedExpenses, trashedIds);
-    mergeCollection('fin_fixed_incomes', remote.parsedFixedIncomes, trashedIds);
-    mergeCollection('fin_assets', remote.parsedAccounts.concat(remote.parsedPatrimonio), trashedIds);
-    mergeCollection('fin_patrimonio', remote.parsedPatrimonio, trashedIds);
-    mergeCollection('fin_vehicles', remote.parsedVehicles, trashedIds);
-    mergeCollection('fin_budgets', remote.parsedBudgets, trashedIds);
-    mergeCollection('fin_goals', remote.parsedGoals, trashedIds);
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('finanas_data_imported'));
-    }
-  } catch (err) {
-    console.warn('[SyncEngine] Aviso: Não foi possível obter dados remotos antes de exportar. Procedendo com dados locais:', err);
-  }
-
-  // 1. Gather Data using correct LocalStorage keys mapped to queries.ts
+  // 1. Gather Data directly from LocalStorage without pre-export merge
   let expenses = getLocalData('fin_expenses');
   let rawIncomesPunctual = getLocalData('fin_incomes');
   let rawIncomesFixedRealized = getLocalData('fin_incomes_fixed_realized');
@@ -1104,32 +1069,31 @@ export async function importAllDataFromSheets(
     throw new Error(errorText);
   }
 
-  onProgress?.('A processar e fundir dados no armazenamento local...', 60);
+  onProgress?.('A atualizar armazenamento local...', 60);
 
-  // Build trashed IDs set
-  const localTrash = getLocalData('finanas_trash_items');
-  const trashedIds = new Set<string>();
-  localTrash.forEach((t: any) => {
-    if (t?.data?.id) trashedIds.add(t.data.id);
-    if (t?.id) trashedIds.add(t.id);
-  });
-  remote.parsedTrash.forEach((t: any) => {
-    if (t?.data?.id) trashedIds.add(t.data.id);
-    if (t?.id) trashedIds.add(t.id);
-  });
-
-  const parsedExpenses = mergeCollection('fin_expenses', remote.parsedExpenses, trashedIds);
-  const parsedIncomes = mergeCollection('fin_incomes', remote.parsedIncomes, trashedIds);
-  const parsedFixedIncomesRealized = mergeCollection('fin_incomes_fixed_realized', remote.parsedFixedIncomesRealized, trashedIds);
-  const parsedFixedExpenses = mergeCollection('fin_fixed_expenses', remote.parsedFixedExpenses, trashedIds);
-  const parsedFixedIncomes = mergeCollection('fin_fixed_incomes', remote.parsedFixedIncomes, trashedIds);
-  const parsedAccounts = mergeCollection('fin_assets', remote.parsedAccounts.concat(remote.parsedPatrimonio), trashedIds);
-  const parsedPatrimonio = mergeCollection('fin_patrimonio', remote.parsedPatrimonio, trashedIds);
-  const parsedVehicles = mergeCollection('fin_vehicles', remote.parsedVehicles, trashedIds);
-  const parsedBudgets = mergeCollection('fin_budgets', remote.parsedBudgets, trashedIds);
-  const parsedGoals = mergeCollection('fin_goals', remote.parsedGoals, trashedIds);
-
+  // Set local storage directly from remote sheet without merging stale cache
+  setLocalData('fin_expenses', remote.parsedExpenses);
+  setLocalData('fin_incomes', remote.parsedIncomes);
+  setLocalData('fin_incomes_fixed_realized', remote.parsedFixedIncomesRealized);
+  setLocalData('fin_fixed_expenses', remote.parsedFixedExpenses);
+  setLocalData('fin_fixed_incomes', remote.parsedFixedIncomes);
+  setLocalData('fin_assets', remote.parsedAccounts.concat(remote.parsedPatrimonio));
+  setLocalData('fin_patrimonio', remote.parsedPatrimonio);
+  setLocalData('fin_vehicles', remote.parsedVehicles);
+  setLocalData('fin_budgets', remote.parsedBudgets);
+  setLocalData('fin_goals', remote.parsedGoals);
   setLocalData('finanas_trash_items', remote.parsedTrash);
+
+  const parsedExpenses = remote.parsedExpenses;
+  const parsedIncomes = remote.parsedIncomes;
+  const parsedFixedIncomesRealized = remote.parsedFixedIncomesRealized;
+  const parsedFixedExpenses = remote.parsedFixedExpenses;
+  const parsedFixedIncomes = remote.parsedFixedIncomes;
+  const parsedAccounts = remote.parsedAccounts;
+  const parsedPatrimonio = remote.parsedPatrimonio;
+  const parsedVehicles = remote.parsedVehicles;
+  const parsedBudgets = remote.parsedBudgets;
+  const parsedGoals = remote.parsedGoals;
 
   if (remote.userPrefs) {
     localStorage.setItem('finanas_user_prefs', JSON.stringify(remote.userPrefs));
@@ -1570,25 +1534,6 @@ export function initOfflineSyncListeners() {
       flushPendingSyncQueue().catch(() => {});
     }
   });
-
-  // Auto-pull from Google Sheets on app startup if auto-sync is enabled and no pending local changes
-  setTimeout(() => {
-    if (typeof navigator !== 'undefined' && navigator.onLine && isAutoSyncEnabled() && getPendingSyncQueueCount() === 0) {
-      const token = getCachedDriveToken();
-      const spreadsheetId = getStoredSpreadsheetId();
-      if (token && spreadsheetId) {
-        console.log('[SyncEngine] Arranque detetado: A sincronizar a versão mais recente da Google Drive (Auto-Pull)...');
-        importAllDataFromSheets(token, spreadsheetId, () => {}).then(() => {
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('finanas_prefs_updated'));
-            window.dispatchEvent(new Event('finanas_data_imported'));
-          }
-        }).catch(err => {
-          console.error('[SyncEngine] Erro no auto-pull no arranque:', err);
-        });
-      }
-    }
-  }, 2500); // Atraso curto para não bloquear a renderização inicial
 }
 
 /**

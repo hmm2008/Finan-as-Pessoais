@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Sun, Moon, Eye, EyeOff, Lock, Database, Loader2, Check, AlertCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Menu, Sun, Moon, Eye, EyeOff, Lock, Database, Loader2, Check, AlertCircle, AlertTriangle, UploadCloud } from 'lucide-react';
 import { NotificationDropdown } from './NotificationDropdown';
 import { useAuth, usePrivacy, usePin, usePreferences } from '../../contexts';
 import { Button } from '../ui/button';
@@ -50,9 +50,9 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
           size="icon"
           onClick={handleSyncDriveData}
           disabled={isRefreshing || isConnecting}
-          title="Atualizar / Ler dados da Google Drive"
+          title="Enviar dados para a Google Drive"
         >
-          <RefreshCw className={`h-5 w-5 text-muted-foreground hover:text-foreground transition-transform ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
+          <UploadCloud className={`h-5 w-5 text-muted-foreground hover:text-foreground transition-transform ${isRefreshing ? 'animate-bounce text-primary' : ''}`} />
         </Button>
 
         <Button 
