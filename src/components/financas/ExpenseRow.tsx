@@ -95,10 +95,42 @@ export function ExpenseRow({ expenses, onEdit, onDelete, selectedIds = [], onTog
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 shrink-0">
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                   <span className="font-bold text-destructive text-lg">
                     -{maskValue(expense.amount, formatter.format)}
                   </span>
+                  
+                  <div className="flex items-center gap-1">
+                    {onEdit && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
+                        title="Editar Despesa"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          onEdit(expense); 
+                        }}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                        title="Eliminar Despesa"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          onDelete(expense.id); 
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+
                   {expandedId === expense.id ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                 </div>
               </div>
@@ -114,14 +146,6 @@ export function ExpenseRow({ expenses, onEdit, onDelete, selectedIds = [], onTog
                     <span className="text-muted-foreground font-medium block mb-1">Notas</span>
                     <span className="italic">{expense.notes || 'Sem notas'}</span>
                   </div>
-                </div>
-                <div className="flex justify-end gap-2 mt-4">
-                  <Button variant="outline" size="sm" className="h-8" onClick={(e) => { e.stopPropagation(); onEdit?.(expense); }}>
-                    <Edit2 className="w-3 h-3 mr-2" /> Editar
-                  </Button>
-                  <Button variant="destructive" size="sm" className="h-8" onClick={(e) => { e.stopPropagation(); onDelete?.(expense.id); }}>
-                    <Trash2 className="w-3 h-3 mr-2" /> Eliminar
-                  </Button>
                 </div>
               </div>
             )}

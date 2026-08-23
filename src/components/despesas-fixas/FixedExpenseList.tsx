@@ -1,13 +1,10 @@
 import React from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { CheckCircle2, MoreHorizontal } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
-import { Switch } from '../ui/switch';
+import { CheckCircle2, Calendar, Edit2, Trash2, Power } from 'lucide-react';
 import { useFixedExpenses, useExpenses } from '../../hooks/queries';
 import { usePrivacy } from '../../contexts/PrivacyContext';
 import { RegisterSingleFixedModal } from '../financas/RegisterSingleFixedModal';
-import { Calendar } from 'lucide-react';
 
 interface FixedExpenseItem {
   id: string;
@@ -143,8 +140,8 @@ export function FixedExpenseList({
                       </p>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <div className="group relative hidden sm:flex">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="group relative">
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -152,7 +149,7 @@ export function FixedExpenseList({
                           className="h-8 gap-1.5 rounded-full border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-400 dark:hover:bg-indigo-950/50"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Registar</span>
+                          <span className="hidden sm:inline">Registar</span>
                           {uniqueRegisteredMonths.length > 0 && (
                             <span className="flex items-center justify-center w-4 h-4 ml-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold">
                               {uniqueRegisteredMonths.length}
@@ -176,22 +173,47 @@ export function FixedExpenseList({
                           </div>
                         )}
                       </div>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <div className="p-2 flex items-center justify-between border-b border-border mb-1">
-                            <span className="text-sm font-medium">Estado</span>
-                            <Switch checked={isActive} onCheckedChange={() => handleToggle(expense)} />
-                          </div>
-                          {onEdit && <DropdownMenuItem onClick={() => onEdit(expense)}>Editar Despesa</DropdownMenuItem>}
-                          {onDelete && <DropdownMenuItem onClick={() => onDelete(expense)} className="text-destructive focus:bg-destructive/10 focus:text-destructive">Eliminar</DropdownMenuItem>}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+
+                      {/* Editar */}
+                      {onEdit && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full"
+                          title="Editar Despesa Fixa"
+                          onClick={() => onEdit(expense)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      )}
+
+                      {/* Ativa / Inativa */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-8 w-8 rounded-full transition-colors ${
+                          isActive 
+                            ? 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10' 
+                            : 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted'
+                        }`}
+                        title={isActive ? "Ativa (clique para desativar)" : "Inativa (clique para ativar)"}
+                        onClick={() => handleToggle(expense)}
+                      >
+                        <Power className="w-4 h-4" />
+                      </Button>
+
+                      {/* Eliminar */}
+                      {onDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+                          title="Eliminar Despesa Fixa"
+                          onClick={() => onDelete(expense)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
