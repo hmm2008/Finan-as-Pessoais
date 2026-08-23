@@ -121,57 +121,6 @@ export default function FinancasView() {
     return dateStr.startsWith(current);
   };
 
-  // Convert fixed expenses from the database into standard expense view models for the selected period
-  const normalizedFixedExpenses = useMemo(() => {
-    return fixedExpenses.map((fe: any) => {
-      const rawDay = fe.dueDateDay ?? fe.dueDay ?? 1;
-      const day = String(Math.min(Math.max(Number(rawDay) || 1, 1), 31)).padStart(2, '0');
-      let expenseDate = fe.exactDate;
-      if (!expenseDate) {
-        expenseDate = `${year}-${String(month).padStart(2, '0')}-${day}`;
-      }
-
-      return {
-        id: fe.id,
-        date: expenseDate,
-        amount: Number(fe.amount) || 0,
-        category: fe.category || 'Habitação',
-        entity: fe.name || fe.description || fe.entity || 'Despesa Fixa',
-        method: fe.method || 'Débito Direto',
-        recurring: true,
-        vehicle: Boolean(fe.vehicle),
-        notes: fe.notes || (fe.frequency ? `Recorrência: ${fe.frequency}` : 'Despesa fixa registada'),
-        isFixedExpense: true,
-        originalFixedData: fe,
-      };
-    });
-  }, [fixedExpenses, year, month]);
-
-  // Convert fixed incomes from the database into standard income view models for the selected period
-  const normalizedFixedIncomes = useMemo(() => {
-    return (fixedIncomes || []).filter((fi: any) => fi.active !== false).map((fi: any) => {
-      const rawDay = fi.dueDateDay ?? fi.dueDay ?? 1;
-      const day = String(Math.min(Math.max(Number(rawDay) || 1, 1), 31)).padStart(2, '0');
-      let incomeDate = fi.exactDate;
-      if (!incomeDate) {
-        incomeDate = `${year}-${String(month).padStart(2, '0')}-${day}`;
-      }
-
-      return {
-        id: fi.id,
-        date: incomeDate,
-        amount: Number(fi.amount) || 0,
-        category: fi.category || 'Salário',
-        entity: fi.name || fi.description || fi.entity || 'Receita Fixa',
-        method: fi.method || 'Transferência Bancária',
-        recurring: true,
-        notes: fi.notes || (fi.frequency ? `Recorrência: ${fi.frequency}` : 'Receita fixa registada'),
-        isFixedIncome: true,
-        originalFixedData: fi,
-      };
-    });
-  }, [fixedIncomes, year, month]);
-
   // Helper to sort items from most recent date to oldest date
   const sortByDateDesc = (a: any, b: any) => {
     const dateStrA = String(a.date || a.createdAt || '');
@@ -197,7 +146,7 @@ export default function FinancasView() {
     return String(b.id || '').localeCompare(String(a.id || ''));
   };
 
-  // Despesas registadas from expenses database (sorted most recent to oldest)
+  // Despesas registadas pontuais from expenses database (sorted most recent to oldest)
   const filteredRegisteredExpenses = useMemo(() => {
     return expenses.filter((e: any) => {
       const matchPeriod = periodMatch(e.date);
@@ -205,71 +154,33 @@ export default function FinancasView() {
                           (e.category || '').toLowerCase().includes(search.toLowerCase()) ||
                           (e.notes || '').toLowerCase().includes(search.toLowerCase());
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? e.category === filterCategory : true;
+      const isPunctual = (!e.recurring || e.recurring === 'false' || e.recurring === 'Não') && !e.isFixed && !e.fixedExpenseId;
       
-      return matchPeriod && matchSearch && matchCategory;
+      return isPunctual && matchPeriod && matchSearch && matchCategory;
     }).sort(sortByDateDesc);
   }, [expenses, period, current, year, search, filterCategory]);
 
-  // Despesas fixas from fixedExpenses database + recurring (sorted most recent to oldest)
+  // Despesas fixas registadas pelo utilizador para o período
   const filteredFixedExpenses = useMemo(() => {
-    const recurringFromExpenses = expenses.filter((e: any) => 
-      e.recurring === true || e.recurring === 'true' || e.recurring === 'Sim' || e.isFixed === true
-    );
-
-    const combined = [...normalizedFixedExpenses];
-    recurringFromExpenses.forEach((re: any) => {
-      if (!combined.some(c => c.id === re.id)) {
-        combined.push(re);
-      }
-    });
-
-    return combined.filter((e: any) => {
+    return expenses.filter((e: any) => {
+      const isFixed = e.recurring === true || e.recurring === 'true' || e.recurring === 'Sim' || e.isFixed === true || !!e.fixedExpenseId;
       const matchPeriod = periodMatch(e.date);
       const matchSearch = (e.entity || '').toLowerCase().includes(search.toLowerCase()) || 
                           (e.category || '').toLowerCase().includes(search.toLowerCase()) ||
                           (e.notes || '').toLowerCase().includes(search.toLowerCase());
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? e.category === filterCategory : true;
       
-      return matchPeriod && matchSearch && matchCategory;
+      return isFixed && matchPeriod && matchSearch && matchCategory;
     }).sort(sortByDateDesc);
-  }, [normalizedFixedExpenses, expenses, period, current, year, search, filterCategory]);
+  }, [expenses, period, current, year, search, filterCategory]);
 
   const DEFAULT_EXPENSE_CATS = ['Alimentação', 'Habitação', 'Transportes', 'Combustível', 'Saúde', 'Lazer'];
   const DEFAULT_FIXED_EXPENSE_CATS = ['Habitação', 'Saúde', 'Transportes', 'Educação', 'Seguros', 'Subscrições', 'Telecomunicações', 'Impostos', 'Outros'];
   const DEFAULT_INCOME_CATS = ['Salário', 'Rendimentos Prediais', 'Reembolso', 'Prémio/Bónus'];
 
-  // Receitas combining registered incomes and normalized fixed incomes (sorted most recent to oldest)
+  // Receitas registadas pelo utilizador para o período (sorted most recent to oldest)
   const filteredIncomes = useMemo(() => {
-    const recurringFromIncomes = incomes.filter((i: any) => 
-      i.recurring === true || i.recurring === 'true' || i.recurring === 'Sim' || i.isFixed === true
-    );
-
-    const punctualIncomes = incomes.filter((i: any) => 
-      (!i.recurring || i.recurring === 'false' || i.recurring === 'Não') && !i.isFixed && !i.fixedIncomeId
-    );
-
-    const combined: any[] = [...normalizedFixedIncomes];
-    punctualIncomes.forEach((pi: any) => {
-      if (!combined.some(c => c.id === pi.id)) {
-        combined.push({
-          ...pi,
-          isFixedIncome: false,
-          recurring: false
-        });
-      }
-    });
-
-    recurringFromIncomes.forEach((ri: any) => {
-      if (!combined.some(c => c.id === ri.id)) {
-        combined.push({
-          ...ri,
-          isFixedIncome: true,
-          recurring: true
-        });
-      }
-    });
-
-    return combined.filter((i: any) => {
+    return incomes.filter((i: any) => {
       const matchPeriod = periodMatch(i.date);
       const matchSearch = (i.entity || '').toLowerCase().includes(search.toLowerCase()) || 
                           (i.category || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -278,7 +189,7 @@ export default function FinancasView() {
       
       return matchPeriod && matchSearch && matchCategory;
     }).sort(sortByDateDesc);
-  }, [normalizedFixedIncomes, incomes, period, current, year, search, filterCategory]);
+  }, [incomes, period, current, year, search, filterCategory]);
 
   // Selection helpers for bulk actions
   const toggleSelectExpense = (id: string) => {
@@ -335,40 +246,14 @@ export default function FinancasView() {
     }
   };
 
-  // Summary calculations - correctly separating Receitas Fixas and Receitas Pontuais
+  // Summary calculations - calculated strictly from registered incomes and expenses in the selected period
   const summary = useMemo(() => {
-    // 1. Receitas Fixas: calculated from active fixedIncomes (frequency-adjusted) + recurring period incomes
-    let receitasFixas = 0;
-    if (period === 'Anual') {
-      receitasFixas = (fixedIncomes || [])
-        .filter((fi: any) => fi.active !== false)
-        .reduce((acc: number, val: any) => {
-          const amt = Number(val.amount) || 0;
-          const freq = (val.frequency || '').toLowerCase();
-          if (freq.includes('anual')) return acc + amt;
-          if (freq.includes('trimestr')) return acc + amt * 4;
-          if (freq.includes('semestr')) return acc + amt * 2;
-          return acc + amt * 12;
-        }, 0);
-    } else {
-      receitasFixas = (fixedIncomes || [])
-        .filter((fi: any) => fi.active !== false)
-        .reduce((acc: number, val: any) => {
-          const amt = Number(val.amount) || 0;
-          const freq = (val.frequency || '').toLowerCase();
-          if (freq.includes('anual')) return acc + (amt / 12);
-          if (freq.includes('trimestr')) return acc + (amt / 3);
-          if (freq.includes('semestr')) return acc + (amt / 6);
-          return acc + amt;
-        }, 0);
-    }
-
     const periodIncomes = incomes.filter((i: any) => periodMatch(i.date));
-    const recurringIncomesFromPeriod = periodIncomes
-      .filter((i: any) => (i.recurring === true || i.recurring === 'true' || i.recurring === 'Sim' || i.isFixed === true) && !(fixedIncomes || []).some((fi: any) => fi.id === i.id || fi.id === i.fixedIncomeId))
+    
+    // 1. Receitas Fixas: Registered recurring/fixed incomes in the period
+    const receitasFixas = periodIncomes
+      .filter((i: any) => i.recurring === true || i.recurring === 'true' || i.recurring === 'Sim' || i.isFixed === true || !!i.fixedIncomeId)
       .reduce((acc: number, val: any) => acc + (Number(val.amount) || 0), 0);
-
-    receitasFixas += recurringIncomesFromPeriod;
 
     // 2. Receitas Pontuais: Strictly punctual / non-recurring period incomes
     const receitasPontuais = periodIncomes
@@ -377,46 +262,19 @@ export default function FinancasView() {
 
     const totalReceitas = receitasFixas + receitasPontuais;
 
-    // 3. Despesas registadas from the database for the period (pontuais)
+    // 3. Despesas Pontuais: Strictly punctual period expenses
     const periodExpenses = expenses.filter((e: any) => periodMatch(e.date));
     const despesasPontuais = periodExpenses
       .filter((e: any) => (!e.recurring || e.recurring === 'false' || e.recurring === 'Não') && !e.isFixed && !e.fixedExpenseId)
       .reduce((acc: number, val: any) => acc + (Number(val.amount) || 0), 0);
 
-    // 4. Despesas fixas from the database (frequency-adjusted) + recurring period expenses
-    let despesasFixas = 0;
-    if (period === 'Anual') {
-      despesasFixas = (fixedExpenses || [])
-        .filter((fe: any) => fe.active !== false)
-        .reduce((acc: number, val: any) => {
-          const amt = Number(val.amount) || 0;
-          const freq = (val.frequency || '').toLowerCase();
-          if (freq.includes('anual')) return acc + amt;
-          if (freq.includes('trimestr')) return acc + amt * 4;
-          if (freq.includes('semestr')) return acc + amt * 2;
-          return acc + amt * 12;
-        }, 0);
-    } else {
-      despesasFixas = (fixedExpenses || [])
-        .filter((fe: any) => fe.active !== false)
-        .reduce((acc: number, val: any) => {
-          const amt = Number(val.amount) || 0;
-          const freq = (val.frequency || '').toLowerCase();
-          if (freq.includes('anual')) return acc + (amt / 12);
-          if (freq.includes('trimestr')) return acc + (amt / 3);
-          if (freq.includes('semestr')) return acc + (amt / 6);
-          return acc + amt;
-        }, 0);
-    }
-
-    const recurringExpensesFromPeriod = periodExpenses
-      .filter((e: any) => (e.recurring === true || e.recurring === 'true' || e.recurring === 'Sim' || e.isFixed === true) && !(fixedExpenses || []).some((fe: any) => fe.id === e.id || fe.id === e.fixedExpenseId))
+    // 4. Despesas Fixas: Registered recurring/fixed period expenses
+    const despesasFixas = periodExpenses
+      .filter((e: any) => e.recurring === true || e.recurring === 'true' || e.recurring === 'Sim' || e.isFixed === true || !!e.fixedExpenseId)
       .reduce((acc: number, val: any) => acc + (Number(val.amount) || 0), 0);
 
-    despesasFixas += recurringExpensesFromPeriod;
-
     const totalDespesas = despesasPontuais + despesasFixas;
-    const despesasRegistadas = totalDespesas; // Total despesas inclui despesas registadas + despesas fixas
+    const despesasRegistadas = totalDespesas;
     const saldo = totalReceitas - totalDespesas;
 
     return {
@@ -429,7 +287,7 @@ export default function FinancasView() {
       totalDespesas,
       saldo
     };
-  }, [incomes, fixedIncomes, expenses, fixedExpenses, period, current, year, month]);
+  }, [incomes, expenses, period, current, year, month]);
 
   // Categories defined and available strictly in function of the selected tab
   const availableCategories = useMemo(() => {
