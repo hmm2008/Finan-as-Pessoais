@@ -31,13 +31,16 @@ interface ExpenseItem {
   id?: string;
   date: string;
   description: string;
+  name?: string;
   amount: number;
   category: string;
   entity?: string;
   account?: string;
+  method?: string;
   paymentMethod?: string;
   isFixed?: boolean;
   notes?: string;
+  recurring?: boolean;
 }
 
 interface DespesasRegistadasModalProps {
@@ -116,8 +119,11 @@ export function DespesasRegistadasModal({
       const q = searchQuery.toLowerCase();
       result = result.filter(e => 
         (e.description && e.description.toLowerCase().includes(q)) ||
+        (e.name && e.name.toLowerCase().includes(q)) ||
         (e.entity && e.entity.toLowerCase().includes(q)) ||
         (e.category && e.category.toLowerCase().includes(q)) ||
+        (e.method && e.method.toLowerCase().includes(q)) ||
+        (e.paymentMethod && e.paymentMethod.toLowerCase().includes(q)) ||
         (e.notes && e.notes.toLowerCase().includes(q))
       );
     }

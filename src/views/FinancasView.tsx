@@ -150,9 +150,15 @@ export default function FinancasView() {
   const filteredRegisteredExpenses = useMemo(() => {
     return expenses.filter((e: any) => {
       const matchPeriod = periodMatch(e.date);
-      const matchSearch = (e.entity || '').toLowerCase().includes(search.toLowerCase()) || 
-                          (e.category || '').toLowerCase().includes(search.toLowerCase()) ||
-                          (e.notes || '').toLowerCase().includes(search.toLowerCase());
+      const q = search.toLowerCase();
+      const matchSearch = !q || 
+                          (e.description || '').toLowerCase().includes(q) ||
+                          (e.name || '').toLowerCase().includes(q) ||
+                          (e.entity || '').toLowerCase().includes(q) || 
+                          (e.category || '').toLowerCase().includes(q) ||
+                          (e.method || '').toLowerCase().includes(q) ||
+                          (e.paymentMethod || '').toLowerCase().includes(q) ||
+                          (e.notes || '').toLowerCase().includes(q);
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? e.category === filterCategory : true;
       const isPunctual = (!e.recurring || e.recurring === 'false' || e.recurring === 'Não') && !e.isFixed && !e.fixedExpenseId;
       
@@ -165,9 +171,15 @@ export default function FinancasView() {
     return expenses.filter((e: any) => {
       const isFixed = e.recurring === true || e.recurring === 'true' || e.recurring === 'Sim' || e.isFixed === true || !!e.fixedExpenseId;
       const matchPeriod = periodMatch(e.date);
-      const matchSearch = (e.entity || '').toLowerCase().includes(search.toLowerCase()) || 
-                          (e.category || '').toLowerCase().includes(search.toLowerCase()) ||
-                          (e.notes || '').toLowerCase().includes(search.toLowerCase());
+      const q = search.toLowerCase();
+      const matchSearch = !q || 
+                          (e.description || '').toLowerCase().includes(q) ||
+                          (e.name || '').toLowerCase().includes(q) ||
+                          (e.entity || '').toLowerCase().includes(q) || 
+                          (e.category || '').toLowerCase().includes(q) ||
+                          (e.method || '').toLowerCase().includes(q) ||
+                          (e.paymentMethod || '').toLowerCase().includes(q) ||
+                          (e.notes || '').toLowerCase().includes(q);
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? e.category === filterCategory : true;
       
       return isFixed && matchPeriod && matchSearch && matchCategory;
@@ -182,9 +194,15 @@ export default function FinancasView() {
   const filteredIncomes = useMemo(() => {
     return incomes.filter((i: any) => {
       const matchPeriod = periodMatch(i.date);
-      const matchSearch = (i.entity || '').toLowerCase().includes(search.toLowerCase()) || 
-                          (i.category || '').toLowerCase().includes(search.toLowerCase()) ||
-                          (i.notes || '').toLowerCase().includes(search.toLowerCase());
+      const q = search.toLowerCase();
+      const matchSearch = !q || 
+                          (i.description || '').toLowerCase().includes(q) ||
+                          (i.name || '').toLowerCase().includes(q) ||
+                          (i.entity || '').toLowerCase().includes(q) || 
+                          (i.category || '').toLowerCase().includes(q) ||
+                          (i.method || '').toLowerCase().includes(q) ||
+                          (i.paymentMethod || '').toLowerCase().includes(q) ||
+                          (i.notes || '').toLowerCase().includes(q);
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? i.category === filterCategory : true;
       
       return matchPeriod && matchSearch && matchCategory;
@@ -560,7 +578,7 @@ export default function FinancasView() {
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input 
-                  placeholder="Pesquisar por descrição, entidade ou categoria..." 
+                  placeholder="Pesquisar por descrição, entidade, categoria ou método de pagamento..." 
                   className="pl-8 h-8 text-xs bg-background shadow-none rounded-lg border-border"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
