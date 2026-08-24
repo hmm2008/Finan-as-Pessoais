@@ -19,6 +19,7 @@ import {
 import { Plus, Car, Calendar, Wrench, Fuel, Trash2, Edit, Calculator, Receipt, Gauge } from 'lucide-react';
 import { usePrivacy } from '../contexts';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
+import { scheduleSheetsBackgroundSync } from '../lib/googleSheetsDataService';
 
 const INITIAL_VEHICLES: Vehicle[] = [];
 const INITIAL_TASKS: VehicleTask[] = [];
@@ -97,6 +98,7 @@ export default function ViaturasView() {
   React.useEffect(() => {
     try {
       localStorage.setItem('fin_vehicles', JSON.stringify(vehicles));
+      scheduleSheetsBackgroundSync();
     } catch (e) {
       console.error('Erro ao guardar veículos:', e);
     }
@@ -105,6 +107,7 @@ export default function ViaturasView() {
   React.useEffect(() => {
     try {
       localStorage.setItem('fin_vehicle_tasks', JSON.stringify(tasks));
+      scheduleSheetsBackgroundSync();
     } catch (e) {
       console.error('Erro ao guardar tarefas:', e);
     }
@@ -113,6 +116,7 @@ export default function ViaturasView() {
   React.useEffect(() => {
     try {
       localStorage.setItem('fin_vehicle_fuel', JSON.stringify(fuelEntries));
+      scheduleSheetsBackgroundSync();
     } catch (e) {
       console.error('Erro ao guardar abastecimentos:', e);
     }

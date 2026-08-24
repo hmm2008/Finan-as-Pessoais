@@ -127,6 +127,8 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
         { properties: { title: 'Contas' } },
         { properties: { title: 'Patrimonio' } },
         { properties: { title: 'Veiculos' } },
+        { properties: { title: 'Veiculos_Abastecimentos' } },
+        { properties: { title: 'Veiculos_Tarefas' } },
         { properties: { title: 'Orcamentos' } },
         { properties: { title: 'Metas' } },
         { properties: { title: 'Reciclagem' } }
@@ -167,6 +169,8 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
           { range: 'Contas!A1:F1', values: [["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"]] },
           { range: 'Patrimonio!A1:E1', values: [["ID", "Nome", "Categoria", "Valor (€)", "Notas"]] },
           { range: 'Veiculos!A1:E1', values: [["ID", "Marca", "Modelo", "Matrícula", "Ano"]] },
+          { range: 'Veiculos_Abastecimentos!A1:I1', values: [["ID", "ID Viatura", "Data", "Litros", "Valor Total (€)", "Preço/L (€)", "Quilometragem (km)", "Posto / Local", "Notas"]] },
+          { range: 'Veiculos_Tarefas!A1:M1', values: [["ID", "ID Viatura", "Título", "Tipo", "Custo (€)", "Estado", "Data Limite", "Data Conclusão", "Periodicidade", "Próx. Data Vencimento", "Próx. Custo (€)", "Documento", "Notas"]] },
           { range: 'Orcamentos!A1:D1', values: [["ID", "Categoria", "Limite (€)", "Mês"]] },
           { range: 'Metas!A1:E1', values: [["ID", "Nome", "Valor Alvo (€)", "Valor Atual (€)", "Data Limite"]] },
           { range: 'Reciclagem!A1:D1', values: [["ID", "Tipo", "Dados JSON", "Data Eliminação"]] }

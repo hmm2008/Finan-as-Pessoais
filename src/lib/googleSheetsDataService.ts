@@ -249,6 +249,8 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     'Contas',
     'Patrimonio',
     'Veiculos',
+    'Veiculos_Abastecimentos',
+    'Veiculos_Tarefas',
     'Orcamentos',
     'Metas',
     'Reciclagem',
@@ -297,6 +299,8 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
         'Contas': ["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"],
         'Patrimonio': ["ID", "Nome", "Categoria", "Valor (€)", "Notas"],
         'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
+        'Veiculos_Abastecimentos': ["ID", "ID Viatura", "Data", "Litros", "Valor Total (€)", "Preço/L (€)", "Quilometragem (km)", "Posto / Local", "Notas"],
+        'Veiculos_Tarefas': ["ID", "ID Viatura", "Título", "Tipo", "Custo (€)", "Estado", "Data Limite", "Data Conclusão", "Periodicidade", "Próx. Data Vencimento", "Próx. Custo (€)", "Documento", "Notas"],
         'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês"],
         'Metas': ["ID", "Nome", "Valor Alvo (€)", "Valor Atual (€)", "Data Limite"],
         'Reciclagem': ["ID", "Tipo", "Dados JSON", "Data Eliminação"],
@@ -374,6 +378,8 @@ export async function exportAllDataToSheets(
   let accounts = getLocalData('fin_assets'); // Accounts view uses fin_assets
   let patrimonio = getLocalData('fin_patrimonio'); // Patrimonio uses fin_patrimonio
   let vehicles = getLocalData('fin_vehicles');
+  let vehicleFuel = getLocalData('fin_vehicle_fuel');
+  let vehicleTasks = getLocalData('fin_vehicle_tasks');
   let budgets = getLocalData('fin_budgets');
   let goals = getLocalData('fin_goals');
   let trash = getLocalData('fin_trash');
@@ -499,6 +505,40 @@ export async function exportAllDataToSheets(
     ])
   ];
 
+  const vehFuelRows = [
+    ["ID", "ID Viatura", "Data", "Litros", "Valor Total (€)", "Preço/L (€)", "Quilometragem (km)", "Posto / Local", "Notas"],
+    ...vehicleFuel.map((f: any) => [
+      f.id || '',
+      f.vehicleId || '',
+      f.date || '',
+      Number(f.liters || 0),
+      Number(f.totalCost || 0),
+      Number(f.pricePerLiter || 0),
+      Number(f.odometer || 0),
+      f.station || '',
+      f.notes || ''
+    ])
+  ];
+
+  const vehTaskRows = [
+    ["ID", "ID Viatura", "Título", "Tipo", "Custo (€)", "Estado", "Data Limite", "Data Conclusão", "Periodicidade", "Próx. Data Vencimento", "Próx. Custo (€)", "Documento", "Notas"],
+    ...vehicleTasks.map((t: any) => [
+      t.id || '',
+      t.vehicleId || '',
+      t.title || '',
+      t.taskType || '',
+      Number(t.cost || 0),
+      t.status || 'pendente',
+      t.dueDate || '',
+      t.completedDate || '',
+      t.recurrenceInterval || (t.recurring ? '12_months' : 'none'),
+      t.nextDueDate || '',
+      Number(t.nextCost || 0),
+      t.documentName || '',
+      t.notes || ''
+    ])
+  ];
+
   const budRows = [
     ["ID", "Categoria", "Limite (€)", "Mês"],
     ...budgets.map((b: any) => [
@@ -583,6 +623,8 @@ export async function exportAllDataToSheets(
       'Contas',
       'Patrimonio',
       'Veiculos',
+      'Veiculos_Abastecimentos',
+      'Veiculos_Tarefas',
       'Orcamentos',
       'Metas',
       'Reciclagem',
@@ -631,6 +673,8 @@ export async function exportAllDataToSheets(
   if (activeSheetTitles.includes('Contas') && accRows.length > 0) dataPayload.push({ range: 'Contas!A1:F' + accRows.length, values: accRows });
   if (activeSheetTitles.includes('Patrimonio') && patRows.length > 0) dataPayload.push({ range: 'Patrimonio!A1:E' + patRows.length, values: patRows });
   if (activeSheetTitles.includes('Veiculos') && vehRows.length > 0) dataPayload.push({ range: 'Veiculos!A1:E' + vehRows.length, values: vehRows });
+  if (activeSheetTitles.includes('Veiculos_Abastecimentos') && vehFuelRows.length > 0) dataPayload.push({ range: 'Veiculos_Abastecimentos!A1:I' + vehFuelRows.length, values: vehFuelRows });
+  if (activeSheetTitles.includes('Veiculos_Tarefas') && vehTaskRows.length > 0) dataPayload.push({ range: 'Veiculos_Tarefas!A1:M' + vehTaskRows.length, values: vehTaskRows });
   if (activeSheetTitles.includes('Orcamentos') && budRows.length > 0) dataPayload.push({ range: 'Orcamentos!A1:D' + budRows.length, values: budRows });
   if (activeSheetTitles.includes('Metas') && goalRows.length > 0) dataPayload.push({ range: 'Metas!A1:E' + goalRows.length, values: goalRows });
   if (activeSheetTitles.includes('Reciclagem') && trashRows.length > 0) dataPayload.push({ range: 'Reciclagem!A1:D' + trashRows.length, values: trashRows });
@@ -807,6 +851,8 @@ export async function fetchAndParseRemoteSheets(
     'Contas!A1:F1000',
     'Patrimonio!A1:E1000',
     'Veiculos!A1:E1000',
+    'Veiculos_Abastecimentos!A1:I5000',
+    'Veiculos_Tarefas!A1:M5000',
     'Orcamentos!A1:D1000',
     'Metas!A1:E1000',
     'Reciclagem!A1:D1000',
@@ -942,8 +988,41 @@ export async function fetchAndParseRemoteSheets(
     year: row[4] || ''
   }));
 
+  // Parse Vehicle Fuel
+  const vehFuelRowsData = getRows(8);
+  const parsedVehicleFuel = vehFuelRowsData.map((row: any[], i: number) => ({
+    id: row[0] || `fuel_${i}`,
+    vehicleId: row[1] || '',
+    date: row[2] || new Date().toISOString().slice(0, 10),
+    liters: parseNum(row[3]),
+    totalCost: parseNum(row[4]),
+    pricePerLiter: parseNum(row[5]),
+    odometer: parseNum(row[6]),
+    station: row[7] || '',
+    notes: row[8] || ''
+  })).filter((f: any) => f.vehicleId || f.totalCost > 0 || f.liters > 0);
+
+  // Parse Vehicle Tasks
+  const vehTaskRowsData = getRows(9);
+  const parsedVehicleTasks = vehTaskRowsData.map((row: any[], i: number) => ({
+    id: row[0] || `task_${i}`,
+    vehicleId: row[1] || '',
+    title: row[2] || '',
+    taskType: row[3] || 'Manutenção',
+    cost: parseNum(row[4]),
+    status: row[5] || 'pendente',
+    dueDate: row[6] || new Date().toISOString().slice(0, 10),
+    completedDate: row[7] || undefined,
+    recurrenceInterval: row[8] || 'none',
+    recurring: row[8] ? row[8] !== 'none' : false,
+    nextDueDate: row[9] || undefined,
+    nextCost: parseNum(row[10]) || undefined,
+    documentName: row[11] || undefined,
+    notes: row[12] || ''
+  })).filter((t: any) => t.vehicleId || t.title);
+
   // Parse Budgets
-  const budRows = getRows(8);
+  const budRows = getRows(10);
   const parsedBudgets = budRows.map((row: any[], i: number) => ({
     id: row[0] || `bud_${i}`,
     category: row[1] || '',
@@ -952,7 +1031,7 @@ export async function fetchAndParseRemoteSheets(
   }));
 
   // Parse Goals
-  const goalRows = getRows(9);
+  const goalRows = getRows(11);
   const parsedGoals = goalRows.map((row: any[], i: number) => ({
     id: row[0] || `goal_${i}`,
     title: row[1] || '',
@@ -962,7 +1041,7 @@ export async function fetchAndParseRemoteSheets(
   }));
 
   // Parse Trash
-  const trashRowsData = getRows(10);
+  const trashRowsData = getRows(12);
   const parsedTrash = trashRowsData.map((row: any[], i: number) => {
     let dataObj = {};
     try { dataObj = JSON.parse(row[2]); } catch (e) {}
@@ -976,7 +1055,7 @@ export async function fetchAndParseRemoteSheets(
   }).filter((t: any) => t.type);
 
   // Parse Preferences
-  const prefsRowsData = getRows(11);
+  const prefsRowsData = getRows(13);
   let userPrefs: any = null;
   if (prefsRowsData.length > 0 && prefsRowsData[0][1]) {
     try {
@@ -987,7 +1066,7 @@ export async function fetchAndParseRemoteSheets(
   }
 
   // Parse Categorization Rules
-  const catRulesRowsData = getRows(12);
+  const catRulesRowsData = getRows(14);
   const parsedCatRules = catRulesRowsData.map((row: any[], i: number) => ({
     id: row[0] || `rule_${i}`,
     keyword: row[1] || '',
@@ -997,7 +1076,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((r: any) => r.keyword);
 
   // Parse Notifications
-  const notifRowsData = getRows(13);
+  const notifRowsData = getRows(15);
   const parsedNotifs = notifRowsData.map((row: any[], i: number) => ({
     id: row[0] || `notif_${i}`,
     title: row[1] || '',
@@ -1008,7 +1087,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((n: any) => n.title);
 
   // Parse Archives
-  const archiveRowsData = getRows(14);
+  const archiveRowsData = getRows(16);
   const parsedArchives = archiveRowsData.map((row: any[], i: number) => {
     let dataObj = {};
     try { dataObj = JSON.parse(row[3]); } catch (e) {}
@@ -1030,6 +1109,8 @@ export async function fetchAndParseRemoteSheets(
     parsedAccounts,
     parsedPatrimonio,
     parsedVehicles,
+    parsedVehicleFuel,
+    parsedVehicleTasks,
     parsedBudgets,
     parsedGoals,
     parsedTrash,
@@ -1080,6 +1161,8 @@ export async function importAllDataFromSheets(
   setLocalData('fin_assets', remote.parsedAccounts.concat(remote.parsedPatrimonio));
   setLocalData('fin_patrimonio', remote.parsedPatrimonio);
   setLocalData('fin_vehicles', remote.parsedVehicles);
+  setLocalData('fin_vehicle_fuel', remote.parsedVehicleFuel);
+  setLocalData('fin_vehicle_tasks', remote.parsedVehicleTasks);
   setLocalData('fin_budgets', remote.parsedBudgets);
   setLocalData('fin_goals', remote.parsedGoals);
   setLocalData('finanas_trash_items', remote.parsedTrash);
@@ -1136,6 +1219,10 @@ export async function importAllDataFromSheets(
       localStorage.setItem('google_drive_last_synced_modified_time', modTime);
     }
   }).catch(() => {});
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('storage'));
+  }
 
   notifySyncStatus('synced', 'Dados importados com sucesso do Google Sheets');
   
