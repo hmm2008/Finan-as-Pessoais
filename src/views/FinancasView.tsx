@@ -160,9 +160,9 @@ export default function FinancasView() {
                           (e.paymentMethod || '').toLowerCase().includes(q) ||
                           (e.notes || '').toLowerCase().includes(q);
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? e.category === filterCategory : true;
-      const isPunctual = (!e.recurring || e.recurring === 'false' || e.recurring === 'Não') && !e.isFixed && !e.fixedExpenseId;
+      const isPunctual = true; // Include all expenses, including fixed ones
       
-      return isPunctual && matchPeriod && matchSearch && matchCategory;
+      return matchPeriod && matchSearch && matchCategory;
     }).sort(sortByDateDesc);
   }, [expenses, period, current, year, search, filterCategory]);
 
