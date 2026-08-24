@@ -72,9 +72,9 @@ export function FixedExpenseList({
           </p>
         </div>
 
-        <Card className="rounded-2xl border-border bg-card shadow-sm overflow-hidden">
+        <Card className="rounded-2xl border-border bg-card shadow-sm overflow-visible">
           <div className="divide-y divide-border">
-            {items.map(expense => {
+            {items.map((expense, index) => {
               const isActive = expense.active !== false;
               const itemName = expense.name || expense.description || 'Despesa Fixa';
               const firstLetter = itemName.charAt(0).toUpperCase();
@@ -99,7 +99,7 @@ export function FixedExpenseList({
                 expense.method
               ].filter(Boolean).join(' · ');
 
-                  const registeredMonths = allExpenses
+              const registeredMonths = allExpenses
                 .filter(e => e.fixedExpenseId === expense.id)
                 .map(e => {
                   const date = new Date(e.date);
@@ -111,8 +111,13 @@ export function FixedExpenseList({
                 });
               const uniqueRegisteredMonths = Array.from(new Set(registeredMonths));
 
+              const isNearBottom = items.length > 1 && index >= items.length - 2;
+              const popoverPosClass = isNearBottom 
+                ? "bottom-full mb-2 right-0" 
+                : "top-full mt-2 right-0";
+
               return (
-                <div key={expense.id} className={`p-4 flex items-center justify-between gap-4 transition-colors hover:bg-secondary/20 ${!isActive ? 'opacity-50 grayscale-[0.4]' : ''}`}>
+                <div key={expense.id} className={`p-4 flex items-center justify-between gap-4 transition-colors hover:bg-secondary/20 first:rounded-t-2xl last:rounded-b-2xl ${!isActive ? 'opacity-50 grayscale-[0.4]' : ''}`}>
                   <div className="flex items-center gap-4 min-w-0">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${colorClass}`}>
                       {firstLetter}
@@ -158,14 +163,14 @@ export function FixedExpenseList({
                         </Button>
                         
                         {uniqueRegisteredMonths.length > 0 && (
-                          <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all absolute top-full right-0 mt-2 z-50 bg-white dark:bg-slate-900 shadow-xl rounded-xl border border-border p-3 w-48 text-left">
+                          <div className={`pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all absolute ${popoverPosClass} z-[100] bg-white dark:bg-slate-900 shadow-2xl rounded-xl border border-border p-3 w-52 text-left`}>
                             <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase mb-2">
-                              <Calendar className="w-3.5 h-3.5" /> MESES REGISTADOS
+                              <Calendar className="w-3.5 h-3.5 text-indigo-500" /> MESES REGISTADOS ({uniqueRegisteredMonths.length})
                             </div>
                             <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1">
                               {uniqueRegisteredMonths.map((m, idx) => (
-                                <div key={idx} className="flex items-center gap-1.5 text-sm text-foreground">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                <div key={idx} className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                                   {m}
                                 </div>
                               ))}
