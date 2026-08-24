@@ -1,20 +1,34 @@
 import React, { useState } from 'react';
-import { useAuth, usePin } from '../contexts';
+import { useAuth, usePin, usePreferences } from '../contexts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Shield, TrendingUp, Target, Car, Lock, Copy, Check, HardDrive, KeyRound, Delete, AlertCircle } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Shield, TrendingUp, Target, Car, Lock, Copy, Check, HardDrive, KeyRound, Delete, AlertCircle, Mail, Send, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 export default function WelcomeView() {
   const { login, loginAsLocalUser, isLoadingAuth, authError } = useAuth();
   const { hasPin, verifyPin, unlock, setPin } = usePin();
+  const { requestPinReset, resetPin } = usePreferences();
 
   const [copied, setCopied] = useState(false);
   const [showPinInput, setShowPinInput] = useState(false);
+  
+  // PIN keypad states
   const [pinCode, setPinCode] = useState('');
   const [firstPinAttempt, setFirstPinAttempt] = useState('');
   const [isCreatingPin, setIsCreatingPin] = useState(false);
   const [pinStep, setPinStep] = useState<'input' | 'confirm'>('input');
   const [pinError, setPinError] = useState<string | null>(null);
+
+  // Email Verification Option 2 States
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [email, setEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [verificationStep, setVerificationStep] = useState<'email' | 'code'>('email');
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isResettingPin, setIsResettingPin] = useState(false);
+  const [emailMessage, setEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
 
@@ -28,11 +42,59 @@ export default function WelcomeView() {
 
   const startPinMode = (createMode = false) => {
     setShowPinInput(true);
+    setShowEmailVerification(false);
     setPinCode('');
     setFirstPinAttempt('');
     setPinError(null);
     setIsCreatingPin(!hasPin || createMode);
     setPinStep('input');
+  };
+
+  const handleSendVerificationCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !email.includes('@')) {
+      setEmailMessage({ type: 'error', text: 'Por favor introduza um endereço de e-mail válido.' });
+      return;
+    }
+
+    setIsSendingCode(true);
+    setEmailMessage(null);
+
+    const result = await requestPinReset(email);
+    setIsSendingCode(false);
+
+    if (result.success) {
+      setEmailMessage({ type: 'success', text: result.message });
+      setVerificationStep('code');
+    } else {
+      setEmailMessage({ type: 'error', text: result.message });
+    }
+  };
+
+  const handleVerifyCodeAndSetPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (resetCode.length !== 6) {
+      setEmailMessage({ type: 'error', text: 'O código de verificação deve ter 6 dígitos.' });
+      return;
+    }
+    if (pinCode.length !== 4) {
+      setEmailMessage({ type: 'error', text: 'O novo PIN deve ser composto por 4 dígitos.' });
+      return;
+    }
+
+    setIsResettingPin(true);
+    setEmailMessage(null);
+
+    const result = await resetPin(email, resetCode, pinCode);
+    setIsResettingPin(false);
+
+    if (result.success) {
+      await setPin(pinCode);
+      await unlock(pinCode);
+      loginAsLocalUser();
+    } else {
+      setEmailMessage({ type: 'error', text: result.message });
+    }
   };
 
   const handlePinKeyPress = async (val: string) => {
@@ -151,8 +213,92 @@ export default function WelcomeView() {
           </CardHeader>
           <CardContent className="px-0 space-y-4 mt-2">
             
+            {/* Email Verification Form (Option 2) */}
+            {showEmailVerification ? (
+              <div className="p-5 bg-card border border-border rounded-2xl space-y-4 shadow-lg text-left animate-in fade-in duration-200">
+                <div className="flex items-center gap-2">
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 w-7 p-0 rounded-full" 
+                    onClick={() => setShowEmailVerification(false)}
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </Button>
+                  <div>
+                    <h4 className="font-bold text-foreground text-sm">Validar Autorização por E-mail</h4>
+                    <p className="text-[11px] text-muted-foreground">E-mail de confirmação obrigatório para autorizar PIN</p>
+                  </div>
+                </div>
+
+                {emailMessage && (
+                  <div className={`p-2.5 rounded-lg text-xs font-medium border flex items-center gap-2 ${
+                    emailMessage.type === 'success' 
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
+                      : 'bg-destructive/10 text-destructive border-destructive/20'
+                  }`}>
+                    {emailMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                    <span>{emailMessage.text}</span>
+                  </div>
+                )}
+
+                {verificationStep === 'email' ? (
+                  <form onSubmit={handleSendVerificationCode} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Introduza o seu E-mail de Administrador</Label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
+                        <Input 
+                          type="email" 
+                          placeholder="ex: o.seu.email@gmail.com" 
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="pl-9 h-9 text-xs"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <Button type="submit" size="sm" className="w-full h-9 text-xs" disabled={isSendingCode}>
+                      {isSendingCode ? 'A enviar código...' : 'Enviar Código de Verificação (6 dígitos)'}
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifyCodeAndSetPin} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Código enviado para {email}</Label>
+                      <Input 
+                        type="text" 
+                        maxLength={6}
+                        placeholder="Ex: 123456" 
+                        value={resetCode}
+                        onChange={(e) => setResetCode(e.target.value)}
+                        className="h-9 text-xs font-mono tracking-widest text-center"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Defina o Novo PIN (4 dígitos)</Label>
+                      <Input 
+                        type="password" 
+                        maxLength={4}
+                        placeholder="••••" 
+                        value={pinCode}
+                        onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))}
+                        className="h-9 text-xs text-center font-mono tracking-widest"
+                        required
+                      />
+                    </div>
+                    <Button type="submit" size="sm" className="w-full h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" disabled={isResettingPin}>
+                      {isResettingPin ? 'A validar...' : 'Confirmar e Entrar'}
+                    </Button>
+                  </form>
+                )}
+              </div>
+            ) : null}
+
             {/* PIN Unlock / Creation Card view */}
-            {(showPinInput || hasPin) ? (
+            {(showPinInput || hasPin) && !showEmailVerification ? (
               <div className="p-5 bg-card border border-border rounded-2xl space-y-4 shadow-lg text-center animate-in fade-in duration-200">
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
                   <KeyRound className="w-6 h-6" />
@@ -224,15 +370,13 @@ export default function WelcomeView() {
                 </div>
 
                 <div className="flex flex-col gap-1.5 pt-2">
-                  {hasPin && !isCreatingPin && (
-                    <button
-                      type="button"
-                      onClick={() => startPinMode(true)}
-                      className="text-[11px] text-primary hover:underline font-medium"
-                    >
-                      Alterar / Redefinir o meu PIN
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setShowEmailVerification(true); setShowPinInput(false); }}
+                    className="text-[11px] text-primary hover:underline font-medium flex items-center justify-center gap-1"
+                  >
+                    <Mail className="w-3 h-3" /> Redefinir PIN via E-mail de Confirmação
+                  </button>
                   {!hasPin && (
                     <Button 
                       variant="ghost" 
