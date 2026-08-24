@@ -21,7 +21,8 @@ import {
   BurnRateSummary,
   CategoryInsights,
   GoalSimulator,
-  DashboardSummaryCards
+  DashboardSummaryCards,
+  DashboardSecondarySummaryCards
 } from '../components/dashboard';
 
 export default function DashboardView() {
@@ -52,6 +53,7 @@ export default function DashboardView() {
 
       {/* Summary Cards directly below the header */}
       <DashboardSummaryCards />
+      <DashboardSecondarySummaryCards />
 
       <WidgetGrid>
         {/* Top Row: Key Metrics */}

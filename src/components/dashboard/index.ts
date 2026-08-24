@@ -17,3 +17,4 @@ export * from './BurnRateSummary';
 export * from './CategoryInsights';
 export * from './GoalSimulator';
 export * from './DashboardSummaryCards';
+export * from './DashboardSecondarySummaryCards';
