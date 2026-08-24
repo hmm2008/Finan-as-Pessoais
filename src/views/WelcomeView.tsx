@@ -76,7 +76,7 @@ export default function WelcomeView() {
             )}
             {authError === 'unauthorized_domain' && (
               <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-medium text-center border border-amber-500/20 leading-relaxed">
-                Domínio não autorizado. Adicione o seu domínio da Vercel (ex: <code className="bg-amber-500/20 px-1 rounded">seu-app.vercel.app</code>) em <strong>Painel &gt; Authentication &gt; Settings &gt; Authorized domains</strong>.
+                Domínio não autorizado. Adicione o seu domínio atual (<code className="bg-amber-500/20 px-1 rounded select-all">{window.location.hostname}</code>) na consola da Firebase em <strong>Authentication &gt; Settings &gt; Authorized domains</strong>.
               </div>
             )}
             {authError === 'operation_not_allowed' && (
