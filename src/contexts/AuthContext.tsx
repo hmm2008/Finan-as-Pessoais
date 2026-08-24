@@ -4,12 +4,33 @@ import { auth } from '../lib/firebase';
 import { purgeDemoRecordsFromLocalAndFirebase } from '../utils/cleanupDemoData';
 import { syncAllLocalEntitiesToFirestore } from '../hooks/queries';
 
+const GUEST_USER = {
+  uid: 'local_user',
+  displayName: 'Utilizador Local',
+  email: 'modo.local@app.internal',
+  photoURL: null,
+  emailVerified: true,
+  isAnonymous: true,
+  metadata: {},
+  providerData: [],
+  refreshToken: '',
+  tenantId: null,
+  delete: async () => {},
+  getIdToken: async () => '',
+  getIdTokenResult: async () => ({} as any),
+  reload: async () => {},
+  toJSON: () => ({}),
+  phoneNumber: null,
+  providerId: 'local'
+} as unknown as User;
+
 interface AuthContextType {
   user: User | null;
   isLoadingAuth: boolean;
   isAuthenticated: boolean;
   authError: string | null;
   login: () => Promise<void>;
+  loginAsLocalUser: () => void;
   logout: () => Promise<void>;
   navigateToLogin: () => void;
 }
@@ -22,24 +43,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
+    const isLocalSession = localStorage.getItem('fin_local_session') === 'true';
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      setIsLoadingAuth(false);
-      
       if (currentUser) {
+        setUser(currentUser);
         try {
           await purgeDemoRecordsFromLocalAndFirebase();
           await syncAllLocalEntitiesToFirestore(currentUser.uid);
         } catch (err) {
           console.error("Failed to sync/purge records after login", err);
         }
+      } else if (isLocalSession) {
+        setUser(GUEST_USER);
       } else {
+        setUser(null);
         purgeDemoRecordsFromLocalAndFirebase().catch(() => {});
       }
+      setIsLoadingAuth(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  const loginAsLocalUser = () => {
+    localStorage.setItem('fin_local_session', 'true');
+    setUser(GUEST_USER);
+    setAuthError(null);
+  };
 
   const login = async () => {
     setAuthError(null);
@@ -47,9 +78,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
+      localStorage.removeItem('fin_local_session');
     } catch (err: any) {
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
-        // User closed or dismissed the popup window - not a system error
         setAuthError(null);
         return;
       }
@@ -73,11 +104,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await signOut(auth);
+    localStorage.removeItem('fin_local_session');
+    await signOut(auth).catch(() => {});
+    setUser(null);
   };
 
   const navigateToLogin = () => {
-    // Basic navigation or trigger login directly depending on app design
     login();
   };
 
@@ -89,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         authError,
         login,
+        loginAsLocalUser,
         logout,
         navigateToLogin,
       }}

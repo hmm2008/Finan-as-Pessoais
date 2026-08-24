@@ -1,11 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Shield, TrendingUp, Target, Car, Lock } from 'lucide-react';
+import { Shield, TrendingUp, Target, Car, Lock, Copy, Check, HardDrive } from 'lucide-react';
 
 export default function WelcomeView() {
-  const { login, isLoadingAuth, authError } = useAuth();
+  const { login, loginAsLocalUser, isLoadingAuth, authError } = useAuth();
+  const [copied, setCopied] = useState(false);
+
+  const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
+
+  const handleCopyDomain = () => {
+    if (currentDomain) {
+      navigator.clipboard.writeText(currentDomain);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const features = [
     {
@@ -68,17 +79,43 @@ export default function WelcomeView() {
             <CardTitle className="text-2xl font-bold">Bem-vindo</CardTitle>
             <CardDescription>Inicie sessão para aceder aos seus dados</CardDescription>
           </CardHeader>
-          <CardContent className="px-0 space-y-6 mt-4">
+          <CardContent className="px-0 space-y-4 mt-2">
             {authError === 'network_error' && (
               <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium text-center border border-destructive/20">
                 Erro de rede. Verifique a sua ligação à internet.
               </div>
             )}
+            
             {authError === 'unauthorized_domain' && (
-              <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-medium text-center border border-amber-500/20 leading-relaxed">
-                Domínio não autorizado. Adicione o seu domínio atual (<code className="bg-amber-500/20 px-1 rounded select-all">{window.location.hostname}</code>) na consola da Firebase em <strong>Authentication &gt; Settings &gt; Authorized domains</strong>.
+              <div className="p-4 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm border border-amber-500/20 space-y-3">
+                <p className="font-semibold text-center text-amber-800 dark:text-amber-300">
+                  ⚠️ Domínio Vercel não autorizado na Firebase
+                </p>
+                <p className="text-xs leading-relaxed">
+                  Para login com conta Google Firebase, precisa de adicionar o seu domínio da Vercel na consola Firebase.
+                </p>
+                
+                <div className="flex items-center justify-between p-2 rounded-lg bg-background/80 border border-amber-500/30 text-xs font-mono text-foreground">
+                  <span className="truncate pr-2">{currentDomain}</span>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 shrink-0 text-amber-600 dark:text-amber-400" onClick={handleCopyDomain}>
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span className="ml-1 text-[11px]">{copied ? 'Copiado!' : 'Copiar'}</span>
+                  </Button>
+                </div>
+
+                <div className="pt-2 border-t border-amber-500/20 flex flex-col gap-2">
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium" 
+                    onClick={loginAsLocalUser}
+                  >
+                    <HardDrive className="w-4 h-4 mr-1.5" /> Entrar Agora (Modo Local / Google Drive)
+                  </Button>
+                </div>
               </div>
             )}
+
             {authError === 'operation_not_allowed' && (
               <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium text-center border border-destructive/20">
                 A autenticação com a Google não está ativada na consola.
@@ -86,7 +123,7 @@ export default function WelcomeView() {
             )}
             {authError === 'popup_blocked' && (
               <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-medium text-center border border-amber-500/20">
-                O janela de autenticação foi bloqueada pelo navegador. Por favor permita pop-ups.
+                A janela de autenticação foi bloqueada pelo navegador. Por favor permita pop-ups.
               </div>
             )}
             {authError === 'auth_required' && (
@@ -99,6 +136,7 @@ export default function WelcomeView() {
                 Erro de autenticação: {authError}
               </div>
             )}
+
             <Button 
               className="w-full h-12 text-base font-semibold transition-all" 
               onClick={login}
@@ -106,10 +144,23 @@ export default function WelcomeView() {
             >
               {isLoadingAuth ? 'A autenticar...' : 'Entrar com Conta Google'}
             </Button>
+
+            <div className="relative my-4 text-center text-xs text-muted-foreground">
+              <span className="bg-background px-2 relative z-10">ou aceda diretamente</span>
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border"></div></div>
+            </div>
+
+            <Button 
+              variant="outline"
+              className="w-full h-11 text-sm font-medium border-border hover:bg-secondary/60" 
+              onClick={loginAsLocalUser}
+            >
+              <HardDrive className="w-4 h-4 mr-2 text-primary" /> Entrar no Modo Local / Google Drive
+            </Button>
             
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-8">
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-6">
               <Lock className="w-3 h-3" />
-              <span>Autenticação segura via Google</span>
+              <span>Armazenamento local seguro e sincronização via Google Drive</span>
             </div>
           </CardContent>
         </Card>
