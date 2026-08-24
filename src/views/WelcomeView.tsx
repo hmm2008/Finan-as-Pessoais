@@ -6,12 +6,15 @@ import { Shield, TrendingUp, Target, Car, Lock, Copy, Check, HardDrive, KeyRound
 
 export default function WelcomeView() {
   const { login, loginAsLocalUser, isLoadingAuth, authError } = useAuth();
-  const { hasPin, verifyPin, unlock } = usePin();
+  const { hasPin, verifyPin, unlock, setPin } = usePin();
 
   const [copied, setCopied] = useState(false);
   const [showPinInput, setShowPinInput] = useState(false);
   const [pinCode, setPinCode] = useState('');
-  const [pinError, setPinError] = useState(false);
+  const [firstPinAttempt, setFirstPinAttempt] = useState('');
+  const [isCreatingPin, setIsCreatingPin] = useState(false);
+  const [pinStep, setPinStep] = useState<'input' | 'confirm'>('input');
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
 
@@ -23,29 +26,65 @@ export default function WelcomeView() {
     }
   };
 
+  const startPinMode = (createMode = false) => {
+    setShowPinInput(true);
+    setPinCode('');
+    setFirstPinAttempt('');
+    setPinError(null);
+    setIsCreatingPin(!hasPin || createMode);
+    setPinStep('input');
+  };
+
   const handlePinKeyPress = async (val: string) => {
-    setPinError(false);
+    setPinError(null);
     if (pinCode.length >= 4) return;
 
     const newPin = pinCode + val;
     setPinCode(newPin);
 
     if (newPin.length === 4) {
-      const isValid = await verifyPin(newPin);
-      if (isValid) {
-        await unlock(newPin);
-        loginAsLocalUser();
-      } else {
-        setTimeout(() => {
+      if (isCreatingPin) {
+        if (pinStep === 'input') {
+          // Move to confirm step
+          setFirstPinAttempt(newPin);
+          setPinStep('confirm');
           setPinCode('');
-          setPinError(true);
-        }, 150);
+        } else {
+          // Confirming second entry
+          if (newPin === firstPinAttempt) {
+            const success = await setPin(newPin);
+            if (success) {
+              loginAsLocalUser();
+            } else {
+              setPinError('O PIN deve ter 4 dígitos numéricos.');
+              setPinCode('');
+              setPinStep('input');
+            }
+          } else {
+            setPinError('Os PINs não coincidem. Tente novamente.');
+            setPinCode('');
+            setFirstPinAttempt('');
+            setPinStep('input');
+          }
+        }
+      } else {
+        // Authenticating with existing PIN
+        const isValid = await verifyPin(newPin);
+        if (isValid) {
+          await unlock(newPin);
+          loginAsLocalUser();
+        } else {
+          setTimeout(() => {
+            setPinCode('');
+            setPinError('PIN incorreto. Tente novamente.');
+          }, 150);
+        }
       }
     }
   };
 
   const handleBackspace = () => {
-    setPinError(false);
+    setPinError(null);
     setPinCode(prev => prev.slice(0, -1));
   };
 
@@ -112,15 +151,23 @@ export default function WelcomeView() {
           </CardHeader>
           <CardContent className="px-0 space-y-4 mt-2">
             
-            {/* PIN Unlock Card view if user toggled or has PIN */}
+            {/* PIN Unlock / Creation Card view */}
             {(showPinInput || hasPin) ? (
               <div className="p-5 bg-card border border-border rounded-2xl space-y-4 shadow-lg text-center animate-in fade-in duration-200">
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
                   <KeyRound className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-foreground">Introduza o PIN de Segurança</h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">PIN local de 4 dígitos (sem dependência do Firebase)</p>
+                  <h4 className="font-bold text-foreground">
+                    {isCreatingPin 
+                      ? (pinStep === 'input' ? 'Criar Novo PIN Local' : 'Confirme o Novo PIN')
+                      : 'Introduza o PIN de Segurança'}
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {isCreatingPin
+                      ? (pinStep === 'input' ? 'Escolha 4 dígitos para proteger o acesso nesta máquina' : 'Repita os 4 dígitos do PIN para confirmar')
+                      : 'PIN local encriptado no browser (sem Firebase)'}
+                  </p>
                 </div>
 
                 <div className="flex justify-center items-center gap-3 py-1">
@@ -138,7 +185,7 @@ export default function WelcomeView() {
 
                 {pinError && (
                   <p className="text-xs text-destructive font-semibold flex items-center justify-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" /> PIN incorreto. Tente novamente.
+                    <AlertCircle className="w-3.5 h-3.5" /> {pinError}
                   </p>
                 )}
 
@@ -155,7 +202,7 @@ export default function WelcomeView() {
                   ))}
                   <button
                     type="button"
-                    onClick={() => { setPinCode(''); setPinError(false); }}
+                    onClick={() => { setPinCode(''); setPinError(null); }}
                     className="h-11 rounded-xl text-muted-foreground text-xs font-semibold hover:bg-secondary/60"
                   >
                     Limpar
@@ -176,16 +223,27 @@ export default function WelcomeView() {
                   </button>
                 </div>
 
-                {!hasPin && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-xs text-muted-foreground w-full mt-2" 
-                    onClick={() => setShowPinInput(false)}
-                  >
-                    Voltar às opções
-                  </Button>
-                )}
+                <div className="flex flex-col gap-1.5 pt-2">
+                  {hasPin && !isCreatingPin && (
+                    <button
+                      type="button"
+                      onClick={() => startPinMode(true)}
+                      className="text-[11px] text-primary hover:underline font-medium"
+                    >
+                      Alterar / Redefinir o meu PIN
+                    </button>
+                  )}
+                  {!hasPin && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-xs text-muted-foreground w-full" 
+                      onClick={() => setShowPinInput(false)}
+                    >
+                      Voltar às opções
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : null}
             {authError === 'network_error' && (
@@ -273,9 +331,9 @@ export default function WelcomeView() {
               <Button 
                 variant="ghost"
                 className="w-full h-9 text-xs font-medium text-muted-foreground hover:text-foreground" 
-                onClick={() => setShowPinInput(true)}
+                onClick={() => startPinMode(false)}
               >
-                <KeyRound className="w-3.5 h-3.5 mr-1.5 text-primary" /> Introduzir / Usar PIN de Acesso Local
+                <KeyRound className="w-3.5 h-3.5 mr-1.5 text-primary" /> {hasPin ? 'Introduzir PIN de Acesso Local' : 'Criar PIN de Acesso Local (4 dígitos)'}
               </Button>
             </div>
             
