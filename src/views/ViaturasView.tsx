@@ -8,6 +8,7 @@ import {
   VehicleForm, 
   VehicleTask, 
   VehicleTaskForm, 
+  calculateNextDueDate,
   FuelEntry, 
   VehicleProfile, 
   VehicleTasks, 
@@ -15,7 +16,7 @@ import {
   VehicleReminders, 
   SyncToCalendarModal 
 } from '../components/viaturas';
-import { Plus, Car, Calendar, Wrench, Fuel, Trash2, Edit } from 'lucide-react';
+import { Plus, Car, Calendar, Wrench, Fuel, Trash2, Edit, Calculator, Receipt, Gauge } from 'lucide-react';
 import { usePrivacy } from '../contexts';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
 
@@ -149,6 +150,14 @@ export default function ViaturasView() {
   const totalDistance = selectedVehicle ? selectedVehicle.kilometers : 0;
   const costPerKm = totalDistance > 0 ? (totalMaintenanceCost + totalFuelCost) / totalDistance : 0;
 
+  // Global calculations across ALL vehicles
+  const totalAllFuelCost = fuelEntries.reduce((acc, curr) => acc + (curr.totalCost || 0), 0);
+  const totalAllMaintenanceCost = tasks
+    .filter(t => t.status === 'concluída')
+    .reduce((acc, curr) => acc + (curr.cost || 0), 0);
+  const totalAllFleetCharges = totalAllFuelCost + totalAllMaintenanceCost;
+  const totalAllKm = vehicles.reduce((acc, v) => acc + (v.kilometers || 0), 0);
+
   // Handlers
   const handleSaveVehicle = (v: Vehicle) => {
     setVehicles(prev => {
@@ -171,9 +180,49 @@ export default function ViaturasView() {
 
   const handleSaveTask = (t: VehicleTask) => {
     setTasks(prev => {
-      const exists = prev.some(item => item.id === t.id);
-      if (exists) return prev.map(item => item.id === t.id ? t : item);
-      return [...prev, t];
+      let updatedList = prev.some(item => item.id === t.id)
+        ? prev.map(item => item.id === t.id ? t : item)
+        : [...prev, t];
+
+      // If task is completed and recurring with autoCreateNext, check if next task needs to be generated
+      const isRecurring = t.recurring || (t.recurrenceInterval && t.recurrenceInterval !== 'none');
+      if (t.status === 'concluída' && isRecurring && t.autoCreateNext !== false) {
+        const targetNextDueDate = t.nextDueDate || calculateNextDueDate(t.completedDate || t.dueDate || new Date().toISOString().split('T')[0], t.recurrenceInterval || '12_months');
+        
+        // Check if next cycle already exists
+        const alreadyExists = updatedList.some(item => 
+          item.vehicleId === t.vehicleId && 
+          item.taskType === t.taskType && 
+          item.dueDate === targetNextDueDate &&
+          item.id !== t.id
+        );
+
+        if (!alreadyExists) {
+          const interval = t.recurrenceInterval || '12_months';
+          const subsequentDueDate = calculateNextDueDate(targetNextDueDate, interval);
+
+          const nextTask: VehicleTask = {
+            id: `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            vehicleId: t.vehicleId,
+            title: t.title,
+            taskType: t.taskType,
+            cost: t.nextCost !== undefined ? t.nextCost : t.cost,
+            status: 'pendente',
+            dueDate: targetNextDueDate,
+            recurring: true,
+            recurrenceInterval: interval,
+            nextDueDate: subsequentDueDate,
+            nextStatus: 'pendente',
+            nextCost: t.nextCost !== undefined ? t.nextCost : t.cost,
+            autoCreateNext: true,
+            parentTaskId: t.id,
+            notes: `Agendamento automático para o próximo ciclo (${interval === '12_months' ? 'Anual' : interval}).`
+          };
+          updatedList = [...updatedList, nextTask];
+        }
+      }
+
+      return updatedList;
     });
   };
 
@@ -182,17 +231,63 @@ export default function ViaturasView() {
   };
 
   const handleToggleTaskStatus = (id: string) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id === id) {
-        const nextStatus = t.status === 'pendente' ? 'concluída' : 'pendente';
-        return {
-          ...t,
-          status: nextStatus,
-          completedDate: nextStatus === 'concluída' ? new Date().toISOString().split('T')[0] : undefined
-        };
+    setTasks(prev => {
+      let newNextTaskToCreate: VehicleTask | null = null;
+
+      const updated = prev.map(t => {
+        if (t.id === id) {
+          const nextStatus = t.status === 'pendente' ? 'concluída' : 'pendente';
+          const completedDateStr = nextStatus === 'concluída' ? new Date().toISOString().split('T')[0] : undefined;
+
+          const isRecurring = t.recurring || (t.recurrenceInterval && t.recurrenceInterval !== 'none');
+          if (nextStatus === 'concluída' && isRecurring && t.autoCreateNext !== false) {
+            const targetNextDueDate = t.nextDueDate || calculateNextDueDate(completedDateStr || t.dueDate, t.recurrenceInterval || '12_months');
+            
+            const alreadyExists = prev.some(item => 
+              item.vehicleId === t.vehicleId && 
+              item.taskType === t.taskType && 
+              item.dueDate === targetNextDueDate &&
+              item.id !== t.id
+            );
+
+            if (!alreadyExists) {
+              const interval = t.recurrenceInterval || '12_months';
+              const subsequentDueDate = calculateNextDueDate(targetNextDueDate, interval);
+
+              newNextTaskToCreate = {
+                id: `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                vehicleId: t.vehicleId,
+                title: t.title,
+                taskType: t.taskType,
+                cost: t.nextCost !== undefined ? t.nextCost : t.cost,
+                status: 'pendente',
+                dueDate: targetNextDueDate,
+                recurring: true,
+                recurrenceInterval: interval,
+                nextDueDate: subsequentDueDate,
+                nextStatus: 'pendente',
+                nextCost: t.nextCost !== undefined ? t.nextCost : t.cost,
+                autoCreateNext: true,
+                parentTaskId: t.id,
+                notes: `Agendamento automático para o próximo ciclo.`
+              };
+            }
+          }
+
+          return {
+            ...t,
+            status: nextStatus,
+            completedDate: completedDateStr
+          };
+        }
+        return t;
+      });
+
+      if (newNextTaskToCreate) {
+        return [...updated, newNextTaskToCreate];
       }
-      return t;
-    }));
+      return updated;
+    });
   };
 
   const handleAddFuelEntry = (f: FuelEntry) => {
@@ -228,6 +323,69 @@ export default function ViaturasView() {
 
       {/* Dashboard Reminders Component */}
       <VehicleReminders vehicles={vehicles} tasks={tasks} />
+
+      {/* Global Fleet Encargos Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-border bg-card shadow-sm rounded-2xl relative overflow-hidden">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Somatório dos Encargos</p>
+              <p className="text-2xl font-bold text-foreground">{maskValue(totalAllFleetCharges, formatter.format)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {vehicles.length} {vehicles.length === 1 ? 'viatura na frota' : 'viaturas na frota'}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Calculator className="w-6 h-6" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card shadow-sm rounded-2xl">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Combustível</p>
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{maskValue(totalAllFuelCost, formatter.format)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {fuelEntries.length} {fuelEntries.length === 1 ? 'abastecimento' : 'abastecimentos'}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+              <Fuel className="w-6 h-6" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card shadow-sm rounded-2xl">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Manutenções</p>
+              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{maskValue(totalAllMaintenanceCost, formatter.format)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {tasks.filter(t => t.status === 'concluída').length} {tasks.filter(t => t.status === 'concluída').length === 1 ? 'serviço concluído' : 'serviços concluídos'}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+              <Wrench className="w-6 h-6" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card shadow-sm rounded-2xl">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quilometragem Acumulada</p>
+              <p className="text-2xl font-bold text-foreground">{totalAllKm.toLocaleString('pt-PT')} km</p>
+              <p className="text-[11px] text-muted-foreground">
+                {vehicles.length > 0 ? `Média: ${Math.round(totalAllKm / vehicles.length).toLocaleString('pt-PT')} km/viatura` : 'Sem viaturas'}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+              <Gauge className="w-6 h-6" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Vehicles Cards List / Selector */}
       {vehicles.length === 0 ? (
