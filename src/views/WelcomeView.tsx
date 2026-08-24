@@ -4,24 +4,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Shield, TrendingUp, Target, Car, Lock, Copy, Check, HardDrive, KeyRound, Delete, AlertCircle, Mail, Send, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Shield, TrendingUp, Target, Car, Lock, KeyRound, Delete, AlertCircle, Mail, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 export default function WelcomeView() {
-  const { login, loginAsLocalUser, isLoadingAuth, authError } = useAuth();
+  const { loginAsLocalUser } = useAuth();
   const { hasPin, verifyPin, unlock, setPin } = usePin();
   const { requestPinReset, resetPin } = usePreferences();
 
-  const [copied, setCopied] = useState(false);
-  const [showPinInput, setShowPinInput] = useState(false);
-  
   // PIN keypad states
   const [pinCode, setPinCode] = useState('');
   const [firstPinAttempt, setFirstPinAttempt] = useState('');
-  const [isCreatingPin, setIsCreatingPin] = useState(false);
+  const [isCreatingPin, setIsCreatingPin] = useState(!hasPin);
   const [pinStep, setPinStep] = useState<'input' | 'confirm'>('input');
   const [pinError, setPinError] = useState<string | null>(null);
 
-  // Email Verification Option 2 States
+  // Email Verification States
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [email, setEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
@@ -29,26 +26,6 @@ export default function WelcomeView() {
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [isResettingPin, setIsResettingPin] = useState(false);
   const [emailMessage, setEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
-
-  const handleCopyDomain = () => {
-    if (currentDomain) {
-      navigator.clipboard.writeText(currentDomain);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const startPinMode = (createMode = false) => {
-    setShowPinInput(true);
-    setShowEmailVerification(false);
-    setPinCode('');
-    setFirstPinAttempt('');
-    setPinError(null);
-    setIsCreatingPin(!hasPin || createMode);
-    setPinStep('input');
-  };
 
   const handleSendVerificationCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +82,7 @@ export default function WelcomeView() {
     setPinCode(newPin);
 
     if (newPin.length === 4) {
-      if (isCreatingPin) {
+      if (isCreatingPin || !hasPin) {
         if (pinStep === 'input') {
           // Move to confirm step
           setFirstPinAttempt(newPin);
@@ -116,6 +93,7 @@ export default function WelcomeView() {
           if (newPin === firstPinAttempt) {
             const success = await setPin(newPin);
             if (success) {
+              await unlock(newPin);
               loginAsLocalUser();
             } else {
               setPinError('O PIN deve ter 4 dígitos numéricos.');
@@ -169,7 +147,7 @@ export default function WelcomeView() {
     {
       icon: Shield,
       title: 'Privacidade Reforçada',
-      description: 'Proteção por PIN local e modo rápido para ocultar valores sensíveis no ecrã.'
+      description: 'Proteção por PIN de acesso local e gestão/recuperação segura por e-mail autorizado.'
     }
   ];
 
@@ -178,20 +156,20 @@ export default function WelcomeView() {
       {/* Left Side - Hero / Informational */}
       <div className="flex-1 p-8 md:p-16 lg:p-24 flex flex-col justify-center bg-primary/5 dark:bg-primary/10 border-b md:border-b-0 md:border-r border-border">
         <div className="max-w-xl mx-auto md:mx-0">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground text-3xl font-bold mb-8 shadow-sm">
+          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground text-3xl font-bold mb-8 shadow-xs">
             F
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-foreground">
             O seu centro de comando financeiro.
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground mb-12 leading-relaxed">
-            Tenha controlo absoluto sobre o seu dinheiro, património e objetivos familiares, num ambiente privado, seguro e premium.
+            Tenha controlo absoluto sobre o seu dinheiro, património e objetivos familiares, num ambiente privado, seguro e encriptado.
           </p>
 
           <div className="grid sm:grid-cols-2 gap-8">
             {features.map((feature, idx) => (
               <div key={idx} className="flex gap-4">
-                <div className="w-10 h-10 rounded-lg bg-background flex items-center justify-center text-primary border border-border shadow-sm shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-background flex items-center justify-center text-primary border border-border shadow-xs shrink-0">
                   <feature.icon className="w-5 h-5" />
                 </div>
                 <div>
@@ -204,16 +182,16 @@ export default function WelcomeView() {
         </div>
       </div>
 
-      {/* Right Side - Login */}
+      {/* Right Side - PIN Login & Email Verification */}
       <div className="w-full md:w-[450px] lg:w-[500px] p-8 flex items-center justify-center relative bg-background">
         <Card className="w-full max-w-sm border-0 shadow-none bg-transparent">
           <CardHeader className="text-center px-0">
-            <CardTitle className="text-2xl font-bold">Bem-vindo</CardTitle>
-            <CardDescription>Inicie sessão para aceder aos seus dados</CardDescription>
+            <CardTitle className="text-2xl font-bold">Acesso à Aplicação</CardTitle>
+            <CardDescription>Autenticação protegida por PIN de segurança</CardDescription>
           </CardHeader>
           <CardContent className="px-0 space-y-4 mt-2">
             
-            {/* Email Verification Form (Option 2) */}
+            {/* Email Verification Form */}
             {showEmailVerification ? (
               <div className="p-5 bg-card border border-border rounded-2xl space-y-4 shadow-lg text-left animate-in fade-in duration-200">
                 <div className="flex items-center gap-2">
@@ -222,13 +200,13 @@ export default function WelcomeView() {
                     variant="ghost" 
                     size="sm" 
                     className="h-7 w-7 p-0 rounded-full" 
-                    onClick={() => setShowEmailVerification(false)}
+                    onClick={() => { setShowEmailVerification(false); setEmailMessage(null); }}
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
                   <div>
-                    <h4 className="font-bold text-foreground text-sm">Validar Autorização por E-mail</h4>
-                    <p className="text-[11px] text-muted-foreground">E-mail de confirmação obrigatório para autorizar PIN</p>
+                    <h4 className="font-bold text-foreground text-sm">Gerir PIN via E-mail</h4>
+                    <p className="text-[11px] text-muted-foreground">E-mail do proprietário para definir ou alterar PIN</p>
                   </div>
                 </div>
 
@@ -246,12 +224,12 @@ export default function WelcomeView() {
                 {verificationStep === 'email' ? (
                   <form onSubmit={handleSendVerificationCode} className="space-y-3">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Introduza o seu E-mail de Administrador</Label>
+                      <Label className="text-xs">Introduza o E-mail Autorizado</Label>
                       <div className="relative">
                         <Mail className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
                         <Input 
                           type="email" 
-                          placeholder="ex: o.seu.email@gmail.com" 
+                          placeholder="ex: manuel.francisco3@gmail.com" 
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           className="pl-9 h-9 text-xs"
@@ -260,7 +238,7 @@ export default function WelcomeView() {
                       </div>
                     </div>
                     <Button type="submit" size="sm" className="w-full h-9 text-xs" disabled={isSendingCode}>
-                      {isSendingCode ? 'A enviar código...' : 'Enviar Código de Verificação (6 dígitos)'}
+                      {isSendingCode ? 'A enviar código...' : 'Solicitar Código de Verificação'}
                     </Button>
                   </form>
                 ) : (
@@ -295,24 +273,22 @@ export default function WelcomeView() {
                   </form>
                 )}
               </div>
-            ) : null}
-
-            {/* PIN Unlock / Creation Card view */}
-            {(showPinInput || hasPin) && !showEmailVerification ? (
+            ) : (
+              /* Direct PIN Keypad Card */
               <div className="p-5 bg-card border border-border rounded-2xl space-y-4 shadow-lg text-center animate-in fade-in duration-200">
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
                   <KeyRound className="w-6 h-6" />
                 </div>
                 <div>
                   <h4 className="font-bold text-foreground">
-                    {isCreatingPin 
-                      ? (pinStep === 'input' ? 'Criar Novo PIN Local' : 'Confirme o Novo PIN')
-                      : 'Introduza o PIN de Segurança'}
+                    {!hasPin || isCreatingPin
+                      ? (pinStep === 'input' ? 'Criar PIN de Acesso' : 'Confirme o Novo PIN')
+                      : 'Introduza o PIN de Acesso'}
                   </h4>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {isCreatingPin
-                      ? (pinStep === 'input' ? 'Escolha 4 dígitos para proteger o acesso nesta máquina' : 'Repita os 4 dígitos do PIN para confirmar')
-                      : 'PIN local encriptado no browser (sem Firebase)'}
+                    {!hasPin || isCreatingPin
+                      ? (pinStep === 'input' ? 'Escolha 4 dígitos para proteger o acesso à aplicação' : 'Repita os 4 dígitos para confirmar')
+                      : 'Insira o seu código de 4 dígitos para desbloquear'}
                   </p>
                 </div>
 
@@ -322,7 +298,7 @@ export default function WelcomeView() {
                       key={idx}
                       className={`w-4 h-4 rounded-full border border-border transition-all duration-150 ${
                         pinCode.length > idx 
-                          ? 'bg-primary scale-110 shadow-sm shadow-primary/30' 
+                          ? 'bg-primary scale-110 shadow-xs shadow-primary/30' 
                           : 'bg-secondary'
                       } ${pinError ? 'border-destructive bg-destructive/30 animate-shake' : ''}`}
                     />
@@ -369,121 +345,21 @@ export default function WelcomeView() {
                   </button>
                 </div>
 
-                <div className="flex flex-col gap-1.5 pt-2">
+                <div className="pt-3 border-t border-border/50">
                   <button
                     type="button"
-                    onClick={() => { setShowEmailVerification(true); setShowPinInput(false); }}
-                    className="text-[11px] text-primary hover:underline font-medium flex items-center justify-center gap-1"
+                    onClick={() => { setShowEmailVerification(true); setEmailMessage(null); }}
+                    className="text-xs text-primary hover:underline font-medium flex items-center justify-center gap-1.5 mx-auto"
                   >
-                    <Mail className="w-3 h-3" /> Redefinir PIN via E-mail de Confirmação
+                    <Mail className="w-3.5 h-3.5" /> Definir / Alterar PIN via E-mail
                   </button>
-                  {!hasPin && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-xs text-muted-foreground w-full" 
-                      onClick={() => setShowPinInput(false)}
-                    >
-                      Voltar às opções
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ) : null}
-            {authError === 'network_error' && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium text-center border border-destructive/20">
-                Erro de rede. Verifique a sua ligação à internet.
-              </div>
-            )}
-            
-            {authError === 'unauthorized_domain' && (
-              <div className="p-4 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm border border-amber-500/20 space-y-3">
-                <p className="font-semibold text-center text-amber-800 dark:text-amber-300">
-                  ⚠️ Domínio Vercel não autorizado no Firebase
-                </p>
-                <p className="text-xs leading-relaxed">
-                  Para permitir o login com a Google via Firebase no seu domínio Vercel, adicione o endereço do seu site em <strong>Authorized Domains</strong> do seu projeto Firebase.
-                </p>
-                
-                <div className="flex items-center justify-between p-2 rounded-lg bg-background/80 border border-amber-500/30 text-xs font-mono text-foreground">
-                  <span className="truncate pr-2">{currentDomain}</span>
-                  <Button size="sm" variant="ghost" className="h-7 px-2 shrink-0 text-amber-600 dark:text-amber-400" onClick={handleCopyDomain}>
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span className="ml-1 text-[11px]">{copied ? 'Copiado!' : 'Copiar'}</span>
-                  </Button>
-                </div>
-
-                <div className="pt-2 border-t border-amber-500/20 flex flex-col gap-2">
-                  <a 
-                    href="https://console.firebase.google.com/project/gen-lang-client-0096022431/authentication/settings" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center h-9 px-3 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition-colors"
-                  >
-                    1. Abrir Consola Firebase (Projeto gen-lang-client-0096022431) ↗
-                  </a>
-                  <p className="text-[11px] text-muted-foreground text-center">
-                    Cole o domínio em <strong>Authorized domains &gt; Add domain</strong>.
-                  </p>
                 </div>
               </div>
             )}
 
-            {authError === 'operation_not_allowed' && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium text-center border border-destructive/20">
-                A autenticação com a Google não está ativada na consola.
-              </div>
-            )}
-            {authError === 'popup_blocked' && (
-              <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-medium text-center border border-amber-500/20">
-                A janela de autenticação foi bloqueada pelo navegador. Por favor permita pop-ups.
-              </div>
-            )}
-            {authError === 'auth_required' && (
-              <div className="p-3 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium text-center">
-                Sessão expirada. Por favor inicie sessão novamente.
-              </div>
-            )}
-            {authError && !['network_error', 'unauthorized_domain', 'operation_not_allowed', 'popup_blocked', 'auth_required'].includes(authError) && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium text-center border border-destructive/20">
-                Erro de autenticação: {authError}
-              </div>
-            )}
-
-            <Button 
-              className="w-full h-12 text-base font-semibold transition-all" 
-              onClick={login}
-              disabled={isLoadingAuth}
-            >
-              {isLoadingAuth ? 'A autenticar...' : 'Entrar com Conta Google'}
-            </Button>
-
-            <div className="relative my-4 text-center text-xs text-muted-foreground">
-              <span className="bg-background px-2 relative z-10">ou aceda sem Firebase</span>
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border"></div></div>
-            </div>
-
-            <div className="space-y-2">
-              <Button 
-                variant="outline"
-                className="w-full h-11 text-sm font-medium border-border hover:bg-secondary/60" 
-                onClick={loginAsLocalUser}
-              >
-                <HardDrive className="w-4 h-4 mr-2 text-primary" /> Entrar no Modo Local / Google Drive
-              </Button>
-
-              <Button 
-                variant="ghost"
-                className="w-full h-9 text-xs font-medium text-muted-foreground hover:text-foreground" 
-                onClick={() => startPinMode(false)}
-              >
-                <KeyRound className="w-3.5 h-3.5 mr-1.5 text-primary" /> {hasPin ? 'Introduzir PIN de Acesso Local' : 'Criar PIN de Acesso Local (4 dígitos)'}
-              </Button>
-            </div>
-            
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-6">
-              <Lock className="w-3 h-3" />
-              <span>Armazenamento local seguro e sincronização via Google Drive</span>
+              <Lock className="w-3.5 h-3.5" />
+              <span>Acesso encriptado localmente por PIN de segurança</span>
             </div>
           </CardContent>
         </Card>
@@ -491,3 +367,4 @@ export default function WelcomeView() {
     </div>
   );
 }
+
