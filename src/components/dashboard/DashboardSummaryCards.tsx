@@ -4,6 +4,8 @@ import { usePrivacy, useDashboard } from '../../contexts';
 import { Wallet, ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
 import { useExpenses, useIncomes, useAssets, useVehicles } from '../../hooks/queries';
 
+import { Expense, Income, Asset, Vehicle } from '../../types';
+
 export function DashboardSummaryCards() {
   const { maskValue } = usePrivacy();
   const { currentMonth } = useDashboard();
@@ -14,13 +16,13 @@ export function DashboardSummaryCards() {
   const { vehicles } = useVehicles();
 
   // Calculate current month incomes & expenses
-  const receitasAtual = incomes
-    .filter((inc: any) => typeof inc.date === 'string' && inc.date.startsWith(currentMonth))
-    .reduce((acc: number, item: any) => acc + (Number(item.amount) || 0), 0);
+  const receitasAtual = (incomes as Income[])
+    .filter((inc) => typeof inc.date === 'string' && inc.date.startsWith(currentMonth))
+    .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
 
-  const despesasAtual = expenses
-    .filter((exp: any) => typeof exp.date === 'string' && exp.date.startsWith(currentMonth))
-    .reduce((acc: number, item: any) => acc + (Number(item.amount) || 0), 0);
+  const despesasAtual = (expenses as Expense[])
+    .filter((exp) => typeof exp.date === 'string' && exp.date.startsWith(currentMonth))
+    .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
 
   const saldoAtual = receitasAtual - despesasAtual;
 
@@ -31,13 +33,13 @@ export function DashboardSummaryCards() {
   const prevMonthDate = new Date(year, month - 2, 1);
   const prevMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-  const receitasPrev = incomes
-    .filter((inc: any) => typeof inc.date === 'string' && inc.date.startsWith(prevMonthKey))
-    .reduce((acc: number, item: any) => acc + (Number(item.amount) || 0), 0);
+  const receitasPrev = (incomes as Income[])
+    .filter((inc) => typeof inc.date === 'string' && inc.date.startsWith(prevMonthKey))
+    .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
 
-  const despesasPrev = expenses
-    .filter((exp: any) => typeof exp.date === 'string' && exp.date.startsWith(prevMonthKey))
-    .reduce((acc: number, item: any) => acc + (Number(item.amount) || 0), 0);
+  const despesasPrev = (expenses as Expense[])
+    .filter((exp) => typeof exp.date === 'string' && exp.date.startsWith(prevMonthKey))
+    .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
 
   const saldoPrev = receitasPrev - despesasPrev;
 
@@ -56,11 +58,11 @@ export function DashboardSummaryCards() {
   const despesasPct = calcPctChange(despesasAtual, despesasPrev, -81);
 
   // Total Patrimonio calculation
-  const totalAssets = assets.reduce((acc: number, asset: any) => {
-    return acc + (Number(asset.balance || asset.currentValue || asset.value) || 0);
+  const totalAssets = (assets as Asset[]).reduce((acc, asset) => {
+    return acc + (Number(asset.currentValue) || 0);
   }, 0);
 
-  const totalVehicles = vehicles.reduce((acc: number, v: any) => {
+  const totalVehicles = (vehicles as Vehicle[]).reduce((acc, v) => {
     return acc + (Number(v.value) || 0);
   }, 0);
 

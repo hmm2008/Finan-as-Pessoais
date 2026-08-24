@@ -2,6 +2,7 @@ import { auth } from './firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { getCachedDriveToken, setCachedDriveToken, formatAndStyleFinanceSpreadsheet, getSpreadsheetModifiedTime } from './googleDriveService';
 import { sanitizeForFirestore } from '../hooks/queries';
+import { AssetCategory } from '../types';
 
 export interface SyncStats {
   expensesCount: number;
@@ -181,6 +182,13 @@ function parseBool(val: any): boolean {
   if (!val) return false;
   const s = String(val).toLowerCase().trim();
   return s === 'true' || s === 'sim' || s === '1' || s === 'yes' || s === 'ativo';
+}
+
+function mapToAssetCategory(val: string): AssetCategory {
+  const lower = val?.toLowerCase() || '';
+  if (lower.includes('imovel') || lower.includes('imóvel')) return 'imovel';
+  if (lower.includes('financeiro')) return 'financeiro';
+  return 'outros';
 }
 
 /**
@@ -892,7 +900,9 @@ export async function fetchAndParseRemoteSheets(
     method: row[5] || 'MBWay',
     vehicle: parseBool(row[6]),
     notes: row[7] || '',
-    fixedExpenseId: row[8] || undefined
+    fixedExpenseId: row[8] || undefined,
+    description: row[2] || 'Despesa',
+    recurring: !!row[8]
   })).filter((e: any) => e.amount > 0 || e.entity);
 
   // Parse Incomes
@@ -906,7 +916,9 @@ export async function fetchAndParseRemoteSheets(
     method: row[5] || 'Transferência Bancária',
     notes: row[6] || '',
     fixedIncomeId: row[7] || undefined,
-    isFixed: !!row[7] || (typeof row[0] === 'string' && row[0].startsWith('inc_fixed_'))
+    isFixed: !!row[7] || (typeof row[0] === 'string' && row[0].startsWith('inc_fixed_')),
+    description: row[2] || 'Receita',
+    recurring: !!row[7]
   })).filter((i: any) => i.amount > 0 || i.entity);
 
   // Parse Realized Fixed Incomes
@@ -973,10 +985,13 @@ export async function fetchAndParseRemoteSheets(
   const parsedPatrimonio = patRows.map((row: any[], i: number) => ({
     id: row[0] || `pat_${i}`,
     name: row[1] || 'Ativo',
-    category: row[2] || 'Imóveis',
-    value: parseNum(row[3]),
+    category: mapToAssetCategory(row[2]),
+    subType: row[2] || 'Outros',
+    currentValue: parseNum(row[3]) || 0,
+    purchaseValue: parseNum(row[3]) || 0,
+    acquisitionDate: new Date().toISOString().slice(0, 10),
     notes: row[4] || ''
-  })).filter((p: any) => p.name !== 'Ativo' || p.value > 0);
+  })).filter((p: any) => p.name !== 'Ativo' || p.currentValue > 0);
 
   // Parse Vehicles
   const vehRows = getRows(7);

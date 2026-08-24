@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { PageHeader } from '../components/layout';
 import { useDashboard } from '../contexts';
 import { Button } from '../components/ui/button';
@@ -8,22 +8,23 @@ import {
   RegisterMonthModal,
   WidgetGrid,
   DashboardSkeleton,
-  SaldoRealWidget,
-  SaldoProjetadoWidget,
-  DailyBalanceTimeline,
-  IncomeVsExpensesChart,
-  ExpensesByCategoryReport,
-  DashboardBudgetWidget,
-  DashboardFixedExpenses,
-  DashboardGoals,
-  DashboardAssetDistribution,
-  DashboardRecentTransactions,
-  BurnRateSummary,
-  CategoryInsights,
-  GoalSimulator,
   DashboardSummaryCards,
   DashboardSecondarySummaryCards
 } from '../components/dashboard';
+
+const SaldoRealWidget = lazy(() => import('../components/dashboard/SaldoRealWidget').then(m => ({ default: m.SaldoRealWidget })));
+const SaldoProjetadoWidget = lazy(() => import('../components/dashboard/SaldoProjetadoWidget').then(m => ({ default: m.SaldoProjetadoWidget })));
+const DailyBalanceTimeline = lazy(() => import('../components/dashboard/DailyBalanceTimeline').then(m => ({ default: m.DailyBalanceTimeline })));
+const IncomeVsExpensesChart = lazy(() => import('../components/dashboard/IncomeVsExpensesChart').then(m => ({ default: m.IncomeVsExpensesChart })));
+const ExpensesByCategoryReport = lazy(() => import('../components/dashboard/ExpensesByCategoryReport').then(m => ({ default: m.ExpensesByCategoryReport })));
+const DashboardBudgetWidget = lazy(() => import('../components/dashboard/DashboardBudgetWidget').then(m => ({ default: m.DashboardBudgetWidget })));
+const DashboardFixedExpenses = lazy(() => import('../components/dashboard/DashboardFixedExpenses').then(m => ({ default: m.DashboardFixedExpenses })));
+const DashboardGoals = lazy(() => import('../components/dashboard/DashboardGoals').then(m => ({ default: m.DashboardGoals })));
+const DashboardAssetDistribution = lazy(() => import('../components/dashboard/DashboardAssetDistribution').then(m => ({ default: m.DashboardAssetDistribution })));
+const DashboardRecentTransactions = lazy(() => import('../components/dashboard/DashboardRecentTransactions').then(m => ({ default: m.DashboardRecentTransactions })));
+const BurnRateSummary = lazy(() => import('../components/dashboard/BurnRateSummary').then(m => ({ default: m.BurnRateSummary })));
+const CategoryInsights = lazy(() => import('../components/dashboard/CategoryInsights').then(m => ({ default: m.CategoryInsights })));
+const GoalSimulator = lazy(() => import('../components/dashboard/GoalSimulator').then(m => ({ default: m.GoalSimulator })));
 
 export default function DashboardView() {
   const { currentMonth, isLoading } = useDashboard();
@@ -51,45 +52,43 @@ export default function DashboardView() {
         onClose={() => setIsRegisterModalOpen(false)} 
       />
 
-      {/* Summary Cards directly below the header */}
       <DashboardSummaryCards />
       <DashboardSecondarySummaryCards />
 
-      <WidgetGrid>
-        {/* Top Row: Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 col-span-12">
-          <SaldoRealWidget />
-          <SaldoProjetadoWidget />
-          <BurnRateSummary />
-          <DashboardAssetDistribution />
-        </div>
-
-        {/* Middle Row: Charts & Insights */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 col-span-12">
-          <div className="lg:col-span-2 flex flex-col gap-4">
-            <DailyBalanceTimeline />
-            <IncomeVsExpensesChart />
+      <Suspense fallback={<DashboardSkeleton />}>
+        <WidgetGrid>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 col-span-12">
+            <SaldoRealWidget />
+            <SaldoProjetadoWidget />
+            <BurnRateSummary />
+            <DashboardAssetDistribution />
           </div>
-          <div className="flex flex-col gap-4">
-            <ExpensesByCategoryReport />
-            <CategoryInsights />
-          </div>
-        </div>
 
-        {/* Bottom Row: Budgets, Goals, Transactions */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 col-span-12">
-          <DashboardBudgetWidget />
-          <DashboardGoals />
-          <div className="flex flex-col gap-4">
-            <DashboardFixedExpenses />
-            <DashboardRecentTransactions />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 col-span-12">
+            <div className="lg:col-span-2 flex flex-col gap-4">
+              <DailyBalanceTimeline />
+              <IncomeVsExpensesChart />
+            </div>
+            <div className="flex flex-col gap-4">
+              <ExpensesByCategoryReport />
+              <CategoryInsights />
+            </div>
           </div>
-        </div>
 
-        <div className="col-span-12">
-          <GoalSimulator />
-        </div>
-      </WidgetGrid>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 col-span-12">
+            <DashboardBudgetWidget />
+            <DashboardGoals />
+            <div className="flex flex-col gap-4">
+              <DashboardFixedExpenses />
+              <DashboardRecentTransactions />
+            </div>
+          </div>
+
+          <div className="col-span-12">
+            <GoalSimulator />
+          </div>
+        </WidgetGrid>
+      </Suspense>
     </div>
   );
 }

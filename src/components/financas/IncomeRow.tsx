@@ -3,17 +3,7 @@ import { Card, CardContent } from '../ui/card';
 import { usePrivacy } from '../../contexts';
 import { TrendingUp, Edit2, Trash2, ChevronDown, ChevronUp, Repeat, CheckSquare, Square } from 'lucide-react';
 import { Button } from '../ui/button';
-
-export interface Income {
-  id: string;
-  date: string;
-  amount: number;
-  category: string;
-  entity: string;
-  method: string;
-  recurring: boolean;
-  notes: string;
-}
+import { Income } from '../../types';
 
 interface IncomeRowProps {
   incomes: Income[];

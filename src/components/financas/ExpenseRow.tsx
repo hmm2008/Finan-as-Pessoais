@@ -3,18 +3,7 @@ import { Card, CardContent } from '../ui/card';
 import { usePrivacy } from '../../contexts';
 import { CreditCard, Repeat, Car, Edit2, Trash2, ChevronDown, ChevronUp, CheckSquare, Square } from 'lucide-react';
 import { Button } from '../ui/button';
-
-export interface Expense {
-  id: string;
-  date: string;
-  amount: number;
-  category: string;
-  entity: string;
-  method: string;
-  recurring: boolean;
-  vehicle: boolean;
-  notes: string;
-}
+import { Expense } from '../../types';
 
 interface ExpenseRowProps {
   expenses: Expense[];
@@ -83,10 +72,10 @@ export function ExpenseRow({ expenses, onEdit, onDelete, selectedIds = [], onTog
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-foreground truncate">{expense.entity}</p>
                       {expense.recurring && <Repeat className="w-3 h-3 text-primary shrink-0" title="Despesa Recorrente" />}
-                      {((expense as any).vehicle || (expense as any).vehiclePlate || (expense as any).vehicleName) && (
+                      {expense.vehicle && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0" title="Viatura Associada">
                           <Car className="w-3 h-3" />
-                          {(expense as any).vehiclePlate || (expense as any).vehicleName || 'Viatura'}
+                          {expense.entity || 'Viatura'}
                         </span>
                       )}
                     </div>
