@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { X, Wand2, Plus } from 'lucide-react';
+import { X, Wand2, Plus, Car } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { getSuggestedCategory } from './AutoCategorization';
-import { useExpenses } from '../../hooks/queries';
+import { useExpenses, useVehicles, useVehicleFuel } from '../../hooks/queries';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 
 interface ExpenseFormProps {
@@ -21,6 +21,8 @@ const DEFAULT_CATEGORIES = ['Alimentação', 'Habitação', 'Transportes', 'Comb
 export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) {
 
   const { addExpense, updateExpense } = useExpenses();
+  const { vehicles, updateVehicle } = useVehicles();
+  const { fuelEntries, addFuelEntry, updateFuelEntry, deleteFuelEntry } = useVehicleFuel();
 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [amount, setAmount] = useState('');
@@ -29,6 +31,9 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
   const [method, setMethod] = useState('');
   const [recurring, setRecurring] = useState(false);
   const [notes, setNotes] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
+  const [liters, setLiters] = useState('');
+  const [kilometers, setKilometers] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
 
@@ -47,6 +52,9 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
         setMethod(initialData.method || 'Débito Direto');
         setRecurring(initialData.recurring !== undefined ? initialData.recurring : (initialData.isFixedExpense ? true : false));
         setNotes(initialData.notes || '');
+        setVehicleId(initialData.vehicleId || '');
+        setLiters(initialData.liters !== undefined && initialData.liters !== null ? initialData.liters.toString() : '');
+        setKilometers(initialData.kilometers !== undefined && initialData.kilometers !== null ? initialData.kilometers.toString() : '');
       } else {
         setDate(new Date().toISOString().split('T')[0]);
         setAmount('');
@@ -55,6 +63,9 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
         setMethod('');
         setRecurring(false);
         setNotes('');
+        setVehicleId('');
+        setLiters('');
+        setKilometers('');
       }
       setIsSubmitting(false);
       setSuggestedCategory(null);
@@ -121,6 +132,12 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      const isFuel = category === 'Combustível';
+      const selectedVeh = vehicles.find((v: any) => v.id === vehicleId);
+
+      const litersVal = isFuel && liters ? parseFloat(liters) : 0;
+      const kmVal = isFuel && kilometers ? parseInt(kilometers) : (selectedVeh?.kilometers || 0);
+
       const payload = {
         date,
         amount: parseFloat(amount),
@@ -129,16 +146,60 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
         method,
         recurring,
         notes,
-        vehicle: category === 'Combustível'
+        vehicle: isFuel,
+        vehicleId: isFuel && vehicleId ? vehicleId : undefined,
+        vehiclePlate: isFuel && selectedVeh ? selectedVeh.plate : undefined,
+        vehicleName: isFuel && selectedVeh ? `${selectedVeh.brand} ${selectedVeh.model}` : undefined,
+        liters: isFuel && liters ? litersVal : undefined,
+        kilometers: isFuel && kilometers ? kmVal : undefined,
       };
+
+      let savedExpense: any;
       if (initialData) {
-        await updateExpense({ ...initialData, ...payload });
+        savedExpense = await updateExpense({ ...initialData, ...payload });
       } else {
-        await addExpense(payload);
+        savedExpense = await addExpense(payload);
       }
+
+      // Handle linkage to Viaturas / Combustível
+      if (isFuel && vehicleId && savedExpense) {
+        const amountVal = parseFloat(amount) || 0;
+        const pricePerLiter = litersVal > 0 ? parseFloat((amountVal / litersVal).toFixed(3)) : 0;
+        
+        const fuelEntryId = initialData?.fuelEntryId || `fuel_exp_${savedExpense.id}`;
+
+        const fuelEntryData = {
+          id: fuelEntryId,
+          expenseId: savedExpense.id,
+          vehicleId: vehicleId,
+          date: date,
+          liters: litersVal,
+          totalCost: amountVal,
+          pricePerLiter: pricePerLiter,
+          kilometers: kmVal,
+          station: entity || 'Posto de Combustível'
+        };
+
+        const existingFuel = fuelEntries.find((f: any) => f.expenseId === savedExpense.id || f.id === fuelEntryId);
+        if (existingFuel) {
+          await updateFuelEntry({ ...existingFuel, ...fuelEntryData });
+        } else {
+          await addFuelEntry(fuelEntryData);
+        }
+
+        if (selectedVeh && kmVal > (selectedVeh.kilometers || 0)) {
+          await updateVehicle({ ...selectedVeh, kilometers: kmVal });
+        }
+      } else if (initialData && (initialData.category === 'Combustível' || initialData.vehicleId)) {
+        const existingFuel = fuelEntries.find((f: any) => f.expenseId === initialData.id || f.id === `fuel_exp_${initialData.id}`);
+        if (existingFuel) {
+          await deleteFuelEntry(existingFuel.id);
+        }
+      }
+
       onClose();
     } catch (error) {
-      console.error('Failed to add expense', error);
+      console.error('Failed to add/update expense', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -243,6 +304,69 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
                 <PaymentMethodSelector value={method} onChange={setMethod} id="method" />
               </div>
             </div>
+
+            {category === 'Combustível' && (
+              <div className="space-y-3 p-3.5 border border-amber-500/30 rounded-xl bg-amber-500/5 dark:bg-amber-500/10 transition-all">
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold text-xs uppercase tracking-wider">
+                  <Car className="w-4 h-4" /> Associar a Viatura & Abastecimento
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="vehicleSelect" className="text-xs">Viatura <span className="text-destructive">*</span></Label>
+                  {vehicles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">
+                      Nenhuma viatura registada. Pode registar viaturas na página "Viaturas".
+                    </p>
+                  ) : (
+                    <Select value={vehicleId} onValueChange={setVehicleId}>
+                      <SelectTrigger id="vehicleSelect" className="bg-background">
+                        <SelectValue placeholder="Selecione a viatura..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehicles.map((v: any) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.plate ? `${v.plate} - ` : ''}{v.brand} {v.model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                {vehicleId && (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1">
+                      <Label htmlFor="fuelLiters" className="text-xs">Litros (opcional)</Label>
+                      <Input 
+                        id="fuelLiters" 
+                        type="number" 
+                        step="0.01" 
+                        min="0"
+                        placeholder="Ex: 42.5" 
+                        value={liters} 
+                        onChange={(e) => setLiters(e.target.value)}
+                        className="bg-background text-xs h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="fuelKm" className="text-xs">Quilometragem (km)</Label>
+                      <Input 
+                        id="fuelKm" 
+                        type="number" 
+                        placeholder={
+                          vehicles.find((v: any) => v.id === vehicleId)?.kilometers 
+                            ? `Atual: ${vehicles.find((v: any) => v.id === vehicleId)?.kilometers} km` 
+                            : "Ex: 125000"
+                        } 
+                        value={kilometers} 
+                        onChange={(e) => setKilometers(e.target.value)}
+                        className="bg-background text-xs h-9"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center justify-between p-3 border border-border rounded-lg bg-secondary/30 mt-2">
               <div className="space-y-0.5">

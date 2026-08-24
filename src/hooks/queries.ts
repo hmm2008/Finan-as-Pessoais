@@ -23,6 +23,7 @@ initLocalStorage('fin_fixed_incomes', []);
 initLocalStorage('fin_assets', []);
 initLocalStorage('fin_vehicles', []);
 initLocalStorage('fin_vehicle_tasks', []);
+initLocalStorage('fin_vehicle_fuel', []);
 initLocalStorage('fin_goals', []);
 initLocalStorage('fin_budgets', []);
 initLocalStorage('fin_categorization_rules', []);
@@ -144,7 +145,16 @@ export function useExpenses() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteEntity('fin_expenses', 'expenses', id),
+    mutationFn: async (id: string) => {
+      // Remove linked fuel entry from fin_vehicle_fuel if exists
+      const fuels = getLocalEntityList<any>('fin_vehicle_fuel');
+      const filteredFuels = fuels.filter((f: any) => f.expenseId !== id && f.id !== `fuel_exp_${id}`);
+      if (filteredFuels.length !== fuels.length) {
+        localStorage.setItem('fin_vehicle_fuel', JSON.stringify(filteredFuels));
+        queryClient.setQueryData(['vehicleFuel'], filteredFuels);
+      }
+      return deleteEntity('fin_expenses', 'expenses', id);
+    },
     onSuccess: (_, id) => queryClient.setQueryData(['expenses'], (old: any) => (old || []).filter((item: any) => item.id !== id))
   });
 
@@ -453,6 +463,52 @@ export function useVehicleTasks() {
     addVehicleTask: addMutation.mutateAsync,
     updateVehicleTask: updateMutation.mutateAsync,
     deleteVehicleTask: deleteMutation.mutateAsync
+  };
+}
+
+// -----------------------------------------
+// 8. Vehicle Fuel Hook (useVehicleFuel)
+// -----------------------------------------
+export function useVehicleFuel() {
+  const queryClient = useQueryClient();
+
+  const queryResult = useQuery({
+    queryKey: ['vehicleFuel'],
+    queryFn: () => getEntityList<any>('fin_vehicle_fuel', 'vehicle_fuel'),
+    initialData: () => getLocalEntityList<any>('fin_vehicle_fuel'),
+    staleTime: 0,
+  });
+
+  const addMutation = useMutation({
+    mutationFn: (newFuel: any) => saveEntity<any>('fin_vehicle_fuel', 'vehicle_fuel', newFuel),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['vehicleFuel'], (old: any) => [data, ...(old || [])]);
+      queryClient.invalidateQueries({ queryKey: ['vehicleFuel'] });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (updatedFuel: any) => updateEntity<any>('fin_vehicle_fuel', 'vehicle_fuel', updatedFuel),
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(['vehicleFuel'], (old: any) => (old || []).map((item: any) => item.id === variables.id ? { ...item, ...variables } : item));
+      queryClient.invalidateQueries({ queryKey: ['vehicleFuel'] });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteEntity('fin_vehicle_fuel', 'vehicle_fuel', id),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData(['vehicleFuel'], (old: any) => (old || []).filter((item: any) => item.id !== id));
+      queryClient.invalidateQueries({ queryKey: ['vehicleFuel'] });
+    }
+  });
+
+  return {
+    fuelEntries: queryResult.data || [],
+    isLoading: queryResult.isLoading,
+    addFuelEntry: addMutation.mutateAsync,
+    updateFuelEntry: updateMutation.mutateAsync,
+    deleteFuelEntry: deleteMutation.mutateAsync
   };
 }
 

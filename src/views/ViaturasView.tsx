@@ -69,6 +69,31 @@ export default function ViaturasView() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>(() => vehicles[0]?.id || '');
 
   React.useEffect(() => {
+    const reloadData = () => {
+      try {
+        const savedVeh = localStorage.getItem('fin_vehicles');
+        if (savedVeh) setVehicles(JSON.parse(savedVeh));
+        
+        const savedFuel = localStorage.getItem('fin_vehicle_fuel');
+        if (savedFuel) setFuelEntries(JSON.parse(savedFuel));
+        
+        const savedTasks = localStorage.getItem('fin_vehicle_tasks');
+        if (savedTasks) setTasks(JSON.parse(savedTasks));
+      } catch (e) {
+        console.error('Erro ao recarregar dados de veículos:', e);
+      }
+    };
+
+    reloadData();
+    window.addEventListener('storage', reloadData);
+    window.addEventListener('focus', reloadData);
+    return () => {
+      window.removeEventListener('storage', reloadData);
+      window.removeEventListener('focus', reloadData);
+    };
+  }, []);
+
+  React.useEffect(() => {
     try {
       localStorage.setItem('fin_vehicles', JSON.stringify(vehicles));
     } catch (e) {
