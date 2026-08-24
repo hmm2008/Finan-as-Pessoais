@@ -22,9 +22,9 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
   const { currentMonth, setCurrentMonth } = useDashboard();
   const queryClient = useQueryClient();
 
-  const { expenses } = useExpenses();
+  const { expenses, addExpense } = useExpenses();
   const { fixedExpenses } = useFixedExpenses();
-  const { incomes } = useIncomes();
+  const { incomes, addIncome } = useIncomes();
   const { fixedIncomes } = useFixedIncomes();
 
   const [currentYear, setCurrentYear] = useState<number>(() => {
@@ -219,43 +219,12 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
         });
       });
 
-      // Save merged lists to localStorage
-      if (newlyAddedExpenses.length > 0) {
-        const updatedExp = [...newlyAddedExpenses, ...existingExpenses];
-        localStorage.setItem('fin_expenses', JSON.stringify(updatedExp));
-        queryClient.setQueryData(['expenses'], updatedExp);
-
-        // Firestore sync
-        if (user) {
-          newlyAddedExpenses.forEach(exp => {
-            const payload = sanitizeForFirestore({
-              ...exp,
-              userId: user.uid,
-              created_by_id: user.uid,
-              createdAt: new Date().toISOString()
-            });
-            scheduleSheetsBackgroundSync();
-          });
-        }
+      // Save new items using hooks
+      for (const exp of newlyAddedExpenses) {
+        await addExpense(exp);
       }
-
-      if (newlyAddedIncomes.length > 0) {
-        const updatedIncFixed = [...newlyAddedIncomes, ...existingFixedIncomes];
-        localStorage.setItem('fin_incomes_fixed_realized', JSON.stringify(updatedIncFixed));
-        queryClient.invalidateQueries({ queryKey: ['incomes_combined'] });
-
-        // Firestore sync
-        if (user) {
-          newlyAddedIncomes.forEach(inc => {
-            const payload = sanitizeForFirestore({
-              ...inc,
-              userId: user.uid,
-              created_by_id: user.uid,
-              createdAt: new Date().toISOString()
-            });
-            scheduleSheetsBackgroundSync();
-          });
-        }
+      for (const inc of newlyAddedIncomes) {
+        await addIncome(inc);
       }
 
       // Mark months as prepared in storage
