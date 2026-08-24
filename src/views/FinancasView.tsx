@@ -10,7 +10,6 @@ import { Input } from '../components/ui/input';
 import { Search, Info, Plus, Upload, FileText, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Wallet, ArrowDownRight, ArrowUpRight, CheckSquare, Square, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useExpenses, useIncomes, useFixedExpenses, useFixedIncomes } from '../hooks/queries';
-import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
 
 export default function FinancasView() {
@@ -43,17 +42,7 @@ export default function FinancasView() {
   const [activeTab, setActiveTab] = useState('despesas');
   const [period, setPeriod] = useState<'Mensal' | 'Anual'>('Mensal');
   const [filterCategory, setFilterCategory] = useState('Todas as categorias');
-  const [filterMethod, setFilterMethod] = useState('Todos os métodos de pagamento');
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-
-  const { paymentMethods } = usePaymentMethods();
-
-  const availablePaymentMethods = useMemo(() => {
-    const set = new Set<string>(paymentMethods);
-    expenses.forEach((e: any) => { if (e.method) set.add(e.method); });
-    incomes.forEach((i: any) => { if (i.method) set.add(i.method); });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-PT'));
-  }, [paymentMethods, expenses, incomes]);
 
   // Multi-selection states for bulk actions
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
@@ -163,15 +152,13 @@ export default function FinancasView() {
       const matchPeriod = periodMatch(e.date);
       const matchSearch = (e.entity || '').toLowerCase().includes(search.toLowerCase()) || 
                           (e.category || '').toLowerCase().includes(search.toLowerCase()) ||
-                          (e.method || '').toLowerCase().includes(search.toLowerCase()) ||
                           (e.notes || '').toLowerCase().includes(search.toLowerCase());
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? e.category === filterCategory : true;
-      const matchMethod = filterMethod && filterMethod !== 'Todos os métodos de pagamento' ? (e.method || 'Outro') === filterMethod : true;
       const isPunctual = (!e.recurring || e.recurring === 'false' || e.recurring === 'Não') && !e.isFixed && !e.fixedExpenseId;
       
-      return isPunctual && matchPeriod && matchSearch && matchCategory && matchMethod;
+      return isPunctual && matchPeriod && matchSearch && matchCategory;
     }).sort(sortByDateDesc);
-  }, [expenses, period, current, year, search, filterCategory, filterMethod]);
+  }, [expenses, period, current, year, search, filterCategory]);
 
   // Despesas fixas registadas pelo utilizador para o período
   const filteredFixedExpenses = useMemo(() => {
@@ -180,14 +167,12 @@ export default function FinancasView() {
       const matchPeriod = periodMatch(e.date);
       const matchSearch = (e.entity || '').toLowerCase().includes(search.toLowerCase()) || 
                           (e.category || '').toLowerCase().includes(search.toLowerCase()) ||
-                          (e.method || '').toLowerCase().includes(search.toLowerCase()) ||
                           (e.notes || '').toLowerCase().includes(search.toLowerCase());
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? e.category === filterCategory : true;
-      const matchMethod = filterMethod && filterMethod !== 'Todos os métodos de pagamento' ? (e.method || 'Outro') === filterMethod : true;
       
-      return isFixed && matchPeriod && matchSearch && matchCategory && matchMethod;
+      return isFixed && matchPeriod && matchSearch && matchCategory;
     }).sort(sortByDateDesc);
-  }, [expenses, period, current, year, search, filterCategory, filterMethod]);
+  }, [expenses, period, current, year, search, filterCategory]);
 
   const DEFAULT_EXPENSE_CATS = ['Alimentação', 'Habitação', 'Transportes', 'Combustível', 'Saúde', 'Lazer'];
   const DEFAULT_FIXED_EXPENSE_CATS = ['Habitação', 'Saúde', 'Transportes', 'Educação', 'Seguros', 'Subscrições', 'Telecomunicações', 'Impostos', 'Outros'];
@@ -199,14 +184,12 @@ export default function FinancasView() {
       const matchPeriod = periodMatch(i.date);
       const matchSearch = (i.entity || '').toLowerCase().includes(search.toLowerCase()) || 
                           (i.category || '').toLowerCase().includes(search.toLowerCase()) ||
-                          (i.method || '').toLowerCase().includes(search.toLowerCase()) ||
                           (i.notes || '').toLowerCase().includes(search.toLowerCase());
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? i.category === filterCategory : true;
-      const matchMethod = filterMethod && filterMethod !== 'Todos os métodos de pagamento' ? (i.method || 'Outro') === filterMethod : true;
       
-      return matchPeriod && matchSearch && matchCategory && matchMethod;
+      return matchPeriod && matchSearch && matchCategory;
     }).sort(sortByDateDesc);
-  }, [incomes, period, current, year, search, filterCategory, filterMethod]);
+  }, [incomes, period, current, year, search, filterCategory]);
 
   // Selection helpers for bulk actions
   const toggleSelectExpense = (id: string) => {
@@ -572,12 +555,12 @@ export default function FinancasView() {
               </div>
             </div>
 
-            {/* Bottom Row: Search, Category Filter and Payment Method Filter */}
+            {/* Bottom Row: Search and Category Filter */}
             <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 border-t border-border/40">
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input 
-                  placeholder="Pesquisar por descrição, entidade, categoria ou método..." 
+                  placeholder="Pesquisar por descrição, entidade ou categoria..." 
                   className="pl-8 h-8 text-xs bg-background shadow-none rounded-lg border-border"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -585,21 +568,12 @@ export default function FinancasView() {
               </div>
 
               <select 
-                className="w-full sm:w-48 h-8 px-2.5 rounded-lg border border-border bg-background text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                className="w-full sm:w-56 h-8 px-2.5 rounded-lg border border-border bg-background text-xs outline-none focus:ring-1 focus:ring-primary/30"
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
               >
                 <option value="Todas as categorias">Todas as categorias</option>
                 {availableCategories.map((c: string) => <option key={c} value={c}>{c}</option>)}
-              </select>
-
-              <select 
-                className="w-full sm:w-48 h-8 px-2.5 rounded-lg border border-border bg-background text-xs outline-none focus:ring-1 focus:ring-primary/30"
-                value={filterMethod}
-                onChange={(e) => setFilterMethod(e.target.value)}
-              >
-                <option value="Todos os métodos de pagamento">Todos os métodos</option>
-                {availablePaymentMethods.map((m: string) => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
           </CardContent>
