@@ -89,10 +89,10 @@ export default function WelcomeView() {
             {authError === 'unauthorized_domain' && (
               <div className="p-4 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm border border-amber-500/20 space-y-3">
                 <p className="font-semibold text-center text-amber-800 dark:text-amber-300">
-                  ⚠️ Domínio Vercel não autorizado na Firebase
+                  ⚠️ Domínio Vercel não autorizado no Firebase
                 </p>
                 <p className="text-xs leading-relaxed">
-                  Para login com conta Google Firebase, precisa de adicionar o seu domínio da Vercel na consola Firebase.
+                  Para permitir o login com a Google via Firebase no seu domínio Vercel, adicione o endereço do seu site em <strong>Authorized Domains</strong> do seu projeto Firebase.
                 </p>
                 
                 <div className="flex items-center justify-between p-2 rounded-lg bg-background/80 border border-amber-500/30 text-xs font-mono text-foreground">
@@ -104,14 +104,17 @@ export default function WelcomeView() {
                 </div>
 
                 <div className="pt-2 border-t border-amber-500/20 flex flex-col gap-2">
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium" 
-                    onClick={loginAsLocalUser}
+                  <a 
+                    href="https://console.firebase.google.com/project/gen-lang-client-0096022431/authentication/settings" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-full inline-flex items-center justify-center h-9 px-3 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition-colors"
                   >
-                    <HardDrive className="w-4 h-4 mr-1.5" /> Entrar Agora (Modo Local / Google Drive)
-                  </Button>
+                    1. Abrir Consola Firebase (Projeto gen-lang-client-0096022431) ↗
+                  </a>
+                  <p className="text-[11px] text-muted-foreground text-center">
+                    Cole o domínio em <strong>Authorized domains &gt; Add domain</strong>.
+                  </p>
                 </div>
               </div>
             )}
