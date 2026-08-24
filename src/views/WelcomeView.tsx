@@ -4,10 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Shield, TrendingUp, Target, Car, Lock, KeyRound, Delete, AlertCircle, Mail, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Shield, TrendingUp, Target, Car, Lock, KeyRound, Delete, AlertCircle, Mail, CheckCircle2, ArrowLeft, Copy, Check } from 'lucide-react';
 
 export default function WelcomeView() {
-  const { loginAsLocalUser } = useAuth();
+  const { login, loginAsLocalUser, isLoadingAuth, authError } = useAuth();
   const { hasPin, verifyPin, unlock, setPin } = usePin();
   const { requestPinReset, resetPin } = usePreferences();
 
@@ -18,6 +18,8 @@ export default function WelcomeView() {
   const [pinStep, setPinStep] = useState<'input' | 'confirm'>('input');
   const [pinError, setPinError] = useState<string | null>(null);
 
+  const [copied, setCopied] = useState(false);
+
   // Email Verification States
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [email, setEmail] = useState('');
@@ -26,6 +28,16 @@ export default function WelcomeView() {
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [isResettingPin, setIsResettingPin] = useState(false);
   const [emailMessage, setEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
+
+  const handleCopyDomain = () => {
+    if (currentDomain) {
+      navigator.clipboard.writeText(currentDomain);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const handleSendVerificationCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,12 +194,12 @@ export default function WelcomeView() {
         </div>
       </div>
 
-      {/* Right Side - PIN Login & Email Verification */}
+      {/* Right Side - Login */}
       <div className="w-full md:w-[450px] lg:w-[500px] p-8 flex items-center justify-center relative bg-background">
         <Card className="w-full max-w-sm border-0 shadow-none bg-transparent">
           <CardHeader className="text-center px-0">
-            <CardTitle className="text-2xl font-bold">Acesso à Aplicação</CardTitle>
-            <CardDescription>Autenticação protegida por PIN de segurança</CardDescription>
+            <CardTitle className="text-2xl font-bold">Bem-vindo</CardTitle>
+            <CardDescription>Inicie sessão com Conta Google ou aceda via PIN</CardDescription>
           </CardHeader>
           <CardContent className="px-0 space-y-4 mt-2">
             
@@ -274,92 +286,139 @@ export default function WelcomeView() {
                 )}
               </div>
             ) : (
-              /* Direct PIN Keypad Card */
-              <div className="p-5 bg-card border border-border rounded-2xl space-y-4 shadow-lg text-center animate-in fade-in duration-200">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
-                  <KeyRound className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-foreground">
-                    {!hasPin || isCreatingPin
-                      ? (pinStep === 'input' ? 'Criar PIN de Acesso' : 'Confirme o Novo PIN')
-                      : 'Introduza o PIN de Acesso'}
-                  </h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {!hasPin || isCreatingPin
-                      ? (pinStep === 'input' ? 'Escolha 4 dígitos para proteger o acesso à aplicação' : 'Repita os 4 dígitos para confirmar')
-                      : 'Insira o seu código de 4 dígitos para desbloquear'}
-                  </p>
-                </div>
+              <div className="space-y-4">
+                {/* Google Login Section */}
+                <Button 
+                  className="w-full h-11 text-sm font-semibold transition-all shadow-xs" 
+                  onClick={login}
+                  disabled={isLoadingAuth}
+                >
+                  {isLoadingAuth ? 'A autenticar...' : 'Entrar com Conta Google (Firebase)'}
+                </Button>
 
-                <div className="flex justify-center items-center gap-3 py-1">
-                  {[0, 1, 2, 3].map((idx) => (
-                    <div 
-                      key={idx}
-                      className={`w-4 h-4 rounded-full border border-border transition-all duration-150 ${
-                        pinCode.length > idx 
-                          ? 'bg-primary scale-110 shadow-xs shadow-primary/30' 
-                          : 'bg-secondary'
-                      } ${pinError ? 'border-destructive bg-destructive/30 animate-shake' : ''}`}
-                    />
-                  ))}
-                </div>
-
-                {pinError && (
-                  <p className="text-xs text-destructive font-semibold flex items-center justify-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" /> {pinError}
-                  </p>
+                {authError === 'network_error' && (
+                  <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs font-medium text-center border border-destructive/20">
+                    Erro de rede. Verifique a sua ligação à internet.
+                  </div>
+                )}
+                
+                {authError === 'unauthorized_domain' && (
+                  <div className="p-4 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs border border-amber-500/20 space-y-3">
+                    <p className="font-semibold text-center text-amber-800 dark:text-amber-300">
+                      ⚠️ Domínio Vercel não autorizado no Firebase
+                    </p>
+                    <p className="text-[11px] leading-relaxed">
+                      Para permitir o login com a Google via Firebase, adicione o endereço em <strong>Authorized Domains</strong> do seu projeto Firebase.
+                    </p>
+                    
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-background/80 border border-amber-500/30 text-[11px] font-mono text-foreground">
+                      <span className="truncate pr-2">{currentDomain}</span>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 shrink-0 text-amber-600 dark:text-amber-400" onClick={handleCopyDomain}>
+                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span className="ml-1 text-[10px]">{copied ? 'Copiado!' : 'Copiar'}</span>
+                      </Button>
+                    </div>
+                  </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => handlePinKeyPress(num)}
-                      className="h-11 rounded-xl bg-secondary/80 hover:bg-secondary text-foreground text-base font-bold transition-all active:scale-95 focus:outline-none flex items-center justify-center border border-border/40"
-                    >
-                      {num}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => { setPinCode(''); setPinError(null); }}
-                    className="h-11 rounded-xl text-muted-foreground text-xs font-semibold hover:bg-secondary/60"
-                  >
-                    Limpar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePinKeyPress('0')}
-                    className="h-11 rounded-xl bg-secondary/80 hover:bg-secondary text-foreground text-base font-bold transition-all active:scale-95 focus:outline-none flex items-center justify-center border border-border/40"
-                  >
-                    0
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleBackspace}
-                    className="h-11 rounded-xl text-muted-foreground hover:bg-secondary/60 flex items-center justify-center"
-                  >
-                    <Delete className="w-4 h-4" />
-                  </button>
+                {authError && !['network_error', 'unauthorized_domain'].includes(authError) && (
+                  <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs font-medium text-center border border-destructive/20">
+                    Erro de autenticação: {authError}
+                  </div>
+                )}
+
+                <div className="relative my-3 text-center text-xs text-muted-foreground">
+                  <span className="bg-background px-2 relative z-10">ou autentique por PIN de Acesso</span>
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border"></div></div>
                 </div>
 
-                <div className="pt-3 border-t border-border/50">
-                  <button
-                    type="button"
-                    onClick={() => { setShowEmailVerification(true); setEmailMessage(null); }}
-                    className="text-xs text-primary hover:underline font-medium flex items-center justify-center gap-1.5 mx-auto"
-                  >
-                    <Mail className="w-3.5 h-3.5" /> Definir / Alterar PIN via E-mail
-                  </button>
+                {/* Direct PIN Keypad Card */}
+                <div className="p-5 bg-card border border-border rounded-2xl space-y-4 shadow-lg text-center animate-in fade-in duration-200">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
+                    <KeyRound className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-foreground">
+                      {!hasPin || isCreatingPin
+                        ? (pinStep === 'input' ? 'Criar PIN de Acesso' : 'Confirme o Novo PIN')
+                        : 'Introduza o PIN de Acesso'}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {!hasPin || isCreatingPin
+                        ? (pinStep === 'input' ? 'Escolha 4 dígitos para proteger o acesso à aplicação' : 'Repita os 4 dígitos para confirmar')
+                        : 'Insira o seu código de 4 dígitos para desbloquear'}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center items-center gap-3 py-1">
+                    {[0, 1, 2, 3].map((idx) => (
+                      <div 
+                        key={idx}
+                        className={`w-4 h-4 rounded-full border border-border transition-all duration-150 ${
+                          pinCode.length > idx 
+                            ? 'bg-primary scale-110 shadow-xs shadow-primary/30' 
+                            : 'bg-secondary'
+                        } ${pinError ? 'border-destructive bg-destructive/30 animate-shake' : ''}`}
+                      />
+                    ))}
+                  </div>
+
+                  {pinError && (
+                    <p className="text-xs text-destructive font-semibold flex items-center justify-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" /> {pinError}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => handlePinKeyPress(num)}
+                        className="h-11 rounded-xl bg-secondary/80 hover:bg-secondary text-foreground text-base font-bold transition-all active:scale-95 focus:outline-none flex items-center justify-center border border-border/40"
+                      >
+                        {num}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => { setPinCode(''); setPinError(null); }}
+                      className="h-11 rounded-xl text-muted-foreground text-xs font-semibold hover:bg-secondary/60"
+                    >
+                      Limpar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePinKeyPress('0')}
+                      className="h-11 rounded-xl bg-secondary/80 hover:bg-secondary text-foreground text-base font-bold transition-all active:scale-95 focus:outline-none flex items-center justify-center border border-border/40"
+                    >
+                      0
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBackspace}
+                      className="h-11 rounded-xl text-muted-foreground hover:bg-secondary/60 flex items-center justify-center"
+                    >
+                      <Delete className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="pt-3 border-t border-border/50">
+                    <button
+                      type="button"
+                      onClick={() => { setShowEmailVerification(true); setEmailMessage(null); }}
+                      className="text-xs text-primary hover:underline font-medium flex items-center justify-center gap-1.5 mx-auto"
+                    >
+                      <Mail className="w-3.5 h-3.5" /> Definir / Alterar PIN via E-mail
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
 
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-6">
               <Lock className="w-3.5 h-3.5" />
-              <span>Acesso encriptado localmente por PIN de segurança</span>
+              <span>Autenticação por Conta Google ou PIN encriptado</span>
             </div>
           </CardContent>
         </Card>
@@ -367,4 +426,5 @@ export default function WelcomeView() {
     </div>
   );
 }
+
 
