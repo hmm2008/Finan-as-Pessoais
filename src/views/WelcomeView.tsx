@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts';
+import { useAuth, usePin } from '../contexts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Shield, TrendingUp, Target, Car, Lock, Copy, Check, HardDrive } from 'lucide-react';
+import { Shield, TrendingUp, Target, Car, Lock, Copy, Check, HardDrive, KeyRound, Delete, AlertCircle } from 'lucide-react';
 
 export default function WelcomeView() {
   const { login, loginAsLocalUser, isLoadingAuth, authError } = useAuth();
+  const { hasPin, verifyPin, unlock } = usePin();
+
   const [copied, setCopied] = useState(false);
+  const [showPinInput, setShowPinInput] = useState(false);
+  const [pinCode, setPinCode] = useState('');
+  const [pinError, setPinError] = useState(false);
 
   const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
 
@@ -16,6 +21,32 @@ export default function WelcomeView() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handlePinKeyPress = async (val: string) => {
+    setPinError(false);
+    if (pinCode.length >= 4) return;
+
+    const newPin = pinCode + val;
+    setPinCode(newPin);
+
+    if (newPin.length === 4) {
+      const isValid = await verifyPin(newPin);
+      if (isValid) {
+        await unlock(newPin);
+        loginAsLocalUser();
+      } else {
+        setTimeout(() => {
+          setPinCode('');
+          setPinError(true);
+        }, 150);
+      }
+    }
+  };
+
+  const handleBackspace = () => {
+    setPinError(false);
+    setPinCode(prev => prev.slice(0, -1));
   };
 
   const features = [
@@ -80,6 +111,83 @@ export default function WelcomeView() {
             <CardDescription>Inicie sessão para aceder aos seus dados</CardDescription>
           </CardHeader>
           <CardContent className="px-0 space-y-4 mt-2">
+            
+            {/* PIN Unlock Card view if user toggled or has PIN */}
+            {(showPinInput || hasPin) ? (
+              <div className="p-5 bg-card border border-border rounded-2xl space-y-4 shadow-lg text-center animate-in fade-in duration-200">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
+                  <KeyRound className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-foreground">Introduza o PIN de Segurança</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">PIN local de 4 dígitos (sem dependência do Firebase)</p>
+                </div>
+
+                <div className="flex justify-center items-center gap-3 py-1">
+                  {[0, 1, 2, 3].map((idx) => (
+                    <div 
+                      key={idx}
+                      className={`w-4 h-4 rounded-full border border-border transition-all duration-150 ${
+                        pinCode.length > idx 
+                          ? 'bg-primary scale-110 shadow-sm shadow-primary/30' 
+                          : 'bg-secondary'
+                      } ${pinError ? 'border-destructive bg-destructive/30 animate-shake' : ''}`}
+                    />
+                  ))}
+                </div>
+
+                {pinError && (
+                  <p className="text-xs text-destructive font-semibold flex items-center justify-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" /> PIN incorreto. Tente novamente.
+                  </p>
+                )}
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => handlePinKeyPress(num)}
+                      className="h-11 rounded-xl bg-secondary/80 hover:bg-secondary text-foreground text-base font-bold transition-all active:scale-95 focus:outline-none flex items-center justify-center border border-border/40"
+                    >
+                      {num}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => { setPinCode(''); setPinError(false); }}
+                    className="h-11 rounded-xl text-muted-foreground text-xs font-semibold hover:bg-secondary/60"
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePinKeyPress('0')}
+                    className="h-11 rounded-xl bg-secondary/80 hover:bg-secondary text-foreground text-base font-bold transition-all active:scale-95 focus:outline-none flex items-center justify-center border border-border/40"
+                  >
+                    0
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBackspace}
+                    className="h-11 rounded-xl text-muted-foreground hover:bg-secondary/60 flex items-center justify-center"
+                  >
+                    <Delete className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {!hasPin && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-xs text-muted-foreground w-full mt-2" 
+                    onClick={() => setShowPinInput(false)}
+                  >
+                    Voltar às opções
+                  </Button>
+                )}
+              </div>
+            ) : null}
             {authError === 'network_error' && (
               <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium text-center border border-destructive/20">
                 Erro de rede. Verifique a sua ligação à internet.
@@ -149,17 +257,27 @@ export default function WelcomeView() {
             </Button>
 
             <div className="relative my-4 text-center text-xs text-muted-foreground">
-              <span className="bg-background px-2 relative z-10">ou aceda diretamente</span>
+              <span className="bg-background px-2 relative z-10">ou aceda sem Firebase</span>
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border"></div></div>
             </div>
 
-            <Button 
-              variant="outline"
-              className="w-full h-11 text-sm font-medium border-border hover:bg-secondary/60" 
-              onClick={loginAsLocalUser}
-            >
-              <HardDrive className="w-4 h-4 mr-2 text-primary" /> Entrar no Modo Local / Google Drive
-            </Button>
+            <div className="space-y-2">
+              <Button 
+                variant="outline"
+                className="w-full h-11 text-sm font-medium border-border hover:bg-secondary/60" 
+                onClick={loginAsLocalUser}
+              >
+                <HardDrive className="w-4 h-4 mr-2 text-primary" /> Entrar no Modo Local / Google Drive
+              </Button>
+
+              <Button 
+                variant="ghost"
+                className="w-full h-9 text-xs font-medium text-muted-foreground hover:text-foreground" 
+                onClick={() => setShowPinInput(true)}
+              >
+                <KeyRound className="w-3.5 h-3.5 mr-1.5 text-primary" /> Introduzir / Usar PIN de Acesso Local
+              </Button>
+            </div>
             
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-6">
               <Lock className="w-3 h-3" />
