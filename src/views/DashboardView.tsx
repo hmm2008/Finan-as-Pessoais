@@ -20,7 +20,8 @@ import {
   DashboardRecentTransactions,
   BurnRateSummary,
   CategoryInsights,
-  GoalSimulator
+  GoalSimulator,
+  DashboardSummaryCards
 } from '../components/dashboard';
 
 export default function DashboardView() {
@@ -48,6 +49,9 @@ export default function DashboardView() {
         isOpen={isRegisterModalOpen} 
         onClose={() => setIsRegisterModalOpen(false)} 
       />
+
+      {/* Summary Cards directly below the header */}
+      <DashboardSummaryCards />
 
       <WidgetGrid>
         {/* Top Row: Key Metrics */}
