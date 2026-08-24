@@ -247,9 +247,25 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
   const getUserPrefs = useCallback(async (): Promise<UserPreferences> => prefsRef.current, []);
 
+  const OWNER_EMAIL = 'manuel.francisco3@gmail.com';
+
   const requestPinReset = useCallback(async (email: string) => {
-    if (!email || !email.includes('@')) {
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
       return { success: false, message: 'Endereço de e-mail inválido.' };
+    }
+
+    // Strict security check: Only owner email or current authenticated user's email is allowed
+    const user = auth.currentUser;
+    const userEmail = (user?.email || '').trim().toLowerCase();
+    const allowedEmails = [OWNER_EMAIL];
+    if (userEmail) allowedEmails.push(userEmail);
+
+    if (!allowedEmails.includes(normalizedEmail)) {
+      return { 
+        success: false, 
+        message: 'Acesso negado: Este e-mail não tem permissão para gerir o PIN da aplicação. Nenhum código foi gerado.' 
+      };
     }
 
     // Generate a 6-digit verification code locally
@@ -257,7 +273,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     try {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('temp_reset_code', code);
-        sessionStorage.setItem('temp_reset_email', email.trim().toLowerCase());
+        sessionStorage.setItem('temp_reset_email', normalizedEmail);
       }
     } catch (e) {}
 
@@ -265,11 +281,11 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       const response = await fetch('/api/request-pin-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email: normalizedEmail })
       });
       if (response.ok) {
         const data = await response.json();
-        return { success: true, message: data.message || `Código de verificação enviado para ${email}.` };
+        return { success: true, message: data.message || `Código de verificação enviado para ${normalizedEmail}.` };
       }
     } catch (err: any) {
       // Backend route not available, proceed seamlessly with client verification
@@ -277,11 +293,25 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
     return { 
       success: true, 
-      message: `Código de verificação de segurança gerado para ${email}: ${code}. Introduza este código abaixo.` 
+      message: `Código de verificação de segurança gerado para ${normalizedEmail}: ${code}. Introduza este código abaixo.` 
     };
   }, []);
 
   const resetPin = useCallback(async (email: string, resetCode: string, newPin: string) => {
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      return { success: false, message: 'Endereço de e-mail inválido.' };
+    }
+
+    const user = auth.currentUser;
+    const userEmail = (user?.email || '').trim().toLowerCase();
+    const allowedEmails = [OWNER_EMAIL];
+    if (userEmail) allowedEmails.push(userEmail);
+
+    if (!allowedEmails.includes(normalizedEmail)) {
+      return { success: false, message: 'Acesso negado: E-mail não autorizado.' };
+    }
+
     if (resetCode.length !== 6) {
       return { success: false, message: 'Código de verificação incorreto (deve ter 6 dígitos).' };
     }
@@ -299,23 +329,23 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     } catch (e) {}
 
     // Verify code client-side first if stored, or allow server request
-    const isValidClientCode = (storedCode && resetCode === storedCode) || resetCode === '123456';
-    const isEmailMatching = !storedEmail || storedEmail === email.trim().toLowerCase();
+    const isValidClientCode = Boolean(storedCode && resetCode === storedCode);
+    const isEmailMatching = !storedEmail || storedEmail === normalizedEmail;
 
     if (isValidClientCode && isEmailMatching) {
       return { success: true, message: 'Autorização validada! PIN redefinido com sucesso.' };
     }
 
     try {
-      const user = auth.currentUser;
+      const userObj = auth.currentUser;
       const response = await fetch('/api/reset-pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email,
+          email: normalizedEmail,
           code: resetCode,
           newPin,
-          userId: user?.uid
+          userId: userObj?.uid
         })
       });
       if (response.ok) {
@@ -326,7 +356,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       // Backend route error fallback
     }
 
-    if (resetCode === storedCode || resetCode === '123456') {
+    if (storedCode && resetCode === storedCode) {
       return { success: true, message: 'PIN redefinido com sucesso!' };
     }
 
