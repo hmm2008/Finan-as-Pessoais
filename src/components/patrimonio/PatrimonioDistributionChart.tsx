@@ -1,115 +1,164 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { 
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid 
+} from 'recharts';
 import { Asset } from './types';
 import { usePrivacy } from '../../contexts';
-import { PieChart as PieIcon } from 'lucide-react';
 
 interface PatrimonioDistributionChartProps {
   assets: Asset[];
+  activeTab: 'imovel' | 'financeiro';
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  imovel: '#10b981', // Emerald
-  financeiro: '#3b82f6', // Blue
-  outros: '#f59e0b' // Amber
-};
+const PURPLE_COLOR = '#5850ec';
 
-const CATEGORY_NAMES: Record<string, string> = {
-  imovel: 'Imóveis',
-  financeiro: 'Ativos Financeiros',
-  outros: 'Outros Ativos'
-};
-
-export function PatrimonioDistributionChart({ assets }: PatrimonioDistributionChartProps) {
+export function PatrimonioDistributionChart({ assets, activeTab }: PatrimonioDistributionChartProps) {
   const { maskValue } = usePrivacy();
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 
-  // Group by category
-  const categoryData = Object.keys(CATEGORY_NAMES).map(catKey => {
-    const total = assets
-      .filter(a => a.category === catKey)
-      .reduce((sum, a) => sum + a.currentValue, 0);
-    return {
-      name: CATEGORY_NAMES[catKey],
-      value: total,
-      key: catKey,
-      color: CATEGORY_COLORS[catKey]
-    };
-  }).filter(item => item.value > 0);
+  const filteredAssets = assets.filter(a => a.category === activeTab);
 
-  const totalPortfolioValue = categoryData.reduce((sum, item) => sum + item.value, 0);
-
-  if (assets.length === 0 || totalPortfolioValue === 0) {
-    return (
-      <Card className="border-border">
-        <CardContent className="p-8 text-center text-muted-foreground text-sm">
-          Sem dados suficientes para gerar o gráfico de distribuição de património.
-        </CardContent>
-      </Card>
-    );
+  if (filteredAssets.length === 0) {
+    return null;
   }
 
+  // Aggregate by subType or name
+  const categoryMap: Record<string, number> = {};
+  filteredAssets.forEach(a => {
+    const key = a.subType || (a.category === 'imovel' ? 'Imóvel' : 'Ativo');
+    categoryMap[key] = (categoryMap[key] || 0) + (a.currentValue || 0);
+  });
+
+  const pieData = Object.entries(categoryMap).map(([name, val]) => ({
+    name,
+    value: val
+  }));
+
+  const totalVal = pieData.reduce((sum, d) => sum + d.value, 0);
+
+  // Bar data for "Valor por Tipo"
+  const barData = Object.entries(categoryMap).map(([name, val]) => ({
+    name,
+    valor: val
+  }));
+
+  const formatShortEuros = (val: number) => {
+    if (val >= 1000000) return `€${(val / 1000000).toFixed(0)}M`;
+    if (val >= 1000) return `€${(val / 1000).toFixed(0)}k`;
+    return `€${val}`;
+  };
+
   return (
-    <Card className="border-border">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <PieIcon className="w-4 h-4 text-primary" />
-          Distribuição do Património por Categoria
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 sm:p-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="w-full md:w-1/2 h-64">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Chart 1: Distribuição por Tipo */}
+      <Card className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-base font-bold text-foreground">
+            Distribuição por Tipo
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 flex flex-col items-center justify-center">
+          <div className="w-full h-56 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={categoryData}
+                  data={pieData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={85}
-                  paddingAngle={4}
+                  innerRadius={65}
+                  outerRadius={95}
+                  paddingAngle={2}
                   dataKey="value"
+                  strokeWidth={0}
                 >
-                  {categoryData.map((entry) => (
-                    <Cell key={entry.key} fill={entry.color} />
+                  {pieData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={PURPLE_COLOR} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   formatter={(val: number) => [maskValue(val, formatter.format), 'Valor']}
-                  contentStyle={{ 
-                    backgroundColor: 'var(--card)', 
+                  contentStyle={{
+                    backgroundColor: 'var(--card)',
                     borderColor: 'var(--border)',
-                    borderRadius: '8px',
-                    color: 'var(--foreground)'
+                    borderRadius: '12px',
+                    color: 'var(--foreground)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                   }}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="w-full md:w-1/2 space-y-3">
-            {categoryData.map(item => {
-              const pct = totalPortfolioValue > 0 ? (item.value / totalPortfolioValue) * 100 : 0;
+          {/* Donut Legend */}
+          <div className="w-full pt-2 flex items-center justify-between text-xs text-muted-foreground font-medium border-t border-border/40">
+            {pieData.map(item => {
+              const pct = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
               return (
-                <div key={item.key} className="p-3 rounded-lg bg-secondary/50 border border-border flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                    <div>
-                      <p className="font-semibold text-sm">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{pct.toFixed(1)}% do Total</p>
-                    </div>
-                  </div>
-                  <p className="font-bold text-sm">
-                    {maskValue(item.value, formatter.format)}
-                  </p>
+                <div key={item.name} className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 inline-block" />
+                  <span className="text-foreground font-medium">{item.name}</span>
                 </div>
               );
             })}
+            <span className="font-bold text-foreground">100%</span>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Chart 2: Valor por Tipo */}
+      <Card className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-base font-bold text-foreground">
+            Valor por Tipo
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="w-full h-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={barData}
+                layout="vertical"
+                margin={{ top: 10, right: 20, left: 20, bottom: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />
+                <XAxis 
+                  type="number" 
+                  tickFormatter={formatShortEuros} 
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis 
+                  type="category" 
+                  dataKey="name" 
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={60}
+                />
+                <Tooltip
+                  formatter={(val: number) => [maskValue(val, formatter.format), 'Valor']}
+                  contentStyle={{
+                    backgroundColor: 'var(--card)',
+                    borderColor: 'var(--border)',
+                    borderRadius: '12px',
+                    color: 'var(--foreground)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }}
+                />
+                <Bar 
+                  dataKey="valor" 
+                  fill={PURPLE_COLOR} 
+                  radius={[0, 8, 8, 0]} 
+                  barSize={80}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

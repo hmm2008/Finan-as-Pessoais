@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { PageHeader } from '../components/layout';
-import { Card, CardContent } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
+import { Asset, PropertyExpense } from '../components/patrimonio/types';
 import { 
-  Asset, 
-  PropertyExpense, 
   PatrimonioHeader, 
   PatrimonioDistributionChart, 
   AssetCard, 
@@ -14,16 +9,12 @@ import {
   AssetOutrosForm, 
   PropertyExpensesSection 
 } from '../components/patrimonio';
-import { Home, TrendingUp, Box, Building2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Card } from '../components/ui/card';
+import { Button } from '../components/ui/button';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
-import { usePrivacy } from '../contexts';
-
-const INITIAL_ASSETS: Asset[] = [];
-
-const INITIAL_PROPERTY_EXPENSES: PropertyExpense[] = [];
+import { Building2, X } from 'lucide-react';
 
 export default function PatrimonioView() {
-  const { maskValue } = usePrivacy();
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 
   const [assets, setAssets] = useState<Asset[]>(() => {
@@ -56,7 +47,7 @@ export default function PatrimonioView() {
     return [];
   });
 
-  const [activeTab, setActiveTab] = useState<'imovel' | 'financeiro' | 'outros'>('imovel');
+  const [activeTab, setActiveTab] = useState<'imovel' | 'financeiro'>('imovel');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
   // Modal States
@@ -141,8 +132,7 @@ export default function PatrimonioView() {
     setAssets(prev => prev.filter(a => a.id !== id));
     setPropertyExpenses(prev => prev.filter(pe => pe.assetId !== id));
     if (selectedPropertyId === id) {
-      const remainingProps = assets.filter(a => a.id !== id && a.category === 'imovel');
-      setSelectedPropertyId(remainingProps.length > 0 ? remainingProps[0].id : null);
+      setSelectedPropertyId(null);
     }
   };
 
@@ -161,89 +151,121 @@ export default function PatrimonioView() {
     else setIsOutrosModalOpen(true);
   };
 
+  // Export CSV
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Nome', 'Categoria', 'SubTipo', 'Valor Atual (€)', 'Valor Compra (€)', 'Data Aquisição', 'Rua', 'Código Postal', 'Localidade', 'Notas'];
+    const rows = assets.map(a => [
+      a.id,
+      `"${a.name.replace(/"/g, '""')}"`,
+      a.category,
+      a.subType || '',
+      a.currentValue || 0,
+      a.purchaseValue || 0,
+      a.acquisitionDate || '',
+      `"${(a.street || '').replace(/"/g, '""')}"`,
+      a.zipCode || '',
+      `"${(a.city || '').replace(/"/g, '""')}"`,
+      `"${(a.notes || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'patrimonio_investimentos.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Backup JSON
+  const handleBackup = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ assets, propertyExpenses }, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `backup_patrimonio_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
   const filteredAssets = assets.filter(a => a.category === activeTab);
 
   return (
-    <div className="space-y-6">
-      <PageHeader 
-        title="Património & Ativos" 
-        subtitle="Consolidação e rentabilidade de imóveis, investimentos financeiros e bens"
-      />
-
-      {/* Main Header KPIs & Action Dropdown */}
+    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      {/* Top Header & Toggle Tabs & KPI Cards */}
       <PatrimonioHeader 
         assets={assets}
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          setSelectedPropertyId(null);
+        }}
         onAddImovel={() => { setEditingAsset(null); setIsImovelModalOpen(true); }}
         onAddFinanceiro={() => { setEditingAsset(null); setIsFinanceiroModalOpen(true); }}
-        onAddOutros={() => { setEditingAsset(null); setIsOutrosModalOpen(true); }}
+        onExportCSV={handleExportCSV}
+        onBackup={handleBackup}
       />
 
-      {/* Donut Chart Distribution */}
-      <PatrimonioDistributionChart assets={assets} />
+      {/* Middle Charts */}
+      <PatrimonioDistributionChart assets={assets} activeTab={activeTab} />
 
-      {/* Main Asset Category Tabs */}
-      <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full space-y-4">
-        <TabsList className="grid grid-cols-3 max-w-md">
-          <TabsTrigger value="imovel" className="flex items-center gap-1.5">
-            <Home className="w-4 h-4 text-emerald-600" /> Imóveis ({assets.filter(a => a.category === 'imovel').length})
-          </TabsTrigger>
-          <TabsTrigger value="financeiro" className="flex items-center gap-1.5">
-            <TrendingUp className="w-4 h-4 text-blue-600" /> Financeiros ({assets.filter(a => a.category === 'financeiro').length})
-          </TabsTrigger>
-          <TabsTrigger value="outros" className="flex items-center gap-1.5">
-            <Box className="w-4 h-4 text-amber-600" /> Outros ({assets.filter(a => a.category === 'outros').length})
-          </TabsTrigger>
-        </TabsList>
+      {/* Assets Grid (3 Columns) */}
+      <div className="space-y-4">
+        {filteredAssets.length === 0 ? (
+          <Card className="rounded-2xl border border-border/80 p-12 text-center text-muted-foreground">
+            <p className="text-base font-medium">Nenhum ativo registado nesta categoria.</p>
+            <p className="text-xs mt-1">
+              Clique em "{activeTab === 'imovel' ? 'Novo Imóvel' : 'Novo Ativo'}" no topo para adicionar o seu primeiro ativo.
+            </p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredAssets.map(asset => (
+              <AssetCard 
+                key={asset.id}
+                asset={asset}
+                onEdit={handleEditAssetClick}
+                onDelete={(a) => setAssetToDelete(a)}
+                onSelectProperty={(p) => setSelectedPropertyId(selectedPropertyId === p.id ? null : p.id)}
+                isSelectedProperty={selectedPropertyId === asset.id}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
-        <TabsContent value={activeTab} className="space-y-4">
-          <div className="space-y-3">
-            {filteredAssets.length === 0 ? (
-              <Card className="border-border p-8 text-center text-muted-foreground">
-                Nenhum ativo registado nesta categoria. Clique em "Adicionar Ativo" no topo para começar.
-              </Card>
-            ) : (
-              filteredAssets.map(asset => (
-                <AssetCard 
-                  key={asset.id}
-                  asset={asset}
-                  onEdit={handleEditAssetClick}
-                  onDelete={(a) => setAssetToDelete(a)}
-                  onSelectProperty={(p) => setSelectedPropertyId(selectedPropertyId === p.id ? null : p.id)}
-                  isSelectedProperty={selectedPropertyId === asset.id}
-                />
-              ))
-            )}
+      {/* Property Expenses Panel (When an imóvel is selected) */}
+      {activeTab === 'imovel' && selectedProperty && (
+        <div className="mt-6 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-indigo-500" />
+              <h3 className="font-bold text-lg text-foreground">
+                Despesas do Imóvel: <span className="text-indigo-600 dark:text-indigo-400">{selectedProperty.name}</span>
+              </h3>
+            </div>
+            <Button 
+              type="button"
+              variant="ghost" 
+              size="sm"
+              onClick={() => setSelectedPropertyId(null)}
+              className="rounded-full"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Fechar Painel
+            </Button>
           </div>
 
-          {/* Expanded Property Expenses Section (10.4) for selected property */}
-          {activeTab === 'imovel' && selectedProperty && (
-            <div className="mt-6 bg-card border border-border rounded-xl p-5 shadow-sm space-y-4 animate-in fade-in">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-emerald-600" />
-                  <h3 className="font-bold text-lg">
-                    Despesas do Imóvel: <span className="text-primary">{selectedProperty.name}</span>
-                  </h3>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setSelectedPropertyId(null)}
-                >
-                  Fechar Painel
-                </Button>
-              </div>
-
-              <PropertyExpensesSection 
-                asset={selectedProperty}
-                expenses={propertyExpenses}
-                onAddExpense={handleAddPropertyExpense}
-                onDeleteExpense={(exp) => setExpenseToDelete(exp)}
-              />
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          <PropertyExpensesSection 
+            asset={selectedProperty}
+            expenses={propertyExpenses}
+            onAddExpense={handleAddPropertyExpense}
+            onDeleteExpense={(exp) => setExpenseToDelete(exp)}
+          />
+        </div>
+      )}
 
       {/* Modals */}
       <AssetImovelForm 
@@ -268,7 +290,7 @@ export default function PatrimonioView() {
         initialData={editingAsset}
       />
 
-      {/* Confirm & Trash Delete Modal for Assets */}
+      {/* Confirm & Delete Modal for Assets */}
       {assetToDelete && (
         <ConfirmDeleteModal
           open={!!assetToDelete}
@@ -279,8 +301,8 @@ export default function PatrimonioView() {
           }}
           entityLabel={
             assetToDelete.name
-              ? `${assetToDelete.category === 'imovel' ? 'Imóvel' : assetToDelete.category === 'financeiro' ? 'Ativo Financeiro' : 'Ativo'} "${assetToDelete.name}" (${formatter.format(assetToDelete.currentValue || 0)})`
-              : 'Ativo de Património'
+              ? `${assetToDelete.category === 'imovel' ? 'Imóvel' : 'Ativo'} "${assetToDelete.name}" (${formatter.format(assetToDelete.currentValue || 0)})`
+              : 'Ativo'
           }
           entityName="Património"
           entityId={assetToDelete.id}
@@ -292,7 +314,7 @@ export default function PatrimonioView() {
         />
       )}
 
-      {/* Confirm & Trash Delete Modal for Property Expenses */}
+      {/* Confirm & Delete Modal for Property Expenses */}
       {expenseToDelete && (
         <ConfirmDeleteModal
           open={!!expenseToDelete}
@@ -304,7 +326,7 @@ export default function PatrimonioView() {
           entityLabel={
             expenseToDelete.title
               ? `Despesa de Imóvel "${expenseToDelete.title}" (${formatter.format(expenseToDelete.amount || 0)})`
-              : 'Despesa de Imóvel'
+              : 'Despesa'
           }
           entityName="Património"
           entityId={expenseToDelete.id}

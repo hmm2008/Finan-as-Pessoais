@@ -3,127 +3,205 @@ import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Asset } from './types';
 import { usePrivacy } from '../../contexts';
-import { Wallet, ShoppingBag, ArrowUpRight, ArrowDownRight, Plus, Home, TrendingUp, Box } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
+import { 
+  Building2, Coins, TrendingUp, Info, Plus, Home, 
+  Archive, Download, FileSpreadsheet 
+} from 'lucide-react';
 
 interface PatrimonioHeaderProps {
   assets: Asset[];
+  activeTab: 'imovel' | 'financeiro';
+  onTabChange: (tab: 'imovel' | 'financeiro') => void;
   onAddImovel: () => void;
   onAddFinanceiro: () => void;
-  onAddOutros: () => void;
+  onArchive?: () => void;
+  onBackup?: () => void;
+  onExportCSV?: () => void;
 }
 
 export function PatrimonioHeader({
   assets,
+  activeTab,
+  onTabChange,
   onAddImovel,
   onAddFinanceiro,
-  onAddOutros
+  onArchive,
+  onBackup,
+  onExportCSV
 }: PatrimonioHeaderProps) {
   const { maskValue } = usePrivacy();
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 
-  const totalCurrent = assets.reduce((sum, a) => sum + (a.currentValue || 0), 0);
-  const totalPurchase = assets.reduce((sum, a) => sum + (a.purchaseValue || 0), 0);
+  // Filter assets based on activeTab or total
+  const filteredAssets = assets.filter(a => a.category === activeTab);
+
+  const totalCurrent = filteredAssets.reduce((sum, a) => sum + (a.currentValue || 0), 0);
+  const totalPurchase = filteredAssets.reduce((sum, a) => sum + (a.purchaseValue || 0), 0);
   const totalGainAbs = totalCurrent - totalPurchase;
   const totalGainPct = totalPurchase > 0 ? (totalGainAbs / totalPurchase) * 100 : 0;
   const isPositive = totalGainAbs >= 0;
 
   return (
     <div className="space-y-6">
-      {/* Top Action Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Top Action & Title Row */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Gestão de Património</h2>
-          <p className="text-sm text-muted-foreground">
-            Acompanhamento consolidado de imóveis, carteira financeira e outros ativos
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Património & Investimentos
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Gestão de ativos e investimentos
           </p>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              <Plus className="w-4 h-4 mr-2" /> Adicionar Ativo
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={onAddImovel} className="cursor-pointer">
-              <Home className="w-4 h-4 mr-2 text-emerald-600" />
+        {/* Top Right Header Action Buttons */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onArchive}
+            className="rounded-xl h-9 px-3.5 text-xs font-medium border-border hover:bg-muted/50 gap-1.5"
+          >
+            <Archive className="w-3.5 h-3.5" />
+            Arquivar
+            <span className="w-4 h-4 rounded-full bg-muted text-muted-foreground inline-flex items-center justify-center text-[10px] font-bold">i</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onBackup}
+            className="rounded-xl h-9 px-3.5 text-xs font-medium border-border hover:bg-muted/50 gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Backup
+            <span className="w-4 h-4 rounded-full bg-muted text-muted-foreground inline-flex items-center justify-center text-[10px] font-bold">i</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onExportCSV}
+            className="rounded-xl h-9 px-3.5 text-xs font-medium border-border hover:bg-muted/50 gap-1.5"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            CSV
+            <span className="w-4 h-4 rounded-full bg-muted text-muted-foreground inline-flex items-center justify-center text-[10px] font-bold">i</span>
+          </Button>
+
+          {activeTab === 'imovel' ? (
+            <Button
+              type="button"
+              onClick={onAddImovel}
+              className="rounded-xl h-9 px-4 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 shadow-sm transition-colors"
+            >
+              <Plus className="w-4 h-4" />
               Novo Imóvel
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onAddFinanceiro} className="cursor-pointer">
-              <TrendingUp className="w-4 h-4 mr-2 text-blue-600" />
-              Novo Ativo Financeiro
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onAddOutros} className="cursor-pointer">
-              <Box className="w-4 h-4 mr-2 text-amber-600" />
-              Outro Ativo (Bens/Arte)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={onAddFinanceiro}
+              className="rounded-xl h-9 px-4 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 shadow-sm transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Ativo
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* KPI Summary Cards */}
+      {/* 2 Tabs Toggle Group (Imóveis | Financeiro) */}
+      <div className="bg-muted/60 dark:bg-muted/30 p-1 rounded-2xl inline-flex items-center gap-1 border border-border/40">
+        <button
+          type="button"
+          onClick={() => onTabChange('imovel')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${
+            activeTab === 'imovel'
+              ? 'bg-background text-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Home className="w-4 h-4 text-indigo-500" />
+          Imóveis
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onTabChange('financeiro')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${
+            activeTab === 'financeiro'
+              ? 'bg-background text-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4 text-indigo-500" />
+          Financeiro
+        </button>
+      </div>
+
+      {/* KPI Cards Row (4 Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-border">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase font-medium">Património Total</p>
-              <p className="text-xl font-bold text-foreground mt-1">
+        {/* Card 1: Imóveis / Financeiros */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+          <CardContent className="p-0 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">
+                {activeTab === 'imovel' ? 'Imóveis' : 'Financeiros'}
+              </p>
+              <p className="text-2xl font-bold tracking-tight text-foreground">
                 {maskValue(totalCurrent, formatter.format)}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-              <Wallet className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-indigo-100/80 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase font-medium">Custo Total de Aquisição</p>
-              <p className="text-xl font-bold text-foreground mt-1">
+        {/* Card 2: Investido */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+          <CardContent className="p-0 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Investido</p>
+              <p className="text-2xl font-bold tracking-tight text-foreground">
                 {maskValue(totalPurchase, formatter.format)}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-secondary text-muted-foreground flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-blue-100/80 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <Coins className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase font-medium">Ganho / Perda Absoluta</p>
-              <p className={`text-xl font-bold mt-1 ${
-                isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'
-              }`}>
-                {isPositive ? '+' : ''}{maskValue(totalGainAbs, formatter.format)}
+        {/* Card 3: Mais-valias */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+          <CardContent className="p-0 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Mais-valias</p>
+              <p className="text-2xl font-bold tracking-tight text-foreground">
+                {isPositive ? '' : ''}{maskValue(totalGainAbs, formatter.format)}
               </p>
             </div>
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              isPositive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'
-            }`}>
-              {isPositive ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase font-medium">Rentabilidade Acumulada</p>
-              <p className={`text-xl font-bold mt-1 ${
-                isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'
-              }`}>
-                {isPositive ? '+' : ''}{totalGainPct.toFixed(2)}%
-              </p>
-            </div>
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              isPositive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'
-            }`}>
+            <div className="w-10 h-10 rounded-xl bg-emerald-100/80 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center shrink-0">
               <TrendingUp className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 4: Rentabilidade */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+          <CardContent className="p-0 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Rentabilidade</p>
+              <p className={`text-2xl font-bold tracking-tight ${
+                isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'
+              }`}>
+                {isPositive ? '+' : ''}{totalGainPct.toFixed(1)}%
+              </p>
             </div>
           </CardContent>
         </Card>
