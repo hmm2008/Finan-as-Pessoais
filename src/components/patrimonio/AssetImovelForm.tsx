@@ -1,279 +1,432 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { X, Home, FileText } from 'lucide-react';
-import { Asset } from './types';
+import { X, Home, Plus, Trash2 } from 'lucide-react';
+import { Asset, PropertyExpense } from './types';
 
 interface AssetImovelFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (asset: Asset) => void;
+  onSave: (asset: Asset, expenses?: PropertyExpense[]) => void;
   initialData?: Asset | null;
+  initialExpenses?: PropertyExpense[];
 }
 
-const PROPERTY_TYPES = [
-  'Apartamento T0 / T1',
-  'Apartamento T2 / T3',
-  'Apartamento T4+',
-  'Moradia Unifamiliar',
-  'Terreno / Lote',
-  'Garagem / Estacionamento',
-  'Espaço Comercial / Escritório',
-  'Outro Imóvel'
+export interface LocalPropertyExpenseItem {
+  id: string;
+  category: 'Condomínio' | 'IMI' | 'Seguro Multirriscos' | 'Manutenção' | 'Outro';
+  amount: string;
+  frequency: 'mensal' | 'anual' | 'semestral' | 'trimestral';
+  dayOfMonth: string;
+}
+
+const EXPENSE_CATEGORIES: LocalPropertyExpenseItem['category'][] = [
+  'Condomínio',
+  'IMI',
+  'Seguro Multirriscos',
+  'Manutenção',
+  'Outro'
 ];
 
 export function AssetImovelForm({
   isOpen,
   onClose,
   onSave,
-  initialData
+  initialData,
+  initialExpenses = []
 }: AssetImovelFormProps) {
   const [name, setName] = useState('');
-  const [subType, setSubType] = useState('Apartamento T2 / T3');
   const [currentValue, setCurrentValue] = useState('');
   const [purchaseValue, setPurchaseValue] = useState('');
   const [acquisitionDate, setAcquisitionDate] = useState('');
   const [street, setStreet] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [city, setCity] = useState('');
-  const [monthlyExpense, setMonthlyExpense] = useState('');
-  const [annualExpense, setAnnualExpense] = useState('');
   const [notes, setNotes] = useState('');
-  const [documentName, setDocumentName] = useState('');
+  const [expenseItems, setExpenseItems] = useState<LocalPropertyExpenseItem[]>([]);
 
   useEffect(() => {
     if (initialData && initialData.category === 'imovel') {
       setName(initialData.name || '');
-      setSubType(initialData.subType || 'Apartamento T2 / T3');
       setCurrentValue(initialData.currentValue ? initialData.currentValue.toString() : '');
       setPurchaseValue(initialData.purchaseValue ? initialData.purchaseValue.toString() : '');
       setAcquisitionDate(initialData.acquisitionDate || '');
       setStreet(initialData.street || '');
       setZipCode(initialData.zipCode || '');
       setCity(initialData.city || '');
-      setMonthlyExpense(initialData.monthlyExpense ? initialData.monthlyExpense.toString() : '');
-      setAnnualExpense(initialData.annualExpense ? initialData.annualExpense.toString() : '');
       setNotes(initialData.notes || '');
-      setDocumentName(initialData.documentName || '');
+
+      const existingPropExpenses = initialExpenses.filter(e => e.assetId === initialData.id);
+      if (existingPropExpenses.length > 0) {
+        setExpenseItems(
+          existingPropExpenses.map(e => ({
+            id: e.id,
+            category: e.category,
+            amount: e.amount ? e.amount.toString() : '',
+            frequency: e.frequency || 'mensal',
+            dayOfMonth: e.dayOfMonth ? e.dayOfMonth.toString() : '1'
+          }))
+        );
+      } else {
+        setExpenseItems([
+          {
+            id: `pe_${Date.now()}_0`,
+            category: 'Condomínio',
+            amount: '',
+            frequency: 'mensal',
+            dayOfMonth: ''
+          }
+        ]);
+      }
     } else {
       setName('');
-      setSubType('Apartamento T2 / T3');
       setCurrentValue('');
       setPurchaseValue('');
-      setAcquisitionDate(new Date().toISOString().split('T')[0]);
+      setAcquisitionDate('');
       setStreet('');
       setZipCode('');
       setCity('');
-      setMonthlyExpense('');
-      setAnnualExpense('');
       setNotes('');
-      setDocumentName('');
+      setExpenseItems([
+        {
+          id: `pe_${Date.now()}_0`,
+          category: 'Condomínio',
+          amount: '',
+          frequency: 'mensal',
+          dayOfMonth: ''
+        }
+      ]);
     }
-  }, [initialData, isOpen]);
+  }, [initialData, initialExpenses, isOpen]);
 
   if (!isOpen) return null;
 
+  const handleAddExpenseRow = () => {
+    setExpenseItems(prev => [
+      ...prev,
+      {
+        id: `pe_${Date.now()}_${prev.length}`,
+        category: 'Condomínio',
+        amount: '',
+        frequency: 'mensal',
+        dayOfMonth: ''
+      }
+    ]);
+  };
+
+  const handleRemoveExpenseRow = (id: string) => {
+    setExpenseItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleUpdateExpenseRow = (id: string, field: keyof LocalPropertyExpenseItem, value: any) => {
+    setExpenseItems(prev =>
+      prev.map(item => (item.id === id ? { ...item, [field]: value } : item))
+    );
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) return;
+
     const currVal = parseFloat(currentValue) || 0;
     const purchVal = parseFloat(purchaseValue) || 0;
+    const assetId = initialData ? initialData.id : `prop_${Date.now()}`;
 
     const assetObj: Asset = {
-      id: initialData ? initialData.id : `prop_${Date.now()}`,
+      id: assetId,
       name: name.trim(),
       category: 'imovel',
-      subType,
+      subType: 'Imóvel',
       currentValue: currVal,
       purchaseValue: purchVal,
-      acquisitionDate,
+      acquisitionDate: acquisitionDate || new Date().toISOString().split('T')[0],
       street: street.trim() || undefined,
       zipCode: zipCode.trim() || undefined,
       city: city.trim() || undefined,
-      monthlyExpense: parseFloat(monthlyExpense) || 0,
-      annualExpense: parseFloat(annualExpense) || 0,
-      notes: notes.trim() || undefined,
-      documentName: documentName.trim() || undefined
+      notes: notes.trim() || undefined
     };
 
-    onSave(assetObj);
+    const validExpenses: PropertyExpense[] = expenseItems
+      .filter(exp => parseFloat(exp.amount) > 0 || exp.category)
+      .map(exp => ({
+        id: exp.id,
+        assetId: assetId,
+        title: `${exp.category} - ${assetObj.name}`,
+        amount: parseFloat(exp.amount) || 0,
+        frequency: exp.frequency as 'mensal' | 'anual',
+        category: exp.category,
+        dayOfMonth: parseInt(exp.dayOfMonth) || 1,
+        fixedExpenseId: `fe_prop_${exp.id}`
+      }));
+
+    onSave(assetObj, validExpenses);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <Card className="w-full max-w-xl shadow-xl border-border my-8">
-        <CardHeader className="relative pb-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="w-full max-w-lg bg-background rounded-2xl shadow-2xl border border-border p-6 space-y-5 animate-in fade-in zoom-in-95 my-8">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-foreground">
+            {initialData ? 'Editar Imóvel' : 'Novo Imóvel'}
+          </h2>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
             onClick={onClose}
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </Button>
-          <CardTitle className="text-xl flex items-center gap-2">
-            <Home className="w-5 h-5 text-primary" />
-            {initialData ? 'Editar Imóvel' : 'Adicionar Novo Imóvel'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="propName">Designação do Imóvel <span className="text-destructive">*</span></Label>
-                <Input 
-                  id="propName" 
-                  placeholder="Ex: T2 Lisboa Saldanha" 
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
+        </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="propSubType">Tipo de Imóvel <span className="text-destructive">*</span></Label>
-                <Select value={subType} onValueChange={setSubType}>
-                  <SelectTrigger id="propSubType">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROPERTY_TYPES.map(t => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Nome */}
+          <div className="space-y-1.5">
+            <Label htmlFor="propName" className="text-sm font-medium text-foreground">
+              Nome <span className="text-muted-foreground">*</span>
+            </Label>
+            <Input
+              id="propName"
+              placeholder="Ex: Apartamento Vale das Flores"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-xl h-11 bg-muted/20"
+              required
+            />
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentValue">Valor Atual Mercadológico (€) <span className="text-destructive">*</span></Label>
-                <Input 
-                  id="currentValue" 
-                  type="number"
-                  step="0.01"
-                  placeholder="280000" 
-                  value={currentValue}
-                  onChange={(e) => setCurrentValue(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="purchaseValue">Valor de Aquisição (€) <span className="text-destructive">*</span></Label>
-                <Input 
-                  id="purchaseValue" 
-                  type="number"
-                  step="0.01"
-                  placeholder="220000" 
-                  value={purchaseValue}
-                  onChange={(e) => setPurchaseValue(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="acqDate">Data de Aquisição <span className="text-destructive">*</span></Label>
-                <Input 
-                  id="acqDate" 
-                  type="date"
-                  value={acquisitionDate}
-                  onChange={(e) => setAcquisitionDate(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="street">Rua / Morada</Label>
-              <Input 
-                id="street" 
-                placeholder="Av. da República, nº 45, 3º Dto" 
-                value={street}
-                onChange={(e) => setStreet(e.target.value)}
+          {/* Valor Atual / Valor de Compra */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="currentValue" className="text-sm font-medium text-foreground">
+                Valor Atual (€) <span className="text-muted-foreground">*</span>
+              </Label>
+              <Input
+                id="currentValue"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={currentValue}
+                onChange={(e) => setCurrentValue(e.target.value)}
+                className="rounded-xl h-11 bg-muted/20"
+                required
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="zipCode">Código Postal</Label>
-                <Input 
-                  id="zipCode" 
-                  placeholder="1050-187" 
-                  value={zipCode}
-                  onChange={(e) => setZipCode(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="city">Localidade / Cidade</Label>
-                <Input 
-                  id="city" 
-                  placeholder="Lisboa" 
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="purchaseValue" className="text-sm font-medium text-foreground">
+                Valor de Compra (€)
+              </Label>
+              <Input
+                id="purchaseValue"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={purchaseValue}
+                onChange={(e) => setPurchaseValue(e.target.value)}
+                className="rounded-xl h-11 bg-muted/20"
+              />
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="monthlyExpense">Despesa Mensal Estimada (€)</Label>
-                <Input 
-                  id="monthlyExpense" 
-                  type="number"
-                  step="0.01"
-                  placeholder="65.00 (Ex: Condomínio)" 
-                  value={monthlyExpense}
-                  onChange={(e) => setMonthlyExpense(e.target.value)}
-                />
-              </div>
+          {/* Data de Aquisição */}
+          <div className="space-y-1.5">
+            <Label htmlFor="acqDate" className="text-sm font-medium text-foreground">
+              Data de Aquisição
+            </Label>
+            <Input
+              id="acqDate"
+              type="date"
+              placeholder="dd/mm/aaaa"
+              value={acquisitionDate}
+              onChange={(e) => setAcquisitionDate(e.target.value)}
+              className="rounded-xl h-11 bg-muted/20"
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="annualExpense">Despesa Anual Estimada (€)</Label>
-                <Input 
-                  id="annualExpense" 
-                  type="number"
-                  step="0.01"
-                  placeholder="450.00 (Ex: IMI + Seguro)" 
-                  value={annualExpense}
-                  onChange={(e) => setAnnualExpense(e.target.value)}
-                />
-              </div>
-            </div>
+          {/* Rua */}
+          <div className="space-y-1.5">
+            <Label htmlFor="street" className="text-sm font-medium text-foreground">
+              Rua
+            </Label>
+            <Input
+              id="street"
+              placeholder="Ex: Rua das Flores, 123"
+              value={street}
+              onChange={(e) => setStreet(e.target.value)}
+              className="rounded-xl h-11 bg-muted/20"
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="docName">Documento / Escritura (Nome do Ficheiro)</Label>
-              <Input 
-                id="docName" 
-                placeholder="Ex: Escritura_T2_Lisboa.pdf" 
-                value={documentName}
-                onChange={(e) => setDocumentName(e.target.value)}
+          {/* Código Postal / Localidade */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="zipCode" className="text-sm font-medium text-foreground">
+                Código Postal
+              </Label>
+              <Input
+                id="zipCode"
+                placeholder="0000-000"
+                value={zipCode}
+                onChange={(e) => setZipCode(e.target.value)}
+                className="rounded-xl h-11 bg-muted/20"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="propNotes">Notas / Observações</Label>
-              <Input 
-                id="propNotes" 
-                placeholder="Detalhes sobre arrendamento, obras realizadas..." 
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+            <div className="space-y-1.5">
+              <Label htmlFor="city" className="text-sm font-medium text-foreground">
+                Localidade
+              </Label>
+              <Input
+                id="city"
+                placeholder="Ex: Coimbra"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="rounded-xl h-11 bg-muted/20"
               />
             </div>
+          </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-border">
-              <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-              <Button type="submit">
-                {initialData ? 'Atualizar Imóvel' : 'Guardar Imóvel'}
-              </Button>
+          {/* Observações */}
+          <div className="space-y-1.5">
+            <Label htmlFor="propNotes" className="text-sm font-medium text-foreground">
+              Observações
+            </Label>
+            <textarea
+              id="propNotes"
+              rows={3}
+              placeholder=""
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full rounded-xl border border-border bg-muted/20 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+            />
+          </div>
+
+          <div className="pt-2 border-t border-border/80">
+            {/* Custos Fixos do Imóvel Header */}
+            <div className="flex items-center gap-2 mb-3">
+              <Home className="w-4 h-4 text-indigo-500" />
+              <span className="text-sm font-medium text-foreground">Custos Fixos do Imóvel</span>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+
+            {/* Expenses list rows */}
+            <div className="space-y-2 mb-3">
+              {expenseItems.map((item) => (
+                <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
+                  {/* Categoria */}
+                  <div className="col-span-3">
+                    <Select
+                      value={item.category}
+                      onValueChange={(v) => handleUpdateExpenseRow(item.id, 'category', v)}
+                    >
+                      <SelectTrigger className="h-10 rounded-xl bg-muted/20 text-xs px-2">
+                        <SelectValue placeholder="Categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EXPENSE_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat} value={cat} className="text-xs">
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Valor (€) */}
+                  <div className="col-span-3">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={item.amount}
+                      onChange={(e) => handleUpdateExpenseRow(item.id, 'amount', e.target.value)}
+                      className="h-10 rounded-xl bg-muted/20 text-xs px-2"
+                    />
+                  </div>
+
+                  {/* Frequência */}
+                  <div className="col-span-3">
+                    <Select
+                      value={item.frequency}
+                      onValueChange={(v) => handleUpdateExpenseRow(item.id, 'frequency', v)}
+                    >
+                      <SelectTrigger className="h-10 rounded-xl bg-muted/20 text-xs px-2">
+                        <SelectValue placeholder="Mensal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mensal" className="text-xs">Mensal</SelectItem>
+                        <SelectItem value="anual" className="text-xs">Anual</SelectItem>
+                        <SelectItem value="semestral" className="text-xs">Semestral</SelectItem>
+                        <SelectItem value="trimestral" className="text-xs">Trimestral</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Dia mês */}
+                  <div className="col-span-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="31"
+                      placeholder="Dia mês"
+                      value={item.dayOfMonth}
+                      onChange={(e) => handleUpdateExpenseRow(item.id, 'dayOfMonth', e.target.value)}
+                      className="h-10 rounded-xl bg-muted/20 text-xs px-2"
+                    />
+                  </div>
+
+                  {/* Trash / Delete */}
+                  <div className="col-span-1 flex justify-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleRemoveExpenseRow(item.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Adicionar Despesa Button */}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleAddExpenseRow}
+              className="w-full h-11 rounded-xl bg-indigo-50/50 hover:bg-indigo-100/60 text-indigo-600 dark:bg-indigo-950/30 dark:hover:bg-indigo-950/50 dark:text-indigo-400 font-medium text-sm flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Adicionar Despesa
+            </Button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 h-11 rounded-xl font-medium border-border"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 h-11 rounded-xl font-medium bg-indigo-500 hover:bg-indigo-600 text-white"
+            >
+              Guardar
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

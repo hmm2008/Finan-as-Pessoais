@@ -90,7 +90,7 @@ export default function PatrimonioView() {
   const selectedProperty = assets.find(a => a.id === selectedPropertyId && a.category === 'imovel');
 
   // Handlers for Save / Delete
-  const handleSaveAsset = (asset: Asset) => {
+  const handleSaveAsset = (asset: Asset, newExpenses?: PropertyExpense[]) => {
     setAssets(prev => {
       const exists = prev.some(a => a.id === asset.id);
       if (exists) {
@@ -98,6 +98,42 @@ export default function PatrimonioView() {
       }
       return [asset, ...prev];
     });
+
+    if (newExpenses && newExpenses.length > 0) {
+      setPropertyExpenses(prev => {
+        const otherExpenses = prev.filter(pe => pe.assetId !== asset.id);
+        return [...otherExpenses, ...newExpenses];
+      });
+
+      try {
+        const savedFixed = localStorage.getItem('fin_fixed_expenses');
+        let currentFixed = savedFixed ? JSON.parse(savedFixed) : [];
+        if (!Array.isArray(currentFixed)) currentFixed = [];
+
+        const filteredFixed = currentFixed.filter((fe: any) => fe.assetId !== asset.id);
+        const newFixedToAdd = newExpenses.map(pe => ({
+          id: pe.fixedExpenseId || `fe_prop_${pe.id}`,
+          name: `${pe.category} - ${asset.name}`,
+          entity: asset.name,
+          category: pe.category === 'Condomínio' ? 'Habitação' : pe.category === 'IMI' ? 'Impostos' : pe.category === 'Seguro Multirriscos' ? 'Seguros' : 'Outros',
+          amount: pe.amount,
+          dueDateDay: pe.dayOfMonth || 1,
+          dueDay: pe.dayOfMonth || 1,
+          paymentMethod: 'Transferência Bancária',
+          active: true,
+          assetId: asset.id,
+          notes: `Custo Fixo do Imóvel: ${asset.name}`
+        }));
+
+        localStorage.setItem('fin_fixed_expenses', JSON.stringify([...filteredFixed, ...newFixedToAdd]));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('storage'));
+        }
+      } catch (e) {
+        console.error('Erro ao guardar custos fixos:', e);
+      }
+    }
+
     setEditingAsset(null);
   };
 
@@ -215,6 +251,7 @@ export default function PatrimonioView() {
         onClose={() => setIsImovelModalOpen(false)}
         onSave={handleSaveAsset}
         initialData={editingAsset}
+        initialExpenses={propertyExpenses}
       />
 
       <AssetFinanceiroForm 

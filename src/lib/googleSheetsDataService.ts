@@ -492,12 +492,17 @@ export async function exportAllDataToSheets(
   ];
 
   const patRows = [
-    ["ID", "Nome", "Categoria", "Valor (€)", "Notas"],
+    ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas"],
     ...patrimonio.map((p: any) => [
       p.id || '',
       p.name || '',
-      p.category || '',
-      Number(p.value || p.amount || 0),
+      p.subType || p.category || '',
+      Number(p.currentValue || p.value || p.amount || 0),
+      Number(p.purchaseValue || 0),
+      p.acquisitionDate || '',
+      p.street || '',
+      p.zipCode || '',
+      p.city || '',
       p.notes || ''
     ])
   ];
@@ -986,11 +991,14 @@ export async function fetchAndParseRemoteSheets(
     id: row[0] || `pat_${i}`,
     name: row[1] || 'Ativo',
     category: mapToAssetCategory(row[2]),
-    subType: row[2] || 'Outros',
+    subType: row[2] || 'Imóvel',
     currentValue: parseNum(row[3]) || 0,
-    purchaseValue: parseNum(row[3]) || 0,
-    acquisitionDate: new Date().toISOString().slice(0, 10),
-    notes: row[4] || ''
+    purchaseValue: parseNum(row[4]) || parseNum(row[3]) || 0,
+    acquisitionDate: row[5] || new Date().toISOString().slice(0, 10),
+    street: row[6] || '',
+    zipCode: row[7] || '',
+    city: row[8] || '',
+    notes: row[9] || (row.length === 5 ? row[4] : '') || ''
   })).filter((p: any) => p.name !== 'Ativo' || p.currentValue > 0);
 
   // Parse Vehicles
@@ -1804,7 +1812,7 @@ export async function clearAllSpreadsheetData(
     'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas"],
     'Receitas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Ativo", "Notas"],
     'Contas': ["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"],
-    'Patrimonio': ["ID", "Nome", "Categoria", "Valor (€)", "Notas"],
+    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas"],
     'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
     'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês"],
     'Metas': ["ID", "Nome", "Valor Alvo (€)", "Valor Atual (€)", "Data Limite"],

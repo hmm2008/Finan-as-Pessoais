@@ -35,6 +35,7 @@ export interface PropertyExpense {
   amount: number;
   frequency: 'mensal' | 'anual';
   category: 'Condomínio' | 'IMI' | 'Seguro Multirriscos' | 'Manutenção' | 'Outro';
+  dayOfMonth?: number;
   dueDate?: string;
   fixedExpenseId?: string; // Link to FixedExpense
   notes?: string;
