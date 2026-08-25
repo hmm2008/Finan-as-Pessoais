@@ -6,13 +6,14 @@ import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { 
   User, Shield, KeyRound, Mail, Send, CheckCircle2, 
-  Settings2, LayoutTemplate, Palette, Lock, AlertCircle
+  Settings2, LayoutTemplate, Palette, Lock, AlertCircle, HardDrive
 } from 'lucide-react';
 import { useAuth, usePin } from '../contexts';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { SidebarLabelsCustomizer } from '../components/configuracoes/SidebarLabelsCustomizer';
 import { PageTitlesCustomizer } from '../components/configuracoes/PageTitlesCustomizer';
 import { PageHeader } from '../components/layout';
+import { GoogleDriveSyncCard } from '../components/configuracoes/GoogleDriveSyncCard';
 
 export default function ConfiguracoesView() {
   const { user } = useAuth();
@@ -126,8 +127,12 @@ export default function ConfiguracoesView() {
         </div>
       )}
 
-      <Tabs defaultValue="seguranca" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto p-1 bg-secondary/50 rounded-xl mb-6">
+      <Tabs defaultValue="drive" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto p-1 bg-secondary/50 rounded-xl mb-6">
+          <TabsTrigger value="drive" className="py-2.5 flex items-center gap-2 text-xs md:text-sm">
+            <HardDrive className="w-4 h-4" />
+            <span>Drive & Sync</span>
+          </TabsTrigger>
           <TabsTrigger value="seguranca" className="py-2.5 flex items-center gap-2 text-xs md:text-sm">
             <Shield className="w-4 h-4" />
             <span>Segurança & PIN</span>
@@ -149,6 +154,11 @@ export default function ConfiguracoesView() {
             <span>Perfil</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* TAB 0: DRIVE & SYNC */}
+        <TabsContent value="drive" className="space-y-6">
+          <GoogleDriveSyncCard />
+        </TabsContent>
 
         {/* TAB 1: SEGURANÇA & PIN */}
         <TabsContent value="seguranca" className="space-y-6">

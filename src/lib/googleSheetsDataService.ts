@@ -169,7 +169,16 @@ export function getStoredSpreadsheetId(): string | null {
 function parseNum(val: any): number {
   if (typeof val === 'number') return val;
   if (!val) return 0;
-  const str = String(val).replace(/€/g, '').replace(/\s/g, '').replace(',', '.').trim();
+  let str = String(val).replace(/€/g, '').replace(/\s/g, '').trim();
+  if (str.includes('.') && str.includes(',')) {
+    if (str.lastIndexOf('.') < str.lastIndexOf(',')) {
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      str = str.replace(/,/g, '');
+    }
+  } else if (str.includes(',')) {
+    str = str.replace(',', '.');
+  }
   const n = parseFloat(str);
   return isNaN(n) ? 0 : n;
 }
@@ -186,8 +195,42 @@ function parseBool(val: any): boolean {
 
 function mapToAssetCategory(val: string): AssetCategory {
   const lower = val?.toLowerCase() || '';
-  if (lower.includes('imovel') || lower.includes('imóvel')) return 'imovel';
-  if (lower.includes('financeiro')) return 'financeiro';
+  if (
+    lower.includes('imovel') ||
+    lower.includes('imóvel') ||
+    lower.includes('apartamento') ||
+    lower.includes('moradia') ||
+    lower.includes('terreno') ||
+    lower.includes('garagem') ||
+    lower.includes('loja') ||
+    lower.includes('armazém') ||
+    lower.includes('armazem') ||
+    lower.includes('escritório') ||
+    lower.includes('escritorio') ||
+    lower.includes('quinta') ||
+    lower.includes('prédio') ||
+    lower.includes('predio') ||
+    lower.includes('casa')
+  ) {
+    return 'imovel';
+  }
+  if (
+    lower.includes('financeiro') ||
+    lower.includes('ações') ||
+    lower.includes('acoes') ||
+    lower.includes('etf') ||
+    lower.includes('cripto') ||
+    lower.includes('crypto') ||
+    lower.includes('fundo') ||
+    lower.includes('ppr') ||
+    lower.includes('depósito') ||
+    lower.includes('deposito') ||
+    lower.includes('obrigação') ||
+    lower.includes('obrigacao') ||
+    lower.includes('investimento')
+  ) {
+    return 'financeiro';
+  }
   return 'outros';
 }
 
@@ -247,6 +290,19 @@ export function partitionIncomes(items: any[]): { punctual: any[]; fixedRealized
   return { punctual, fixedRealized };
 }
 
+export const ALIAS_MAP: Record<string, string[]> = {
+  'Patrimonio': ['Património', 'Patrimônio', 'Ativos', 'Assets', 'Patrimony', 'Investimentos'],
+  'Veiculos': ['Veículos', 'Viaturas', 'Carros', 'Vehicles', 'Frota'],
+  'Orcamentos': ['Orçamentos', 'Budgets', 'Limites', 'Planeamento'],
+  'Preferencias': ['Preferências', 'Settings', 'Configurações', 'Prefs'],
+  'Notificacoes': ['Notificações', 'Alertas', 'Notifications', 'Avisos'],
+  'Regras_Categorizacao': ['Regras_Categorização', 'RegrasCategorizacao', 'Rules', 'Regras'],
+  'Receitas_Pontuais': ['Receitas', 'Ganhos', 'Incomes', 'Entradas', 'Rendimentos'],
+  'Receitas_Fixas_Registadas': ['Receitas_Fixas_Reg', 'Receitas_Fixas_Realizadas', 'Rendimentos_Fixos'],
+  'Despesas': ['Gastos', 'Saídas', 'Expenses', 'Pagamentos', 'Custos'],
+  'Contas': ['Bancos', 'Contas_Bancarias', 'Accounts', 'Saldos']
+};
+
 async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: string): Promise<string[]> {
   const REQUIRED_SHEETS = [
     'Despesas',
@@ -268,87 +324,156 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     'Arquivo'
   ];
 
-  try {
-    const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    if (!metaRes.ok) return REQUIRED_SHEETS;
-
-    const metaData = await metaRes.json();
-    let existingSheetTitles: string[] = (metaData.sheets || []).map((s: any) => s.properties.title);
-    
-    const missingSheets = REQUIRED_SHEETS.filter(sheet => !existingSheetTitles.includes(sheet));
-    
-    if (missingSheets.length > 0) {
-      console.log('Criando abas em falta:', missingSheets);
-      const addSheetRequests = missingSheets.map(title => ({
-        addSheet: { properties: { title } }
-      }));
-      
-      const addRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ requests: addSheetRequests })
-      });
-      
-      if (addRes.ok) {
-        existingSheetTitles = [...existingSheetTitles, ...missingSheets];
-      }
-      
-      const allHeaders: Record<string, string[]> = {
-        'Despesas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo"],
-        'Receitas_Pontuais': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas"],
-        'Receitas_Fixas_Registadas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas", "ID Fixo"],
-        'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas"],
-        'Receitas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Ativo", "Notas"],
-        'Contas': ["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"],
-        'Patrimonio': ["ID", "Nome", "Categoria", "Valor (€)", "Notas"],
-        'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
-        'Veiculos_Abastecimentos': ["ID", "ID Viatura", "Data", "Litros", "Valor Total (€)", "Preço/L (€)", "Quilometragem (km)", "Posto / Local", "Notas"],
-        'Veiculos_Tarefas': ["ID", "ID Viatura", "Título", "Tipo", "Custo (€)", "Estado", "Data Limite", "Data Conclusão", "Periodicidade", "Próx. Data Vencimento", "Próx. Custo (€)", "Documento", "Notas"],
-        'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês"],
-        'Metas': ["ID", "Nome", "Valor Alvo (€)", "Valor Atual (€)", "Data Limite"],
-        'Reciclagem': ["ID", "Tipo", "Dados JSON", "Data Eliminação"],
+  const allHeaders: Record<string, string[]> = {
+    'Despesas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo"],
+    'Receitas_Pontuais': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas"],
+    'Receitas_Fixas_Registadas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas", "ID Fixo"],
+    'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas"],
+    'Receitas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Ativo", "Notas"],
+    'Contas': ["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"],
+    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas"],
+    'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
+    'Veiculos_Abastecimentos': ["ID", "ID Viatura", "Data", "Litros", "Valor Total (€)", "Preço/L (€)", "Quilometragem (km)", "Posto / Local", "Notas"],
+    'Veiculos_Tarefas': ["ID", "ID Viatura", "Título", "Tipo", "Custo (€)", "Estado", "Data Limite", "Data Conclusão", "Periodicidade", "Próx. Data Vencimento", "Próx. Custo (€)", "Documento", "Notas"],
+    'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês"],
+    'Metas': ["ID", "Nome", "Valor Alvo (€)", "Valor Atual (€)", "Data Limite"],
+    'Reciclagem': ["ID", "Tipo", "Dados JSON", "Data Eliminação"],
     'Preferencias': ["Chave", "Dados JSON", "Atualizado Em"],
     'Regras_Categorizacao': ["ID", "Keyword", "Categoria", "Tipo", "Prioridade"],
     'Notificacoes': ["ID", "Título", "Mensagem", "Data", "Lida", "Tipo"],
     'Arquivo': ["ID", "Título", "Data", "Dados JSON", "Tipo"]
-      };
+  };
 
-      const headerData = missingSheets
-        .filter(sheet => allHeaders[sheet])
-        .map(sheet => ({
-          range: `${sheet}!A1:Z1`,
-          values: [allHeaders[sheet]]
-        }));
+  try {
+    // 1. Get current sheets list
+    const getMeta = async () => {
+      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.sheets || [];
+    };
 
-      if (headerData.length > 0) {
-        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            valueInputOption: 'USER_ENTERED',
-            data: headerData
-          })
-        }).catch(() => {});
+    let sheetsList = await getMeta();
+    const getResolvedTitles = (list: any[]) => {
+      const titles = new Set<string>();
+      for (const s of list) {
+        const currentTitle = (s.properties?.title || '').trim();
+        const lowerTitle = currentTitle.toLowerCase();
+        
+        let canonical = null;
+        const exact = REQUIRED_SHEETS.find(rs => rs.toLowerCase() === lowerTitle);
+        if (exact) canonical = exact;
+        else {
+          for (const [can, aliases] of Object.entries(ALIAS_MAP)) {
+            if (aliases.some(a => a.toLowerCase() === lowerTitle)) {
+              canonical = can;
+              break;
+            }
+          }
+        }
+        if (canonical) titles.add(canonical);
+      }
+      return titles;
+    };
+
+    let resolvedTitles = getResolvedTitles(sheetsList);
+    const structuralRequests = [];
+
+    // Check for missing or hidden/misnamed sheets
+    for (const s of sheetsList) {
+      const currentTitle = (s.properties?.title || '').trim();
+      const sheetId = s.properties?.sheetId;
+      const lowerTitle = currentTitle.toLowerCase();
+      
+      let canonicalTarget = null;
+      const exactMatch = REQUIRED_SHEETS.find(rs => rs.toLowerCase() === lowerTitle);
+      if (exactMatch) canonicalTarget = exactMatch;
+      else {
+        for (const [can, aliases] of Object.entries(ALIAS_MAP)) {
+          if (aliases.some(a => a.toLowerCase() === lowerTitle)) {
+            canonicalTarget = can;
+            break;
+          }
+        }
+      }
+
+      if (canonicalTarget) {
+        const needsRename = currentTitle !== canonicalTarget;
+        const isHidden = s.properties?.hidden === true;
+        if (needsRename || isHidden) {
+          structuralRequests.push({
+            updateSheetProperties: {
+              properties: { sheetId, title: canonicalTarget, hidden: false },
+              fields: 'title,hidden'
+            }
+          });
+        }
       }
     }
-    return existingSheetTitles;
-  } catch (e) {
-    console.warn('Falha ao verificar/criar abas em falta:', e);
+
+    const missing = REQUIRED_SHEETS.filter(sheet => !resolvedTitles.has(sheet));
+    for (const title of missing) {
+      structuralRequests.push({
+        addSheet: { properties: { title, gridProperties: { rowCount: 1000, columnCount: 26 } } }
+      });
+    }
+
+    if (structuralRequests.length > 0) {
+      console.log('A executar atualizações estruturais...', structuralRequests.length);
+      const structRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: structuralRequests })
+      });
+
+      if (!structRes.ok) {
+        // Individual fallback
+        for (const req of structuralRequests) {
+          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requests: [req] })
+          }).catch(() => {});
+        }
+      }
+      
+      // RE-VERIFY AFTER UPDATE
+      sheetsList = await getMeta();
+      resolvedTitles = getResolvedTitles(sheetsList);
+    }
+
+    const finalActiveTitles = Array.from(resolvedTitles) as string[];
+    console.log('Abas ativas finais na Google Drive:', finalActiveTitles);
+
+    // Write Headers to all resolved sheets
+    const headerData = finalActiveTitles
+      .filter(sheet => allHeaders[sheet])
+      .map(sheet => {
+        const headers = allHeaders[sheet];
+        const endChar = String.fromCharCode(64 + headers.length);
+        return {
+          range: `${sheet}!A1:${endChar}1`,
+          values: [headers]
+        };
+      });
+
+    if (headerData.length > 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: headerData })
+      }).catch(e => console.error('Erro ao escrever cabeçalhos:', e));
+    }
+
+    return finalActiveTitles;
+  } catch (err) {
+    console.error('Erro em ensureMissingSheetsExist:', err);
     return REQUIRED_SHEETS;
   }
 }
 
-/**
- * Export all local and Firestore data into the Google Spreadsheet in a single batch operation.
- */
 export async function exportAllDataToSheets(
   accessToken: string,
   spreadsheetId: string,
@@ -383,8 +508,26 @@ export async function exportAllDataToSheets(
 
   let fixedExpenses = getLocalData('fin_fixed_expenses');
   let fixedIncomes = getLocalData('fin_fixed_incomes');
-  let accounts = getLocalData('fin_assets'); // Accounts view uses fin_assets
-  let patrimonio = getLocalData('fin_patrimonio'); // Patrimonio uses fin_patrimonio
+  let acc1 = getLocalData('fin_accounts');
+  let acc2 = getLocalData('fin_bank_accounts');
+  const accMap = new Map<string, any>();
+  [...acc1, ...acc2].forEach((item: any) => {
+    if (item && (item.id || item.name)) {
+      accMap.set(item.id || item.name, item);
+    }
+  });
+  let accounts = Array.from(accMap.values());
+
+  let pat1 = getLocalData('fin_patrimonio');
+  let pat2 = getLocalData('fin_assets');
+  const patMap = new Map<string, any>();
+  [...pat1, ...pat2].forEach((item: any) => {
+    if (item && (item.id || item.name)) {
+      const key = item.id || `${item.name}_${item.currentValue || item.value || 0}`;
+      patMap.set(key, item);
+    }
+  });
+  let patrimonio = Array.from(patMap.values());
   let vehicles = getLocalData('fin_vehicles');
   let vehicleFuel = getLocalData('fin_vehicle_fuel');
   let vehicleTasks = getLocalData('fin_vehicle_tasks');
@@ -491,14 +634,19 @@ export async function exportAllDataToSheets(
     ])
   ];
 
+  const safeNum = (val: any) => {
+    const n = Number(val);
+    return isNaN(n) ? 0 : n;
+  };
+
   const patRows = [
     ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas"],
     ...patrimonio.map((p: any) => [
       p.id || '',
       p.name || '',
       p.subType || p.category || '',
-      Number(p.currentValue || p.value || p.amount || 0),
-      Number(p.purchaseValue || 0),
+      safeNum(p.currentValue || p.value || p.amount || 0),
+      safeNum(p.purchaseValue || 0),
       p.acquisitionDate || '',
       p.street || '',
       p.zipCode || '',
@@ -649,7 +797,7 @@ export async function exportAllDataToSheets(
       'Receitas'
     ].filter(s => activeSheetTitles.includes(s));
 
-    const clearRanges = sheetsToClear.map(s => s === 'Dashboard_Calculos' ? `'${s}'!A1:Z1000` : `'${s}'!A2:Z100000`);
+    const clearRanges = sheetsToClear.map(s => s === 'Dashboard_Calculos' ? `'${s}'!A1:Z1000` : `'${s}'!A1:Z100000`);
 
     if (clearRanges.length > 0) {
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
@@ -676,27 +824,46 @@ export async function exportAllDataToSheets(
 
   onProgress?.('A enviar novos dados para a Google Sheets API...', 75);
 
-  // 3. Send batchUpdate to Google Sheets API only for existing active sheets
+    // 3. Send batchUpdate to Google Sheets API only for existing active sheets
   const dataPayload = [];
-  if (activeSheetTitles.includes('Despesas') && expRows.length > 0) dataPayload.push({ range: 'Despesas!A1:I' + expRows.length, values: expRows });
-  if (activeSheetTitles.includes('Receitas_Pontuais') && incRows.length > 0) dataPayload.push({ range: 'Receitas_Pontuais!A1:H' + incRows.length, values: incRows });
-  if (activeSheetTitles.includes('Receitas_Fixas_Registadas') && fixedIncRealizedRows.length > 0) dataPayload.push({ range: 'Receitas_Fixas_Registadas!A1:H' + fixedIncRealizedRows.length, values: fixedIncRealizedRows });
-  if (activeSheetTitles.includes('Despesas_Fixas') && fixExpRows.length > 0) dataPayload.push({ range: 'Despesas_Fixas!A1:J' + fixExpRows.length, values: fixExpRows });
-  if (activeSheetTitles.includes('Receitas_Fixas') && fixIncRows.length > 0) dataPayload.push({ range: 'Receitas_Fixas!A1:I' + fixIncRows.length, values: fixIncRows });
-  if (activeSheetTitles.includes('Contas') && accRows.length > 0) dataPayload.push({ range: 'Contas!A1:F' + accRows.length, values: accRows });
-  if (activeSheetTitles.includes('Patrimonio') && patRows.length > 0) dataPayload.push({ range: 'Patrimonio!A1:E' + patRows.length, values: patRows });
-  if (activeSheetTitles.includes('Veiculos') && vehRows.length > 0) dataPayload.push({ range: 'Veiculos!A1:E' + vehRows.length, values: vehRows });
-  if (activeSheetTitles.includes('Veiculos_Abastecimentos') && vehFuelRows.length > 0) dataPayload.push({ range: 'Veiculos_Abastecimentos!A1:I' + vehFuelRows.length, values: vehFuelRows });
-  if (activeSheetTitles.includes('Veiculos_Tarefas') && vehTaskRows.length > 0) dataPayload.push({ range: 'Veiculos_Tarefas!A1:M' + vehTaskRows.length, values: vehTaskRows });
-  if (activeSheetTitles.includes('Orcamentos') && budRows.length > 0) dataPayload.push({ range: 'Orcamentos!A1:D' + budRows.length, values: budRows });
-  if (activeSheetTitles.includes('Metas') && goalRows.length > 0) dataPayload.push({ range: 'Metas!A1:E' + goalRows.length, values: goalRows });
-  if (activeSheetTitles.includes('Reciclagem') && trashRows.length > 0) dataPayload.push({ range: 'Reciclagem!A1:D' + trashRows.length, values: trashRows });
-  if (activeSheetTitles.includes('Preferencias') && prefsRows.length > 0) dataPayload.push({ range: 'Preferencias!A1:C' + prefsRows.length, values: prefsRows });
-  if (activeSheetTitles.includes('Regras_Categorizacao') && catRulesRows.length > 0) dataPayload.push({ range: 'Regras_Categorizacao!A1:E' + catRulesRows.length, values: catRulesRows });
-  if (activeSheetTitles.includes('Notificacoes') && notifRows.length > 0) dataPayload.push({ range: 'Notificacoes!A1:F' + notifRows.length, values: notifRows });
-  if (activeSheetTitles.includes('Arquivo') && archiveRows.length > 0) dataPayload.push({ range: 'Arquivo!A1:E' + archiveRows.length, values: archiveRows });
+  const missingCriticalSheets = [];
+  
+  const checkAndPush = (sheetName, rows) => {
+    if (rows.length > 1) { // More than just headers
+      if (activeSheetTitles.includes(sheetName)) {
+        dataPayload.push({ range: `${sheetName}!A1`, values: rows });
+      } else {
+        missingCriticalSheets.push(sheetName);
+      }
+    }
+  };
 
-  if (dataPayload.length === 0) {
+  checkAndPush('Despesas', expRows);
+  checkAndPush('Receitas_Pontuais', incRows);
+  checkAndPush('Receitas_Fixas_Registadas', fixedIncRealizedRows);
+  checkAndPush('Despesas_Fixas', fixExpRows);
+  checkAndPush('Receitas_Fixas', fixIncRows);
+  checkAndPush('Contas', accRows);
+  checkAndPush('Patrimonio', patRows);
+  checkAndPush('Veiculos', vehRows);
+  checkAndPush('Veiculos_Abastecimentos', vehFuelRows);
+  checkAndPush('Veiculos_Tarefas', vehTaskRows);
+  checkAndPush('Orcamentos', budRows);
+  checkAndPush('Metas', goalRows);
+  checkAndPush('Reciclagem', trashRows);
+  checkAndPush('Preferencias', prefsRows);
+  checkAndPush('Regras_Categorizacao', catRulesRows);
+  checkAndPush('Notificacoes', notifRows);
+  checkAndPush('Arquivo', archiveRows);
+
+  if (missingCriticalSheets.length > 0) {
+    const msg = `Erro de Sincronização: As seguintes abas não foram encontradas na Drive, apesar de haver dados para gravar: ${missingCriticalSheets.join(', ')}. Por favor, use o botão "Reparar Abas" nas configurações.`;
+    notifySyncStatus('error', msg);
+    throw new Error(msg);
+  }
+
+
+if (dataPayload.length === 0) {
     onProgress?.('Concluído!', 100);
     return {
       expensesCount: expenses.length,
@@ -832,49 +999,87 @@ export function mergeCollection<T extends { id?: string }>(
  */
 export async function fetchAndParseRemoteSheets(
   accessToken: string,
-  spreadsheetId: string
+  spreadsheetId: string,
+  selectedSheets?: string[]
 ) {
   let titles: string[] = [];
   try {
-    const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
+    const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     if (metaRes.ok) {
       const metaData = await metaRes.json();
-      titles = (metaData.sheets || []).map((s: any) => s.properties?.title);
+      titles = (metaData.sheets || []).map((s: any) => s.properties?.title).filter(Boolean);
     }
   } catch (e) {
     console.warn('Erro ao ler metadados:', e);
   }
 
-  const incSheet = titles.includes('Receitas_Pontuais')
-    ? 'Receitas_Pontuais'
-    : (titles.includes('Receitas') ? 'Receitas' : 'Receitas_Pontuais');
+  const resolveSheetTitle = (canonical: string) => {
+    const canonicalClean = canonical.toLowerCase().trim();
+    
+    // Exact match first (case-insensitive)
+    const exactMatch = titles.find(t => t.toLowerCase().trim() === canonicalClean);
+    if (exactMatch) return exactMatch;
 
-  const incFixedRegSheet = titles.includes('Receitas_Fixas_Registadas')
-    ? 'Receitas_Fixas_Registadas'
-    : (titles.includes('Receitas_Fixas_Reg') ? 'Receitas_Fixas_Reg' : 'Receitas_Fixas_Registadas');
+    if (ALIAS_MAP[canonical]) {
+      const aliasMatch = ALIAS_MAP[canonical].find(a => 
+        titles.some(t => t.toLowerCase().trim() === a.toLowerCase().trim())
+      );
+      
+      if (aliasMatch) {
+        // Return the actual title from the sheet, not our alias
+        return titles.find(t => t.toLowerCase().trim() === aliasMatch.toLowerCase().trim()) || aliasMatch;
+      }
+    }
+    return null;
+  };
 
-  const ranges = [
-    'Despesas!A1:I5000',
-    `${incSheet}!A1:H5000`,
-    `${incFixedRegSheet}!A1:H5000`,
-    'Despesas_Fixas!A1:J5000',
-    'Receitas_Fixas!A1:I5000',
-    'Contas!A1:F1000',
-    'Patrimonio!A1:E1000',
-    'Veiculos!A1:E1000',
-    'Veiculos_Abastecimentos!A1:I5000',
-    'Veiculos_Tarefas!A1:M5000',
-    'Orcamentos!A1:D1000',
-    'Metas!A1:E1000',
-    'Reciclagem!A1:D1000',
-    'Preferencias!A1:C5',
-    'Regras_Categorizacao!A1:E1000',
-    'Notificacoes!A1:F1000',
-    'Arquivo!A1:E1000'
+  const sheetMapping = [
+    { key: 'Despesas', canonical: 'Despesas', range: 'A1:I5000' },
+    { key: 'Receitas_Pontuais', canonical: 'Receitas_Pontuais', range: 'A1:H5000' },
+    { key: 'Receitas_Fixas_Registadas', canonical: 'Receitas_Fixas_Registadas', range: 'A1:H5000' },
+    { key: 'Despesas_Fixas', canonical: 'Despesas_Fixas', range: 'A1:J5000' },
+    { key: 'Receitas_Fixas', canonical: 'Receitas_Fixas', range: 'A1:I5000' },
+    { key: 'Contas', canonical: 'Contas', range: 'A1:F1000' },
+    { key: 'Patrimonio', canonical: 'Patrimonio', range: 'A1:J1000' },
+    { key: 'Veiculos', canonical: 'Veiculos', range: 'A1:E1000' },
+    { key: 'Veiculos_Abastecimentos', canonical: 'Veiculos_Abastecimentos', range: 'A1:I5000' },
+    { key: 'Veiculos_Tarefas', canonical: 'Veiculos_Tarefas', range: 'A1:M5000' },
+    { key: 'Orcamentos', canonical: 'Orcamentos', range: 'A1:D1000' },
+    { key: 'Metas', canonical: 'Metas', range: 'A1:E1000' },
+    { key: 'Reciclagem', canonical: 'Reciclagem', range: 'A1:D1000' },
+    { key: 'Preferencias', canonical: 'Preferencias', range: 'A1:C5' },
+    { key: 'Regras_Categorizacao', canonical: 'Regras_Categorizacao', range: 'A1:E1000' },
+    { key: 'Notificacoes', canonical: 'Notificacoes', range: 'A1:F1000' },
+    { key: 'Arquivo', canonical: 'Arquivo', range: 'A1:E1000' }
   ];
 
+  // Filter based on selectedSheets if provided, and check if sheet exists remotely
+  const activeMappings = sheetMapping.filter(m => {
+    const isSelected = !selectedSheets || selectedSheets.includes(m.key);
+    if (!isSelected) return false;
+    
+    const actualTitle = resolveSheetTitle(m.canonical);
+    return actualTitle !== null;
+  }).map(m => ({
+    ...m,
+    resolvedTitle: resolveSheetTitle(m.canonical) as string
+  }));
+
+  if (activeMappings.length === 0) {
+    return {
+      parsedExpenses: [], parsedIncomes: [], parsedFixedIncomesRealized: [],
+      parsedFixedExpenses: [], parsedFixedIncomes: [], parsedAccounts: [],
+      parsedPatrimonio: [], parsedVehicles: [], parsedVehicleFuel: [],
+      parsedVehicleTasks: [], parsedBudgets: [], parsedGoals: [],
+      parsedTrash: [], userPrefs: null, parsedCatRules: [],
+      parsedNotifs: [], parsedArchives: []
+    };
+  }
+
+  // Build batchGet URL with quoted ranges to handle spaces/special chars
+  const ranges = activeMappings.map(m => `'${m.resolvedTitle}'!${m.range}`);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?` + 
     ranges.map(r => `ranges=${encodeURIComponent(r)}`).join('&');
 
@@ -883,19 +1088,24 @@ export async function fetchAndParseRemoteSheets(
   });
 
   if (!res.ok) {
+    const errText = await res.text();
+    console.error('Google Sheets Error Body:', errText);
     throw new Error(`Erro de resposta Google Sheets HTTP ${res.status}`);
   }
 
   const data = await res.json();
   const valueRanges = data.valueRanges || [];
 
-  const getRows = (idx: number) => {
-    const rows = valueRanges[idx]?.values || [];
+  // Helper to find data by original mapping key
+  const getRowsByKey = (key: string) => {
+    const mappingIdx = activeMappings.findIndex(m => m.key === key);
+    if (mappingIdx === -1) return [];
+    const rows = valueRanges[mappingIdx]?.values || [];
     return rows.length > 1 ? rows.slice(1) : [];
   };
 
   // Parse Expenses
-  const expRows = getRows(0);
+  const expRows = getRowsByKey('Despesas');
   const parsedExpenses = expRows.map((row: any[], i: number) => ({
     id: row[0] || `exp_sheet_${i}`,
     date: row[1] || new Date().toISOString().slice(0, 10),
@@ -911,7 +1121,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((e: any) => e.amount > 0 || e.entity);
 
   // Parse Incomes
-  const incRows = getRows(1);
+  const incRows = getRowsByKey('Receitas_Pontuais');
   const rawParsedIncomes = incRows.map((row: any[], i: number) => ({
     id: row[0] || `inc_sheet_${i}`,
     date: row[1] || new Date().toISOString().slice(0, 10),
@@ -927,7 +1137,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((i: any) => i.amount > 0 || i.entity);
 
   // Parse Realized Fixed Incomes
-  const fixIncRegRows = getRows(2);
+  const fixIncRegRows = getRowsByKey('Receitas_Fixas_Registadas');
   const rawParsedFixedIncomesRealized = fixIncRegRows.map((row: any[], i: number) => ({
     id: row[0] || `inc_fixed_sheet_${i}`,
     date: row[1] || new Date().toISOString().slice(0, 10),
@@ -946,7 +1156,7 @@ export async function fetchAndParseRemoteSheets(
   ]);
 
   // Parse Fixed Expenses
-  const fixExpRows = getRows(3);
+  const fixExpRows = getRowsByKey('Despesas_Fixas');
   const parsedFixedExpenses = fixExpRows.map((row: any[], i: number) => ({
     id: row[0] || `fix_exp_${i}`,
     name: row[1] || row[2] || 'Despesa Fixa',
@@ -961,7 +1171,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((e: any) => e.amount > 0 || (e.name !== 'Despesa Fixa' && e.name));
 
   // Parse Fixed Incomes
-  const fixIncRows = getRows(4);
+  const fixIncRows = getRowsByKey('Receitas_Fixas');
   const parsedFixedIncomes = fixIncRows.map((row: any[], i: number) => ({
     id: row[0] || `fix_inc_${i}`,
     name: row[1] || row[2] || 'Receita Fixa',
@@ -975,7 +1185,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((fi: any) => fi.amount > 0 || (fi.name !== 'Receita Fixa' && fi.name));
 
   // Parse Accounts
-  const accRows = getRows(5);
+  const accRows = getRowsByKey('Contas');
   const parsedAccounts = accRows.map((row: any[], i: number) => ({
     id: row[0] || `acc_${i}`,
     name: row[1] || 'Conta Principal',
@@ -986,7 +1196,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((a: any) => a.name !== 'Conta Principal' || a.balance > 0);
 
   // Parse Patrimonio
-  const patRows = getRows(6);
+  const patRows = getRowsByKey('Patrimonio');
   const parsedPatrimonio = patRows.map((row: any[], i: number) => ({
     id: row[0] || `pat_${i}`,
     name: row[1] || 'Ativo',
@@ -1002,7 +1212,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((p: any) => p.name !== 'Ativo' || p.currentValue > 0);
 
   // Parse Vehicles
-  const vehRows = getRows(7);
+  const vehRows = getRowsByKey('Veiculos');
   const parsedVehicles = vehRows.map((row: any[], i: number) => ({
     id: row[0] || `veh_${i}`,
     make: row[1] || '',
@@ -1012,7 +1222,7 @@ export async function fetchAndParseRemoteSheets(
   }));
 
   // Parse Vehicle Fuel
-  const vehFuelRowsData = getRows(8);
+  const vehFuelRowsData = getRowsByKey('Veiculos_Abastecimentos');
   const parsedVehicleFuel = vehFuelRowsData.map((row: any[], i: number) => ({
     id: row[0] || `fuel_${i}`,
     vehicleId: row[1] || '',
@@ -1026,7 +1236,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((f: any) => f.vehicleId || f.totalCost > 0 || f.liters > 0);
 
   // Parse Vehicle Tasks
-  const vehTaskRowsData = getRows(9);
+  const vehTaskRowsData = getRowsByKey('Veiculos_Tarefas');
   const parsedVehicleTasks = vehTaskRowsData.map((row: any[], i: number) => ({
     id: row[0] || `task_${i}`,
     vehicleId: row[1] || '',
@@ -1045,7 +1255,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((t: any) => t.vehicleId || t.title);
 
   // Parse Budgets
-  const budRows = getRows(10);
+  const budRows = getRowsByKey('Orcamentos');
   const parsedBudgets = budRows.map((row: any[], i: number) => ({
     id: row[0] || `bud_${i}`,
     category: row[1] || '',
@@ -1054,7 +1264,7 @@ export async function fetchAndParseRemoteSheets(
   }));
 
   // Parse Goals
-  const goalRows = getRows(11);
+  const goalRows = getRowsByKey('Metas');
   const parsedGoals = goalRows.map((row: any[], i: number) => ({
     id: row[0] || `goal_${i}`,
     title: row[1] || '',
@@ -1064,7 +1274,7 @@ export async function fetchAndParseRemoteSheets(
   }));
 
   // Parse Trash
-  const trashRowsData = getRows(12);
+  const trashRowsData = getRowsByKey('Reciclagem');
   const parsedTrash = trashRowsData.map((row: any[], i: number) => {
     let dataObj = {};
     try { dataObj = JSON.parse(row[2]); } catch (e) {}
@@ -1078,7 +1288,7 @@ export async function fetchAndParseRemoteSheets(
   }).filter((t: any) => t.type);
 
   // Parse Preferences
-  const prefsRowsData = getRows(13);
+  const prefsRowsData = getRowsByKey('Preferencias');
   let userPrefs: any = null;
   if (prefsRowsData.length > 0 && prefsRowsData[0][1]) {
     try {
@@ -1089,7 +1299,7 @@ export async function fetchAndParseRemoteSheets(
   }
 
   // Parse Categorization Rules
-  const catRulesRowsData = getRows(14);
+  const catRulesRowsData = getRowsByKey('Regras_Categorizacao');
   const parsedCatRules = catRulesRowsData.map((row: any[], i: number) => ({
     id: row[0] || `rule_${i}`,
     keyword: row[1] || '',
@@ -1099,7 +1309,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((r: any) => r.keyword);
 
   // Parse Notifications
-  const notifRowsData = getRows(15);
+  const notifRowsData = getRowsByKey('Notificacoes');
   const parsedNotifs = notifRowsData.map((row: any[], i: number) => ({
     id: row[0] || `notif_${i}`,
     title: row[1] || '',
@@ -1110,7 +1320,7 @@ export async function fetchAndParseRemoteSheets(
   })).filter((n: any) => n.title);
 
   // Parse Archives
-  const archiveRowsData = getRows(16);
+  const archiveRowsData = getRowsByKey('Arquivo');
   const parsedArchives = archiveRowsData.map((row: any[], i: number) => {
     let dataObj = {};
     try { dataObj = JSON.parse(row[3]); } catch (e) {}
@@ -1147,17 +1357,32 @@ export async function fetchAndParseRemoteSheets(
 /**
  * Fetch all financial data from Google Sheets spreadsheet and populate local state / localStorage / Firestore.
  */
+export async function getSpreadsheetSheetTitles(accessToken: string, spreadsheetId: string): Promise<string[]> {
+  try {
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.sheets || []).map((s: any) => s.properties.title);
+  } catch (err) {
+    console.error('Erro ao ler títulos:', err);
+    return [];
+  }
+}
+
 export async function importAllDataFromSheets(
   accessToken: string,
   spreadsheetId: string,
-  onProgress?: (status: string, percent: number) => void
+  onProgress?: (status: string, percent: number) => void,
+  selectedSheets?: string[]
 ): Promise<SyncStats> {
   notifySyncStatus('syncing', 'A descarregar dados da Google Drive...');
   onProgress?.('A inspecionar abas e descarregar do Google Sheets...', 15);
 
   let remote;
   try {
-    remote = await fetchAndParseRemoteSheets(accessToken, spreadsheetId);
+    remote = await fetchAndParseRemoteSheets(accessToken, spreadsheetId, selectedSheets);
   } catch (err: any) {
     let errorText = err?.message || 'Erro ao ler dados da Google Sheets';
     if (err?.status === 401 || err?.status === 403) {
@@ -1176,19 +1401,21 @@ export async function importAllDataFromSheets(
   onProgress?.('A atualizar armazenamento local...', 60);
 
   // Set local storage directly from remote sheet without merging stale cache
-  setLocalData('fin_expenses', remote.parsedExpenses);
-  setLocalData('fin_incomes', remote.parsedIncomes);
-  setLocalData('fin_incomes_fixed_realized', remote.parsedFixedIncomesRealized);
-  setLocalData('fin_fixed_expenses', remote.parsedFixedExpenses);
-  setLocalData('fin_fixed_incomes', remote.parsedFixedIncomes);
-  setLocalData('fin_assets', remote.parsedAccounts.concat(remote.parsedPatrimonio));
+  if (!selectedSheets || selectedSheets.includes('Despesas')) { setLocalData('fin_expenses', remote.parsedExpenses); }
+  if (!selectedSheets || selectedSheets.includes('Receitas_Pontuais')) { setLocalData('fin_incomes', remote.parsedIncomes); }
+  if (!selectedSheets || selectedSheets.includes('Receitas_Fixas_Registadas')) { setLocalData('fin_incomes_fixed_realized', remote.parsedFixedIncomesRealized); }
+  if (!selectedSheets || selectedSheets.includes('Despesas_Fixas')) { setLocalData('fin_fixed_expenses', remote.parsedFixedExpenses); }
+  if (!selectedSheets || selectedSheets.includes('Receitas_Fixas')) { setLocalData('fin_fixed_incomes', remote.parsedFixedIncomes); }
+  if (!selectedSheets || selectedSheets.includes('Contas')) { setLocalData('fin_accounts', remote.parsedAccounts); }
+  setLocalData('fin_bank_accounts', remote.parsedAccounts);
+  if (!selectedSheets || selectedSheets.includes('Patrimonio')) { setLocalData('fin_assets', remote.parsedPatrimonio); }
   setLocalData('fin_patrimonio', remote.parsedPatrimonio);
-  setLocalData('fin_vehicles', remote.parsedVehicles);
-  setLocalData('fin_vehicle_fuel', remote.parsedVehicleFuel);
-  setLocalData('fin_vehicle_tasks', remote.parsedVehicleTasks);
-  setLocalData('fin_budgets', remote.parsedBudgets);
-  setLocalData('fin_goals', remote.parsedGoals);
-  setLocalData('finanas_trash_items', remote.parsedTrash);
+  if (!selectedSheets || selectedSheets.includes('Veiculos')) { setLocalData('fin_vehicles', remote.parsedVehicles); }
+  if (!selectedSheets || selectedSheets.includes('Veiculos_Abastecimentos')) { setLocalData('fin_vehicle_fuel', remote.parsedVehicleFuel); }
+  if (!selectedSheets || selectedSheets.includes('Veiculos_Tarefas')) { setLocalData('fin_vehicle_tasks', remote.parsedVehicleTasks); }
+  if (!selectedSheets || selectedSheets.includes('Orcamentos')) { setLocalData('fin_budgets', remote.parsedBudgets); }
+  if (!selectedSheets || selectedSheets.includes('Metas')) { setLocalData('fin_goals', remote.parsedGoals); }
+  if (!selectedSheets || selectedSheets.includes('Reciclagem')) { setLocalData('finanas_trash_items', remote.parsedTrash); }
 
   const parsedExpenses = remote.parsedExpenses;
   const parsedIncomes = remote.parsedIncomes;
@@ -1201,7 +1428,7 @@ export async function importAllDataFromSheets(
   const parsedBudgets = remote.parsedBudgets;
   const parsedGoals = remote.parsedGoals;
 
-  if (remote.userPrefs) {
+  if (remote.userPrefs && (!selectedSheets || selectedSheets.includes('Preferencias'))) {
     localStorage.setItem('finanas_user_prefs', JSON.stringify(remote.userPrefs));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('finanas_prefs_updated'));
@@ -1209,13 +1436,13 @@ export async function importAllDataFromSheets(
   }
 
   if (remote.parsedCatRules.length > 0) {
-    setLocalData('fin_categorization_rules', remote.parsedCatRules);
+    if (!selectedSheets || selectedSheets.includes('Regras_Categorizacao')) { setLocalData('fin_categorization_rules', remote.parsedCatRules); }
   }
   if (remote.parsedNotifs.length > 0) {
-    setLocalData('finanas_notifications', remote.parsedNotifs);
+    if (!selectedSheets || selectedSheets.includes('Notificacoes')) { setLocalData('finanas_notifications', remote.parsedNotifs); }
   }
   if (remote.parsedArchives.length > 0) {
-    setLocalData('finanas_archives', remote.parsedArchives);
+    if (!selectedSheets || selectedSheets.includes('Arquivo')) { setLocalData('finanas_archives', remote.parsedArchives); }
   }
 
   onProgress?.('Concluído!', 100);
@@ -1886,4 +2113,8 @@ export async function clearAllSpreadsheetData(
   onProgress?.('Concluído! Todos os dados foram apagados.', 100);
 
   return cleanStats;
+}
+
+export async function forceRecreateMissingSheets(accessToken: string, spreadsheetId: string) {
+  return ensureMissingSheetsExist(accessToken, spreadsheetId);
 }

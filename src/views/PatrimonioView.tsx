@@ -13,6 +13,7 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
 import { Building2, X } from 'lucide-react';
+import { scheduleSheetsBackgroundSync } from '../lib/googleSheetsDataService';
 
 export default function PatrimonioView() {
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
@@ -60,11 +61,15 @@ export default function PatrimonioView() {
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<PropertyExpense | null>(null);
 
-  // Sync to localStorage
+  // Sync to localStorage and trigger background Google Sheets sync
   useEffect(() => {
     try {
       localStorage.setItem('fin_assets', JSON.stringify(assets));
       localStorage.setItem('fin_patrimonio', JSON.stringify(assets));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('storage'));
+      }
+      scheduleSheetsBackgroundSync();
     } catch (e) {
       console.error('Erro ao guardar ativos:', e);
     }
@@ -73,6 +78,7 @@ export default function PatrimonioView() {
   useEffect(() => {
     try {
       localStorage.setItem('fin_property_expenses', JSON.stringify(propertyExpenses));
+      scheduleSheetsBackgroundSync();
     } catch (e) {
       console.error('Erro ao guardar despesas de imóvel:', e);
     }
@@ -151,45 +157,6 @@ export default function PatrimonioView() {
     else setIsOutrosModalOpen(true);
   };
 
-  // Export CSV
-  const handleExportCSV = () => {
-    const headers = ['ID', 'Nome', 'Categoria', 'SubTipo', 'Valor Atual (€)', 'Valor Compra (€)', 'Data Aquisição', 'Rua', 'Código Postal', 'Localidade', 'Notas'];
-    const rows = assets.map(a => [
-      a.id,
-      `"${a.name.replace(/"/g, '""')}"`,
-      a.category,
-      a.subType || '',
-      a.currentValue || 0,
-      a.purchaseValue || 0,
-      a.acquisitionDate || '',
-      `"${(a.street || '').replace(/"/g, '""')}"`,
-      a.zipCode || '',
-      `"${(a.city || '').replace(/"/g, '""')}"`,
-      `"${(a.notes || '').replace(/"/g, '""')}"`
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'patrimonio_investimentos.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Backup JSON
-  const handleBackup = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ assets, propertyExpenses }, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `backup_patrimonio_${new Date().toISOString().slice(0,10)}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
-
   const filteredAssets = assets.filter(a => a.category === activeTab);
 
   return (
@@ -204,8 +171,6 @@ export default function PatrimonioView() {
         }}
         onAddImovel={() => { setEditingAsset(null); setIsImovelModalOpen(true); }}
         onAddFinanceiro={() => { setEditingAsset(null); setIsFinanceiroModalOpen(true); }}
-        onExportCSV={handleExportCSV}
-        onBackup={handleBackup}
       />
 
       {/* Middle Charts */}

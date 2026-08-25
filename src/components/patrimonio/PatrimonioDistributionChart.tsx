@@ -12,7 +12,15 @@ interface PatrimonioDistributionChartProps {
   activeTab: 'imovel' | 'financeiro';
 }
 
-const PURPLE_COLOR = '#5850ec';
+const COLORS = [
+  '#5850ec', // Indigo
+  '#10b981', // Emerald
+  '#f59e0b', // Amber
+  '#ef4444', // Red
+  '#8b5cf6', // Violet
+  '#06b6d4', // Cyan
+  '#ec4899', // Pink
+];
 
 export function PatrimonioDistributionChart({ assets, activeTab }: PatrimonioDistributionChartProps) {
   const { maskValue } = usePrivacy();
@@ -74,7 +82,7 @@ export function PatrimonioDistributionChart({ assets, activeTab }: PatrimonioDis
                   strokeWidth={0}
                 >
                   {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={PURPLE_COLOR} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -92,16 +100,23 @@ export function PatrimonioDistributionChart({ assets, activeTab }: PatrimonioDis
           </div>
 
           {/* Donut Legend */}
-          <div className="w-full pt-2 flex items-center justify-between text-xs text-muted-foreground font-medium border-t border-border/40">
-            {pieData.map(item => {
-              const pct = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
-              return (
-                <div key={item.name} className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 inline-block" />
-                  <span className="text-foreground font-medium">{item.name}</span>
-                </div>
-              );
-            })}
+          <div className="w-full pt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground font-medium border-t border-border/40">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              {pieData.map((item, index) => {
+                const pct = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                return (
+                  <div key={item.name} className="flex items-center gap-2">
+                    <span 
+                      className="w-2.5 h-2.5 rounded-full inline-block" 
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }} 
+                    />
+                    <span className="text-foreground font-medium">
+                      {item.name} ({pct.toFixed(0)}%)
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
             <span className="font-bold text-foreground">100%</span>
           </div>
         </CardContent>
@@ -150,10 +165,13 @@ export function PatrimonioDistributionChart({ assets, activeTab }: PatrimonioDis
                 />
                 <Bar 
                   dataKey="valor" 
-                  fill={PURPLE_COLOR} 
                   radius={[0, 8, 8, 0]} 
-                  barSize={80}
-                />
+                  barSize={40}
+                >
+                  {barData.map((_, index) => (
+                    <Cell key={`cell-bar-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

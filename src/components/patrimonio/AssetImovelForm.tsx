@@ -38,6 +38,8 @@ export function AssetImovelForm({
   initialExpenses = []
 }: AssetImovelFormProps) {
   const [name, setName] = useState('');
+  const [propertyType, setPropertyType] = useState('Apartamento');
+  const [customPropertyType, setCustomPropertyType] = useState('');
   const [currentValue, setCurrentValue] = useState('');
   const [purchaseValue, setPurchaseValue] = useState('');
   const [acquisitionDate, setAcquisitionDate] = useState('');
@@ -50,6 +52,16 @@ export function AssetImovelForm({
   useEffect(() => {
     if (initialData && initialData.category === 'imovel') {
       setName(initialData.name || '');
+      
+      const type = initialData.subType || 'Apartamento';
+      if (['Apartamento', 'Moradia', 'Terreno', 'Loja'].includes(type)) {
+        setPropertyType(type);
+        setCustomPropertyType('');
+      } else {
+        setPropertyType('Outro');
+        setCustomPropertyType(type);
+      }
+
       setCurrentValue(initialData.currentValue ? initialData.currentValue.toString() : '');
       setPurchaseValue(initialData.purchaseValue ? initialData.purchaseValue.toString() : '');
       setAcquisitionDate(initialData.acquisitionDate || '');
@@ -134,11 +146,13 @@ export function AssetImovelForm({
     const purchVal = parseFloat(purchaseValue) || 0;
     const assetId = initialData ? initialData.id : `prop_${Date.now()}`;
 
+    const finalType = propertyType === 'Outro' ? (customPropertyType.trim() || 'Outro') : propertyType;
+
     const assetObj: Asset = {
       id: assetId,
       name: name.trim(),
       category: 'imovel',
-      subType: 'Imóvel',
+      subType: finalType,
       currentValue: currVal,
       purchaseValue: purchVal,
       acquisitionDate: acquisitionDate || new Date().toISOString().split('T')[0],
@@ -198,6 +212,46 @@ export function AssetImovelForm({
               className="rounded-xl h-11 bg-muted/20"
               required
             />
+          </div>
+
+          {/* Tipo de Imóvel */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="propType" className="text-sm font-medium text-foreground">
+                Tipo de Imóvel
+              </Label>
+              <Select
+                value={propertyType}
+                onValueChange={(v) => setPropertyType(v)}
+              >
+                <SelectTrigger id="propType" className="rounded-xl h-11 bg-muted/20">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Apartamento">Apartamento</SelectItem>
+                  <SelectItem value="Moradia">Moradia</SelectItem>
+                  <SelectItem value="Terreno">Terreno</SelectItem>
+                  <SelectItem value="Loja">Loja</SelectItem>
+                  <SelectItem value="Outro">Outro (Personalizar)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {propertyType === 'Outro' && (
+              <div className="space-y-1.5 animate-in fade-in slide-in-from-left-2">
+                <Label htmlFor="customPropType" className="text-sm font-medium text-foreground">
+                  Especifique o Tipo
+                </Label>
+                <Input
+                  id="customPropType"
+                  placeholder="Ex: Garagem, Armazém"
+                  value={customPropertyType}
+                  onChange={(e) => setCustomPropertyType(e.target.value)}
+                  className="rounded-xl h-11 bg-muted/20"
+                  required
+                />
+              </div>
+            )}
           </div>
 
           {/* Valor Atual / Valor de Compra */}

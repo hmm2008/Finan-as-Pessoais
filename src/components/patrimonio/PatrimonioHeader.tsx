@@ -14,9 +14,6 @@ interface PatrimonioHeaderProps {
   onTabChange: (tab: 'imovel' | 'financeiro') => void;
   onAddImovel: () => void;
   onAddFinanceiro: () => void;
-  onArchive?: () => void;
-  onBackup?: () => void;
-  onExportCSV?: () => void;
 }
 
 export function PatrimonioHeader({
@@ -24,10 +21,7 @@ export function PatrimonioHeader({
   activeTab,
   onTabChange,
   onAddImovel,
-  onAddFinanceiro,
-  onArchive,
-  onBackup,
-  onExportCSV
+  onAddFinanceiro
 }: PatrimonioHeaderProps) {
   const { maskValue } = usePrivacy();
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
@@ -56,42 +50,6 @@ export function PatrimonioHeader({
 
         {/* Top Right Header Action Buttons */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onArchive}
-            className="rounded-xl h-9 px-3.5 text-xs font-medium border-border hover:bg-muted/50 gap-1.5"
-          >
-            <Archive className="w-3.5 h-3.5" />
-            Arquivar
-            <span className="w-4 h-4 rounded-full bg-muted text-muted-foreground inline-flex items-center justify-center text-[10px] font-bold">i</span>
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onBackup}
-            className="rounded-xl h-9 px-3.5 text-xs font-medium border-border hover:bg-muted/50 gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Backup
-            <span className="w-4 h-4 rounded-full bg-muted text-muted-foreground inline-flex items-center justify-center text-[10px] font-bold">i</span>
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onExportCSV}
-            className="rounded-xl h-9 px-3.5 text-xs font-medium border-border hover:bg-muted/50 gap-1.5"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            CSV
-            <span className="w-4 h-4 rounded-full bg-muted text-muted-foreground inline-flex items-center justify-center text-[10px] font-bold">i</span>
-          </Button>
-
           {activeTab === 'imovel' ? (
             <Button
               type="button"

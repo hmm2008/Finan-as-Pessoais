@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import { 
   FileSpreadsheet, 
   CheckCircle, 
@@ -29,7 +31,9 @@ import {
   Calculator,
   FolderSync,
   ArrowRight,
-  GitFork
+  GitFork,
+  Search,
+  Check
 } from 'lucide-react';
 import { 
   connectGoogleDrive, 
@@ -43,6 +47,8 @@ import {
 import { 
   exportAllDataToSheets, 
   importAllDataFromSheets, 
+  getSpreadsheetSheetTitles,
+  ALIAS_MAP,
   clearAllSpreadsheetData,
   reorganizeIncomeSheetsAndDatabase,
   ReorganizeResult,
@@ -60,7 +66,8 @@ import {
   subscribeToSyncStatus,
   scheduleSheetsBackgroundSync,
   SyncStatusEvent,
-  StorageMode
+  StorageMode,
+  forceRecreateMissingSheets,
 } from '../../lib/googleSheetsDataService';
 import { auth } from '../../lib/firebase';
 import { useQueryClient } from '@tanstack/react-query';
@@ -73,7 +80,13 @@ export function GoogleDriveSyncCard() {
   const [isLoading, setIsLoading] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [recoveryUrl, setRecoveryUrl] = useState('');
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [detectedSheets, setDetectedSheets] = useState<string[]>([]);
+  const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
   const [isFormatting, setIsFormatting] = useState(false);
+  const [isRecreating, setIsRecreating] = useState(false);
   const [isReorganizing, setIsReorganizing] = useState(false);
   const [reorganizeResult, setReorganizeResult] = useState<ReorganizeResult | null>(null);
   const [isFlushingQueue, setIsFlushingQueue] = useState(false);
@@ -291,6 +304,150 @@ export function GoogleDriveSyncCard() {
       }
     } finally {
       setIsFormatting(false);
+    }
+  };
+
+  const handleForceRecreate = async () => {
+    if (!accessToken || !spreadsheetInfo?.id) return;
+    setIsRecreating(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    
+    try {
+      const activeSheets = await forceRecreateMissingSheets(accessToken, spreadsheetInfo.id);
+      const hasPatrimonio = activeSheets.some(s => s === 'Patrimonio');
+
+      addSyncAuditLog({
+        action: 'export',
+        status: 'success',
+        details: `Estrutura verificada. Abas detetadas: ${activeSheets.join(', ')}.`
+      });
+      
+      await handleFindOrCreateSpreadsheet(accessToken);
+
+      if (!hasPatrimonio) {
+        setErrorMsg('ERRO: A aba "Patrimonio" não foi encontrada após a recriação. Por favor, verifique se a folha não está protegida ou tente reconectar.');
+      } else {
+        setSuccessMsg(`Estrutura de abas verificada. A aba 'Patrimonio' foi confirmada na folha de cálculo (Total de ${activeSheets.length} abas ativas).`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(`Erro ao recriar abas: ${err.message || 'Falha de comunicação'}`);
+    } finally {
+      setIsRecreating(false);
+    }
+  };
+
+  const handleAnalyzeSpreadsheet = async () => {
+    if (!recoveryUrl.trim()) {
+      setErrorMsg('Por favor, insira o link ou ID da folha de cálculo antiga.');
+      return;
+    }
+
+    let targetId = recoveryUrl.trim();
+    if (targetId.includes('/d/')) {
+      const match = targetId.match(/\/d\/([^/]+)/);
+      if (match && match[1]) targetId = match[1];
+    }
+
+    const accessToken = getCachedDriveToken();
+    if (!accessToken) {
+      setErrorMsg('Sessão Google não encontrada. Por favor, reconecte-se.');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setDetectedSheets([]);
+    setSelectedSheets([]);
+
+    try {
+      const titles = await getSpreadsheetSheetTitles(accessToken, targetId);
+      if (titles.length === 0) {
+        throw new Error('Não foram encontradas abas nesta folha ou não há permissões de acesso.');
+      }
+      
+      const mappedTitles = [
+        'Despesas', 'Receitas_Pontuais', 'Receitas_Fixas_Registadas', 'Despesas_Fixas',
+        'Receitas_Fixas', 'Contas', 'Patrimonio', 'Veiculos', 'Veiculos_Abastecimentos',
+        'Veiculos_Tarefas', 'Orcamentos', 'Metas', 'Reciclagem', 'Preferencias',
+        'Regras_Categorizacao', 'Notificacoes', 'Arquivo'
+      ].filter(canonical => {
+        const cleanCanonical = canonical.toLowerCase().trim();
+        const hasDirectMatch = titles.some(t => t.toLowerCase().trim() === cleanCanonical);
+        if (hasDirectMatch) return true;
+        
+        // Check aliases
+        const aliases = ALIAS_MAP[canonical] || [];
+        return aliases.some(a => titles.some(t => t.toLowerCase().trim() === a.toLowerCase().trim()));
+      });
+
+      // Show all detected titles, but pre-select the ones we mapped
+      setDetectedSheets(titles);
+      setSelectedSheets(mappedTitles.length > 0 ? mappedTitles : titles);
+      setSuccessMsg(`Folha analisada! Detetámos ${titles.length} abas na sua folha antiga.`);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(`Falha ao analisar folha: ${err.message}`);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleRecoverData = async () => {
+    if (selectedSheets.length === 0) {
+      setErrorMsg('Por favor, selecione pelo menos uma aba para recuperar.');
+      return;
+    }
+
+    let targetId = recoveryUrl.trim();
+    if (targetId.includes('/d/')) {
+      const match = targetId.match(/\/d\/([^/]+)/);
+      if (match && match[1]) targetId = match[1];
+    }
+
+    const accessToken = getCachedDriveToken();
+    if (!accessToken) {
+      setErrorMsg('Sessão Google não encontrada. Por favor, reconecte-se.');
+      return;
+    }
+
+    setIsRecovering(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setSyncProgress({ status: 'A iniciar recuperação seletiva...', percent: 5 });
+
+    try {
+      await importAllDataFromSheets(accessToken, targetId, (status, percent) => {
+        setSyncProgress({ status, percent });
+      }, selectedSheets);
+
+      addSyncAuditLog({
+        action: 'import',
+        status: 'success',
+        details: `Dados recuperados seletivamente (${selectedSheets.length} abas) da folha externa (ID: ${targetId})`
+      });
+
+      setSuccessMsg('Recuperação concluída com sucesso! A aplicação irá recarregar em instantes para mostrar os novos dados...');
+      setRecoveryUrl('');
+      setDetectedSheets([]);
+      setSelectedSheets([]);
+      
+      const stats = localStorage.getItem('google_drive_sync_stats');
+      if (stats) setSyncStats(JSON.parse(stats));
+
+      // Force reload after a short delay to allow the user to see the success message
+      setTimeout(() => {
+        window.location.reload();
+      }, 2500);
+      
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(`Falha na recuperação: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setIsRecovering(false);
+      setSyncProgress(null);
     }
   };
 
@@ -820,8 +977,36 @@ export function GoogleDriveSyncCard() {
               </div>
             </div>
 
-            {/* Auto-Sync Switch */}
-            {storageMode === 'hybrid' && (
+          {/* Spreadsheet Link Info */}
+          {spreadsheetInfo && (
+            <div className="flex flex-col sm:flex-row items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50 rounded-xl gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                  <FileSpreadsheet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-foreground">
+                    Google Spreadsheet Ativa
+                  </div>
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    ID: {spreadsheetInfo.id}
+                  </div>
+                </div>
+              </div>
+              <a 
+                href={spreadsheetInfo.url} 
+                target="_blank" 
+                rel="noreferrer"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline px-3 py-2 bg-white dark:bg-slate-900 rounded-lg shadow-xs border border-blue-200/50"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Abrir na Google Drive
+              </a>
+            </div>
+          )}
+
+          {/* Auto-Sync Switch */}
+          {storageMode === 'hybrid' && (
               <div className="flex items-center justify-between p-3 bg-card border border-border rounded-xl">
                 <div className="space-y-0.5">
                   <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -935,6 +1120,133 @@ export function GoogleDriveSyncCard() {
                   </div>
                 </div>
               )}
+
+              {/* Recovery Zone */}
+              <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400">
+                  <Database className="w-4 h-4" />
+                  ZONA DE RECUPERAÇÃO DE DADOS ANTIGOS
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Se tem dados numa folha de cálculo antiga e deseja trazê-los para esta aplicação, cole o link ou ID da folha abaixo. 
+                  <strong className="text-rose-600 dark:text-rose-400 block mt-1">AVISO: Isto irá substituir os dados atuais do seu dispositivo pelos dados da folha escolhida.</strong>
+                </p>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input 
+                      placeholder="Cole o Link da Folha de Cálculo antiga aqui..." 
+                      value={recoveryUrl}
+                      onChange={(e) => setRecoveryUrl(e.target.value)}
+                      className="flex-1 h-9 text-xs rounded-lg"
+                      disabled={isRecovering || isAnalyzing}
+                    />
+                    <Button
+                      onClick={handleAnalyzeSpreadsheet}
+                      disabled={isRecovering || isAnalyzing || !recoveryUrl}
+                      variant="outline"
+                      className="border-slate-400 text-slate-700 dark:text-slate-300 hover:bg-slate-100 h-9 px-4 text-xs font-bold whitespace-nowrap"
+                    >
+                      {isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Search className="w-3.5 h-3.5 mr-1.5" />}
+                      Analisar Folha
+                    </Button>
+                  </div>
+
+                  {detectedSheets.length > 0 && (
+                    <div className="p-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg space-y-3 animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-2">
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          Abas Detetadas ({selectedSheets.length}/{detectedSheets.length})
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 text-[10px] px-2 hover:bg-slate-100"
+                          onClick={() => {
+                            if (selectedSheets.length === detectedSheets.length) setSelectedSheets([]);
+                            else setSelectedSheets([...detectedSheets]);
+                          }}
+                        >
+                          {selectedSheets.length === detectedSheets.length ? 'Desmarcar Todas' : 'Selecionar Todas'}
+                        </Button>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {detectedSheets.map(sheet => (
+                          <div 
+                            key={sheet} 
+                            onClick={() => {
+                              setSelectedSheets(prev => 
+                                prev.includes(sheet) ? prev.filter(s => s !== sheet) : [...prev, sheet]
+                              );
+                            }}
+                            className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
+                              selectedSheets.includes(sheet) 
+                                ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800' 
+                                : 'bg-slate-50/50 border-slate-100 dark:bg-slate-900/30 dark:border-slate-800 hover:bg-slate-100'
+                            }`}
+                          >
+                            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+                              selectedSheets.includes(sheet) ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'
+                            }`}>
+                              {selectedSheets.includes(sheet) && <Check className="w-2.5 h-2.5 text-white" />}
+                            </div>
+                            <span className="text-[10px] font-medium truncate">{sheet}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-2">
+                        <Button
+                          onClick={handleRecoverData}
+                          disabled={isRecovering || selectedSheets.length === 0}
+                          className="w-full bg-slate-800 hover:bg-slate-700 text-white h-9 text-xs font-bold shadow-sm"
+                        >
+                          {isRecovering ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                          ) : (
+                            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                          )}
+                          Confirmar Recuperação das {selectedSheets.length} Abas
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* New Step: Reparar / Recriar Abas */}
+        {accessToken && spreadsheetInfo && (
+          <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-50/20 dark:bg-amber-950/20 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Sliders className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+                  <span>Reparar Abas da Google Drive</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Se apagou folhas (como "Patrimonio") ou ocorreram erros de estrutura, utilize esta opção para recriá-las e forçar cabeçalhos corretos.
+                </p>
+              </div>
+            </div>
+            <div className="pt-1">
+              <Button
+                onClick={handleForceRecreate}
+                disabled={isRecreating || isSyncing}
+                className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white gap-2 text-xs sm:text-sm font-semibold shadow-xs h-10 px-5"
+              >
+                {isRecreating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> A reconstruir...
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-4 h-4" /> Forçar Recriação de Abas em Falta
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         )}
