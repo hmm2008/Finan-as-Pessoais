@@ -48,7 +48,7 @@ export default function PatrimonioView() {
     return [];
   });
 
-  const [activeTab, setActiveTab] = useState<'imovel' | 'financeiro'>('imovel');
+  const [activeTab, setActiveTab] = useState<'imovel' | 'financeiro' | 'outros'>('imovel');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
   // Modal States
@@ -171,6 +171,7 @@ export default function PatrimonioView() {
         }}
         onAddImovel={() => { setEditingAsset(null); setIsImovelModalOpen(true); }}
         onAddFinanceiro={() => { setEditingAsset(null); setIsFinanceiroModalOpen(true); }}
+        onAddOutros={() => { setEditingAsset(null); setIsOutrosModalOpen(true); }}
       />
 
       {/* Middle Charts */}
@@ -182,7 +183,7 @@ export default function PatrimonioView() {
           <Card className="rounded-2xl border border-border/80 p-12 text-center text-muted-foreground">
             <p className="text-base font-medium">Nenhum ativo registado nesta categoria.</p>
             <p className="text-xs mt-1">
-              Clique em "{activeTab === 'imovel' ? 'Novo Imóvel' : 'Novo Ativo'}" no topo para adicionar o seu primeiro ativo.
+              Clique em "{activeTab === 'imovel' ? 'Novo Imóvel' : activeTab === 'financeiro' ? 'Novo Ativo' : 'Novo Outro Ativo'}" no topo para adicionar o seu primeiro ativo.
             </p>
           </Card>
         ) : (

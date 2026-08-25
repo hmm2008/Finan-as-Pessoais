@@ -3,7 +3,7 @@ import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Asset } from '../../types';
 import { usePrivacy } from '../../contexts';
-import { Building2, TrendingUp, Edit, Trash2 } from 'lucide-react';
+import { Building2, TrendingUp, Edit, Trash2, Archive } from 'lucide-react';
 
 interface AssetCardProps {
   key?: any;
@@ -57,8 +57,10 @@ export function AssetCard({
             <div className="w-10 h-10 rounded-xl bg-indigo-100/80 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
               {asset.category === 'imovel' ? (
                 <Building2 className="w-5 h-5" />
-              ) : (
+              ) : asset.category === 'financeiro' ? (
                 <TrendingUp className="w-5 h-5" />
+              ) : (
+                <Archive className="w-5 h-5" />
               )}
             </div>
             <div className="min-w-0">
@@ -66,7 +68,7 @@ export function AssetCard({
                 {asset.name}
               </h3>
               <p className="text-xs text-muted-foreground font-medium">
-                {asset.subType || (asset.category === 'imovel' ? 'Imóvel' : 'Ativo Financeiro')}
+                {asset.subType || (asset.category === 'imovel' ? 'Imóvel' : asset.category === 'financeiro' ? 'Ativo Financeiro' : 'Outro Ativo')}
               </p>
             </div>
           </div>

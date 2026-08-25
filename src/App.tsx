@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Button } from './components/ui/button';
 import { useAuth } from './contexts';
 import { Layout, ProtectedRoute, PageLoader } from './components/layout';
+import { CookieConsent } from './components/ui/CookieConsent';
+import { useConnectDrive } from './hooks/useConnectDrive';
 
 // Lazy loaded views
 import {
@@ -16,6 +18,20 @@ import {
 
 export default function App() {
   const { isAuthenticated, isLoadingAuth } = useAuth();
+  const { isConnected, handleConnectDrive } = useConnectDrive();
+
+  // Automatic Drive connection after login if configured but disconnected
+  React.useEffect(() => {
+    if (isAuthenticated && !isConnected) {
+      const hasConfig = !!localStorage.getItem('google_drive_spreadsheet_info');
+      const hasToken = !!localStorage.getItem('google_drive_access_token');
+      
+      // If we have config but no token or isConnected is false (expired)
+      if (hasConfig && !hasToken) {
+        handleConnectDrive();
+      }
+    }
+  }, [isAuthenticated, isConnected]);
 
   if (isLoadingAuth) {
     return (
@@ -40,6 +56,7 @@ export default function App() {
 
   return (
     <Suspense fallback={<PageLoader />}>
+      <CookieConsent />
       <Routes>
         <Route path="/welcome" element={<Navigate to="/" replace />} />
         <Route path="/relatorio-imprimivel" element={<RelatorioMensalImprimivelView />} />

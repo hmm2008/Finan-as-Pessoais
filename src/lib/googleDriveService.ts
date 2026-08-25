@@ -78,6 +78,9 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
     const detail = err.error?.message || `Status HTTP ${searchRes.status}`;
     if (searchRes.status === 401 || searchRes.status === 403) {
       setCachedDriveToken(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_drive_auth_error'));
+      }
       throw new Error('Sessão Google expirada ou sem permissões suficientes. Por favor, reconecte a sua conta Google.');
     }
     throw new Error(`Erro ao pesquisar ficheiro na Drive: ${detail}`);
@@ -141,6 +144,9 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
     const detail = err.error?.message || `Status HTTP ${createRes.status}`;
     if (createRes.status === 401 || createRes.status === 403) {
       setCachedDriveToken(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_drive_auth_error'));
+      }
       throw new Error('Sessão Google expirada. Por favor, reconecte a sua conta Google.');
     }
     throw new Error(`Erro ao criar nova folha no Google Sheets: ${detail}`);
@@ -206,6 +212,9 @@ export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spre
     const detail = errJson.error?.message || `Status HTTP ${metaRes.status}`;
     if (metaRes.status === 401 || metaRes.status === 403) {
       setCachedDriveToken(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_drive_auth_error'));
+      }
       throw new Error('Sessão Google expirada ou sem permissão. Por favor, reconecte a conta Google.');
     }
     if (metaRes.status === 404) {
@@ -394,6 +403,9 @@ export async function testSpreadsheetHealth(accessToken: string, spreadsheetId: 
     });
     if (res.status === 401 || res.status === 403) {
       setCachedDriveToken(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_drive_auth_error'));
+      }
     }
     return res.ok;
   } catch {

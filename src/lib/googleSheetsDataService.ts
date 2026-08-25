@@ -227,7 +227,23 @@ function mapToAssetCategory(val: string): AssetCategory {
     lower.includes('deposito') ||
     lower.includes('obrigação') ||
     lower.includes('obrigacao') ||
-    lower.includes('investimento')
+    lower.includes('investimento') ||
+    lower.includes('banco') ||
+    lower.includes('caixa') ||
+    lower.includes('poupança') ||
+    lower.includes('poupanca') ||
+    lower.includes('certificado') ||
+    lower.includes('tesouro') ||
+    lower.includes('plano') ||
+    lower.includes('seguro') ||
+    lower.includes('corretora') ||
+    lower.includes('broker') ||
+    lower.includes('reforma') ||
+    lower.includes('ouro') ||
+    lower.includes('prata') ||
+    lower.includes('stock') ||
+    lower.includes('dividend') ||
+    lower.includes('juro')
   ) {
     return 'financeiro';
   }
@@ -900,6 +916,9 @@ if (dataPayload.length === 0) {
     let errorText = detail;
     if (res.status === 401 || res.status === 403) {
       setCachedDriveToken(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_drive_auth_error'));
+      }
       errorText = 'Sessão Google expirada ou sem permissões. Por favor, reconecte a conta Google.';
     } else {
       errorText = `Erro ao atualizar folha: ${detail}`;
@@ -1042,7 +1061,7 @@ export async function fetchAndParseRemoteSheets(
     { key: 'Despesas_Fixas', canonical: 'Despesas_Fixas', range: 'A1:J5000' },
     { key: 'Receitas_Fixas', canonical: 'Receitas_Fixas', range: 'A1:I5000' },
     { key: 'Contas', canonical: 'Contas', range: 'A1:F1000' },
-    { key: 'Patrimonio', canonical: 'Patrimonio', range: 'A1:J1000' },
+    { key: 'Patrimonio', canonical: 'Patrimonio', range: 'A1:J5000' },
     { key: 'Veiculos', canonical: 'Veiculos', range: 'A1:E1000' },
     { key: 'Veiculos_Abastecimentos', canonical: 'Veiculos_Abastecimentos', range: 'A1:I5000' },
     { key: 'Veiculos_Tarefas', canonical: 'Veiculos_Tarefas', range: 'A1:M5000' },
@@ -1209,7 +1228,7 @@ export async function fetchAndParseRemoteSheets(
     zipCode: row[7] || '',
     city: row[8] || '',
     notes: row[9] || (row.length === 5 ? row[4] : '') || ''
-  })).filter((p: any) => p.name !== 'Ativo' || p.currentValue > 0);
+  })).filter((p: any) => p.name !== 'Ativo' || p.currentValue > 0 || p.subType !== 'Imóvel' || p.notes !== '');
 
   // Parse Vehicles
   const vehRows = getRowsByKey('Veiculos');
@@ -1387,6 +1406,9 @@ export async function importAllDataFromSheets(
     let errorText = err?.message || 'Erro ao ler dados da Google Sheets';
     if (err?.status === 401 || err?.status === 403) {
       setCachedDriveToken(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_drive_auth_error'));
+      }
       errorText = 'Sessão Google expirada ou sem permissões. Por favor, reconecte a conta Google.';
     }
     notifySyncStatus('error', errorText);
@@ -1521,6 +1543,9 @@ export async function reorganizeIncomeSheetsAndDatabase(
     let errorText = detail;
     if (metaRes.status === 401 || metaRes.status === 403) {
       setCachedDriveToken(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('finanas_drive_auth_error'));
+      }
       errorText = 'Sessão Google expirada. Por favor reconecte a conta Google.';
     }
     throw new Error(`Falha ao aceder à folha de cálculo: ${errorText}`);

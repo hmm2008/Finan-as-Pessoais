@@ -11,22 +11,45 @@ export function useConnectDrive() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const checkConnection = () => {
+    const checkConnection = async () => {
       const token = getCachedDriveToken();
       const hasSpreadsheet = !!localStorage.getItem('google_drive_spreadsheet_info');
       const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-      setIsConnected(!!token && hasSpreadsheet && isOnline);
+      
+      if (token && hasSpreadsheet && isOnline) {
+        // Double check if token is actually valid by a lightweight call
+        try {
+          const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.status === 401 || res.status === 403) {
+            localStorage.removeItem('google_drive_access_token');
+            setIsConnected(false);
+          } else {
+            setIsConnected(true);
+          }
+        } catch (e) {
+          // If offline or network error, we trust the presence of token but maybe set warning
+          setIsConnected(true);
+        }
+      } else {
+        setIsConnected(false);
+      }
     };
 
     checkConnection();
 
+    const handleAuthError = () => setIsConnected(false);
+
     window.addEventListener('finanas_drive_connected', checkConnection);
+    window.addEventListener('finanas_drive_auth_error', handleAuthError);
     window.addEventListener('storage', checkConnection);
     window.addEventListener('online', checkConnection);
     window.addEventListener('offline', checkConnection);
     
     return () => {
       window.removeEventListener('finanas_drive_connected', checkConnection);
+      window.removeEventListener('finanas_drive_auth_error', handleAuthError);
       window.removeEventListener('storage', checkConnection);
       window.removeEventListener('online', checkConnection);
       window.removeEventListener('offline', checkConnection);
