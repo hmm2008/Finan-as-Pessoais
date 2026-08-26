@@ -27,7 +27,7 @@ import {
   CheckCircle2,
   Table as TableIcon
 } from 'lucide-react';
-import { BackupButton, RestoreBackupModal } from '../components/arquivo';
+import { BackupButton, ExcelBackupButton, RestoreBackupModal } from '../components/arquivo';
 
 type ReportType = 'mensal' | 'anual' | 'backup';
 type ExportFormat = 'pdf' | 'json' | 'excel';
@@ -1442,8 +1442,13 @@ export default function UtilitariosView() {
                   </ul>
                 </div>
 
-                <div className="pt-2">
-                  <BackupButton onBackupCreated={() => showToast('Cópia de segurança gerada com sucesso!')} />
+                <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                  <div className="flex-1">
+                    <BackupButton onBackupCreated={() => showToast('Cópia de segurança JSON gerada com sucesso!')} />
+                  </div>
+                  <div className="flex-1">
+                    <ExcelBackupButton onSuccess={() => showToast('Backup completo em Excel gerado com sucesso!')} />
+                  </div>
                 </div>
               </CardContent>
             </Card>

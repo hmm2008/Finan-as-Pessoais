@@ -6,12 +6,13 @@ import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { 
   User, Shield, KeyRound, Mail, Send, CheckCircle2, 
-  Settings2, LayoutTemplate, Palette, Lock, AlertCircle, HardDrive
+  Settings2, LayoutTemplate, Palette, Lock, AlertCircle, HardDrive, Monitor
 } from 'lucide-react';
 import { useAuth, usePin } from '../contexts';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { SidebarLabelsCustomizer } from '../components/configuracoes/SidebarLabelsCustomizer';
 import { PageTitlesCustomizer } from '../components/configuracoes/PageTitlesCustomizer';
+import { WelcomeScreenCustomizer } from '../components/configuracoes/WelcomeScreenCustomizer';
 import { PageHeader } from '../components/layout';
 import { GoogleDriveSyncCard } from '../components/configuracoes/GoogleDriveSyncCard';
 
@@ -128,7 +129,7 @@ export default function ConfiguracoesView() {
       )}
 
       <Tabs defaultValue="drive" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto p-1 bg-secondary/50 rounded-xl mb-6">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 h-auto p-1 bg-secondary/50 rounded-xl mb-6">
           <TabsTrigger value="drive" className="py-2.5 flex items-center gap-2 text-xs md:text-sm">
             <HardDrive className="w-4 h-4" />
             <span>Drive & Sync</span>
@@ -140,6 +141,10 @@ export default function ConfiguracoesView() {
           <TabsTrigger value="titulos" className="py-2.5 flex items-center gap-2 text-xs md:text-sm">
             <LayoutTemplate className="w-4 h-4" />
             <span>Títulos das Páginas</span>
+          </TabsTrigger>
+          <TabsTrigger value="welcome" className="py-2.5 flex items-center gap-2 text-xs md:text-sm">
+            <Monitor className="w-4 h-4" />
+            <span>Boas-Vindas</span>
           </TabsTrigger>
           <TabsTrigger value="menu" className="py-2.5 flex items-center gap-2 text-xs md:text-sm">
             <Settings2 className="w-4 h-4" />
@@ -310,6 +315,11 @@ export default function ConfiguracoesView() {
         {/* TAB 2: TÍTULOS DAS PÁGINAS */}
         <TabsContent value="titulos">
           <PageTitlesCustomizer />
+        </TabsContent>
+
+        {/* TAB WELCOME: BOAS VINDAS */}
+        <TabsContent value="welcome">
+          <WelcomeScreenCustomizer />
         </TabsContent>
 
         {/* TAB 3: MENU LATERAL */}

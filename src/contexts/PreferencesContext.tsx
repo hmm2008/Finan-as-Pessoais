@@ -3,6 +3,12 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { scheduleSheetsBackgroundSync } from '../lib/googleSheetsDataService';
 
+export interface WelcomeFeature {
+  icon: string;
+  title: string;
+  description: string;
+}
+
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
   density: 'compact' | 'normal' | 'spaced' | 'comfortable' | 'spacious';
@@ -14,6 +20,11 @@ export interface UserPreferences {
   navLabels?: Record<string, string>;
   pageTitles?: Record<string, string>;
   pageSubtitles?: Record<string, string>;
+  welcomeScreen?: {
+    title: string;
+    subtitle: string;
+    features: WelcomeFeature[];
+  };
   updatedAt?: string;
 }
 
@@ -63,6 +74,32 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     '/utilitarios': 'Geração de relatórios, dados e backups',
     '/lixeira': 'Itens eliminados disponíveis para recuperação',
     '/configuracoes': 'Personalização do sistema, PIN e definições'
+  },
+  welcomeScreen: {
+    title: 'O seu centro de comando financeiro.',
+    subtitle: 'Tenha controlo absoluto sobre o seu dinheiro, património e objetivos familiares, num ambiente privado, seguro e encriptado.',
+    features: [
+      {
+        icon: 'TrendingUp',
+        title: 'Gestão Global',
+        description: 'O seu património e contas bancárias unificadas num painel de controlo claro.'
+      },
+      {
+        icon: 'Target',
+        title: 'Orçamentos Familiares',
+        description: 'Defina categorias de gastos, acompanhe limites e controle o destino do seu dinheiro.'
+      },
+      {
+        icon: 'Car',
+        title: 'Gestão de Viaturas',
+        description: 'Acompanhe quilómetros, manutenções e o valor comercial dos seus veículos.'
+      },
+      {
+        icon: 'Shield',
+        title: 'Privacidade Reforçada',
+        description: 'Proteção por PIN de acesso local e gestão/recuperação segura por e-mail autorizado.'
+      }
+    ]
   }
 };
 
@@ -118,7 +155,8 @@ function getLocalPrefs(): UserPreferences {
         ...parsed,
         navLabels: { ...DEFAULT_PREFERENCES.navLabels, ...(parsed.navLabels || {}) },
         pageTitles: { ...DEFAULT_PREFERENCES.pageTitles, ...(parsed.pageTitles || {}) },
-        pageSubtitles: { ...DEFAULT_PREFERENCES.pageSubtitles, ...(parsed.pageSubtitles || {}) }
+        pageSubtitles: { ...DEFAULT_PREFERENCES.pageSubtitles, ...(parsed.pageSubtitles || {}) },
+        welcomeScreen: { ...DEFAULT_PREFERENCES.welcomeScreen, ...(parsed.welcomeScreen || {}) }
       };
     }
   } catch (e) {
@@ -207,6 +245,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       navLabels: { ...(current.navLabels || {}), ...(newPrefs.navLabels || {}) },
       pageTitles: { ...(current.pageTitles || {}), ...(newPrefs.pageTitles || {}) },
       pageSubtitles: { ...(current.pageSubtitles || {}), ...(newPrefs.pageSubtitles || {}) },
+      welcomeScreen: newPrefs.welcomeScreen ? { ...(current.welcomeScreen || DEFAULT_PREFERENCES.welcomeScreen!), ...newPrefs.welcomeScreen } : current.welcomeScreen,
       updatedAt: now
     };
 
