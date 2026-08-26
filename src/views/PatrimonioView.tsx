@@ -6,7 +6,6 @@ import {
   AssetCard, 
   AssetImovelForm, 
   AssetFinanceiroForm, 
-  AssetOutrosForm, 
   PropertyExpensesSection 
 } from '../components/patrimonio';
 import { Card } from '../components/ui/card';
@@ -48,13 +47,12 @@ export default function PatrimonioView() {
     return [];
   });
 
-  const [activeTab, setActiveTab] = useState<'imovel' | 'financeiro' | 'outros'>('imovel');
+  const [activeTab, setActiveTab] = useState<'imovel' | 'financeiro'>('imovel');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
   // Modal States
   const [isImovelModalOpen, setIsImovelModalOpen] = useState(false);
   const [isFinanceiroModalOpen, setIsFinanceiroModalOpen] = useState(false);
-  const [isOutrosModalOpen, setIsOutrosModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
 
   // Deletion modals state
@@ -153,8 +151,7 @@ export default function PatrimonioView() {
   const handleEditAssetClick = (asset: Asset) => {
     setEditingAsset(asset);
     if (asset.category === 'imovel') setIsImovelModalOpen(true);
-    else if (asset.category === 'financeiro') setIsFinanceiroModalOpen(true);
-    else setIsOutrosModalOpen(true);
+    else setIsFinanceiroModalOpen(true);
   };
 
   const filteredAssets = assets.filter(a => a.category === activeTab);
@@ -171,7 +168,6 @@ export default function PatrimonioView() {
         }}
         onAddImovel={() => { setEditingAsset(null); setIsImovelModalOpen(true); }}
         onAddFinanceiro={() => { setEditingAsset(null); setIsFinanceiroModalOpen(true); }}
-        onAddOutros={() => { setEditingAsset(null); setIsOutrosModalOpen(true); }}
       />
 
       {/* Middle Charts */}
@@ -183,7 +179,7 @@ export default function PatrimonioView() {
           <Card className="rounded-2xl border border-border/80 p-12 text-center text-muted-foreground">
             <p className="text-base font-medium">Nenhum ativo registado nesta categoria.</p>
             <p className="text-xs mt-1">
-              Clique em "{activeTab === 'imovel' ? 'Novo Imóvel' : activeTab === 'financeiro' ? 'Novo Ativo' : 'Novo Outro Ativo'}" no topo para adicionar o seu primeiro ativo.
+              Clique em "{activeTab === 'imovel' ? 'Novo Imóvel' : 'Novo Ativo'}" no topo para adicionar o seu primeiro ativo.
             </p>
           </Card>
         ) : (
@@ -245,13 +241,6 @@ export default function PatrimonioView() {
       <AssetFinanceiroForm 
         isOpen={isFinanceiroModalOpen}
         onClose={() => setIsFinanceiroModalOpen(false)}
-        onSave={handleSaveAsset}
-        initialData={editingAsset}
-      />
-
-      <AssetOutrosForm 
-        isOpen={isOutrosModalOpen}
-        onClose={() => setIsOutrosModalOpen(false)}
         onSave={handleSaveAsset}
         initialData={editingAsset}
       />

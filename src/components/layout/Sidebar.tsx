@@ -30,7 +30,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
     { id: '/viaturas', label: customLabels['/viaturas'] || 'Viaturas', icon: Car },
     { id: '/objectivos', label: customLabels['/objectivos'] || customLabels['/objetivos'] || 'Objetivos', icon: Target, secure: true },
     { id: '/utilitarios', label: customLabels['/utilitarios'] || customLabels['/backup'] || customLabels['/arquivo'] || 'Utilitários', icon: Wrench },
-    { id: '/lixeira', label: customLabels['/lixeira'] || customLabels['/trash'] || 'Lixeira', icon: Trash2, secure: true },
+    { id: '/lixeira', label: customLabels['/lixeira'] || customLabels['/trash'] || 'Reciclagem', icon: Trash2, secure: true },
   ];
 
   const handleLogout = async () => {

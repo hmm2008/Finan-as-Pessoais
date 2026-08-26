@@ -43,7 +43,7 @@ export const DEFAULT_NAV_ITEMS: NavItemConfig[] = [
   { id: '/viaturas', defaultLabel: 'Viaturas', icon: Car, description: 'Abastecimentos e despesas de veículos' },
   { id: '/objectivos', defaultLabel: 'Objetivos', icon: Target, description: 'Metas de poupança e fundos de emergência' },
   { id: '/utilitarios', defaultLabel: 'Utilitários', icon: Wrench, description: 'Geração de relatórios mensais/anuais e backups' },
-  { id: '/lixeira', defaultLabel: 'Lixeira', icon: Trash2, description: 'Recuperação de itens e registos eliminados' },
+  { id: '/lixeira', defaultLabel: 'Reciclagem', icon: Trash2, description: 'Recuperação de itens e registos eliminados' },
   { id: '/configuracoes', defaultLabel: 'Configurações', icon: Settings, description: 'Definições da conta e preferências da app' },
   { id: '/sidebar-collapse', defaultLabel: 'Colapsar', icon: Menu, description: 'Rótulo do botão para recolher o menu lateral' },
   { id: '/create-pin', defaultLabel: 'Criar PIN de Acesso', icon: KeyRound, description: 'Rótulo da opção para definir o PIN de segurança' }

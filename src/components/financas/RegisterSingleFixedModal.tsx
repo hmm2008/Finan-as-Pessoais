@@ -40,7 +40,7 @@ export function RegisterSingleFixedModal({ isOpen, onClose, item, type }: Regist
       await addExpense({
         id: `exp_fixed_${yStr}-${mStr}_${item.id || Math.random().toString(36).substring(2, 8)}`,
         amount,
-        category: item.category || 'Habitação',
+        category: item.category || 'Outros',
         date: dateStr,
         entity: entityName,
         method: item.method || 'Débito Direto',
@@ -53,7 +53,7 @@ export function RegisterSingleFixedModal({ isOpen, onClose, item, type }: Regist
       await addIncome({
         id: `inc_fixed_${yStr}-${mStr}_${item.id || Math.random().toString(36).substring(2, 8)}`,
         amount,
-        category: item.category || 'Salário',
+        category: item.category || 'Outros',
         date: dateStr,
         entity: entityName,
         method: item.method || 'Transferência Bancária',

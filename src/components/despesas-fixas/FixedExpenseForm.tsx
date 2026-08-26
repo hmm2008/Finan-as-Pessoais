@@ -24,7 +24,7 @@ export function FixedExpenseForm({ isOpen, onClose, initialData, onSave }: Fixed
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [frequency, setFrequency] = useState('Mensal');
-  const [category, setCategory] = useState('Habitação');
+  const [category, setCategory] = useState('Outros');
   const [entity, setEntity] = useState('');
   const [method, setMethod] = useState('Débito Direto');
   const [dueDateDay, setDueDateDay] = useState('1');
@@ -55,7 +55,7 @@ export function FixedExpenseForm({ isOpen, onClose, initialData, onSave }: Fixed
         setName(initialData.name || initialData.description || '');
         setAmount(initialData.amount !== undefined && initialData.amount !== null ? String(initialData.amount) : '');
         setFrequency(initialData.frequency || 'Mensal');
-        setCategory(initialData.category || 'Habitação');
+        setCategory(initialData.category || 'Outros');
         setEntity(initialData.entity || '');
         setMethod(initialData.method || 'Débito Direto');
         setDueDateDay(
@@ -73,7 +73,7 @@ export function FixedExpenseForm({ isOpen, onClose, initialData, onSave }: Fixed
         setName('');
         setAmount('');
         setFrequency('Mensal');
-        setCategory('Habitação');
+        setCategory('Outros');
         setEntity('');
         setMethod('Débito Direto');
         setDueDateDay('1');

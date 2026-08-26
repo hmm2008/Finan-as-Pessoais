@@ -90,8 +90,8 @@ export function DashboardSummaryCards() {
           </div>
         </div>
 
-        <div className="my-1">
-          <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
+        <div className="my-1 overflow-hidden">
+          <span className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
             {maskValue(saldoAtual, formatCurrency)}
           </span>
         </div>
@@ -123,8 +123,8 @@ export function DashboardSummaryCards() {
           </div>
         </div>
 
-        <div className="my-1">
-          <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
+        <div className="my-1 overflow-hidden">
+          <span className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
             {maskValue(receitasAtual, formatCurrency)}
           </span>
         </div>
@@ -156,8 +156,8 @@ export function DashboardSummaryCards() {
           </div>
         </div>
 
-        <div className="my-1">
-          <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
+        <div className="my-1 overflow-hidden">
+          <span className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
             {maskValue(despesasAtual, formatCurrency)}
           </span>
         </div>
@@ -189,8 +189,8 @@ export function DashboardSummaryCards() {
           </div>
         </div>
 
-        <div className="my-1">
-          <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
+        <div className="my-1 overflow-hidden">
+          <span className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
             {maskValue(totalPatrimonio, formatCurrency)}
           </span>
         </div>

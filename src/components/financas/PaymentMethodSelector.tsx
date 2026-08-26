@@ -108,21 +108,14 @@ export function PaymentMethodSelector({
           <SelectContent className="max-h-60">
             {paymentMethods.map((m) => (
               <SelectItem key={m} value={m} className="text-xs">
-                <span className="flex items-center gap-1.5">
-                  <CreditCard className="w-3 h-3 text-muted-foreground shrink-0" />
-                  <span>{m}</span>
-                </span>
+                {m}
               </SelectItem>
             ))}
-            <div className="border-t border-border my-1" />
             <SelectItem 
               value="__add_custom_payment_method__" 
               className="text-xs text-primary font-semibold focus:text-primary focus:bg-primary/10 cursor-pointer"
             >
-              <span className="flex items-center gap-1.5">
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Criar Nova Forma de Pagamento...</span>
-              </span>
+              + Criar Nova Forma de Pagamento...
             </SelectItem>
           </SelectContent>
         </Select>

@@ -300,8 +300,34 @@ export function useFixedExpenses() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (updatedFE: any) => updateEntity<any>('fin_fixed_expenses', 'fixed_expenses', updatedFE),
-    onSuccess: (data, variables) => queryClient.setQueryData(['fixedExpenses'], (old: any) => (old || []).map((item: any) => item.id === variables.id ? { ...item, ...variables } : item))
+    mutationFn: async (updatedFE: any) => {
+      // 1. Update the fixed expense itself
+      const result = await updateEntity<any>('fin_fixed_expenses', 'fixed_expenses', updatedFE);
+
+      // 2. Propagate category change to all historical records in fin_expenses
+      const expenses = getLocalEntityList<any>('fin_expenses');
+      let modified = false;
+      const updatedExpenses = expenses.map((exp: any) => {
+        if (exp.fixedExpenseId === updatedFE.id && exp.category !== updatedFE.category) {
+          modified = true;
+          return { ...exp, category: updatedFE.category };
+        }
+        return exp;
+      });
+
+      if (modified) {
+        localStorage.setItem('fin_expenses', JSON.stringify(updatedExpenses));
+        // Force a sync if something changed
+        scheduleSheetsBackgroundSync();
+      }
+
+      return result;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(['fixedExpenses'], (old: any) => (old || []).map((item: any) => item.id === variables.id ? { ...item, ...variables } : item));
+      // Invalidate expenses query to reflect category changes in history
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+    }
   });
 
   const deleteMutation = useMutation({
@@ -337,8 +363,55 @@ export function useFixedIncomes() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (updatedFI: any) => updateEntity<any>('fin_fixed_incomes', 'fixed_incomes', updatedFI),
-    onSuccess: (data, variables) => queryClient.setQueryData(['fixedIncomes'], (old: any) => (old || []).map((item: any) => item.id === variables.id ? { ...item, ...variables } : item))
+    mutationFn: async (updatedFI: any) => {
+      // 1. Update the fixed income itself
+      const result = await updateEntity<any>('fin_fixed_incomes', 'fixed_incomes', updatedFI);
+
+      // 2. Propagate category change to all historical records
+      // Check both fin_incomes and fin_incomes_fixed_realized
+      let globalModified = false;
+
+      const punctualIncomes = getLocalEntityList<any>('fin_incomes');
+      let punctualModified = false;
+      const updatedPunctual = punctualIncomes.map((inc: any) => {
+        if (inc.fixedIncomeId === updatedFI.id && inc.category !== updatedFI.category) {
+          punctualModified = true;
+          return { ...inc, category: updatedFI.category };
+        }
+        return inc;
+      });
+
+      if (punctualModified) {
+        localStorage.setItem('fin_incomes', JSON.stringify(updatedPunctual));
+        globalModified = true;
+      }
+
+      const realizedIncomes = getLocalEntityList<any>('fin_incomes_fixed_realized');
+      let realizedModified = false;
+      const updatedRealized = realizedIncomes.map((inc: any) => {
+        if (inc.fixedIncomeId === updatedFI.id && inc.category !== updatedFI.category) {
+          realizedModified = true;
+          return { ...inc, category: updatedFI.category };
+        }
+        return inc;
+      });
+
+      if (realizedModified) {
+        localStorage.setItem('fin_incomes_fixed_realized', JSON.stringify(updatedRealized));
+        globalModified = true;
+      }
+
+      if (globalModified) {
+        scheduleSheetsBackgroundSync();
+      }
+
+      return result;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(['fixedIncomes'], (old: any) => (old || []).map((item: any) => item.id === variables.id ? { ...item, ...variables } : item));
+      // Invalidate incomes query to reflect category changes in history
+      queryClient.invalidateQueries({ queryKey: ['incomes_combined'] });
+    }
   });
 
   const deleteMutation = useMutation({

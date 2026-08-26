@@ -162,7 +162,7 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
             const newExp = {
               id: `exp_fixed_${monthKey}_${fe.id || Math.random().toString(36).substring(2, 8)}`,
               amount,
-              category: fe.category || 'Habitação',
+              category: fe.category || 'Outros',
               date: dateStr,
               entity: entityName,
               method: fe.method || 'Débito Direto',
@@ -205,7 +205,7 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
             const newInc = {
               id: `inc_fixed_${monthKey}_${fi.id || Math.random().toString(36).substring(2, 8)}`,
               amount,
-              category: fi.category || 'Salário',
+              category: fi.category || 'Outros',
               date: dateStr,
               entity: entityName,
               method: fi.method || 'Transferência Bancária',

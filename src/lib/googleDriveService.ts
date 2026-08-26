@@ -91,14 +91,46 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
     const existing = searchData.files[0];
     
     // Fetch spreadsheet sheets
-    const sheetsRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${existing.id}?fields=sheets.properties.title`, {
+    const sheetsRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${existing.id}?fields=sheets.properties(sheetId,title)`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     
     let sheets: string[] = [];
     if (sheetsRes.ok) {
       const sheetsData = await sheetsRes.json();
-      sheets = (sheetsData.sheets || []).map((s: any) => s.properties?.title);
+      const sheetList: any[] = sheetsData.sheets || [];
+      sheets = sheetList.map((s: any) => s.properties?.title);
+
+      // Migração: Se existir "Lixeira" mas não existir "Reciclagem", renomear.
+      const lixeiraSheet = sheetList.find((s: any) => s.properties?.title === 'Lixeira');
+      const reciclagemExists = sheets.includes('Reciclagem');
+
+      if (lixeiraSheet && !reciclagemExists) {
+        try {
+          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${existing.id}:batchUpdate`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              requests: [{
+                updateSheetProperties: {
+                  properties: {
+                    sheetId: lixeiraSheet.properties.sheetId,
+                    title: 'Reciclagem'
+                  },
+                  fields: 'title'
+                }
+              }]
+            })
+          });
+          // Update local sheets list
+          sheets = sheets.map(t => t === 'Lixeira' ? 'Reciclagem' : t);
+        } catch (e) {
+          console.warn('Erro ao renomear Lixeira para Reciclagem:', e);
+        }
+      }
     }
 
     return {
@@ -354,6 +386,11 @@ export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spre
     ["", ""],
     ["Total Património Registado (€)", `=${fnSUM}(Patrimonio!D2:D100000)`],
     ["Saldo Total em Contas Bancárias (€)", `=${fnSUM}(Contas!E2:E100000)`],
+    ["", ""],
+    ["RESUMO DE RECEITAS POR CATEGORIA", "TOTAL (€)"],
+    ["Salário / Ordenado", `=${fnSUMIF}(Receitas_Pontuais!D2:D100000${sep} "Salário"${sep} Receitas_Pontuais!E2:E100000) + ${fnSUMIF}(Receitas_Pontuais!D2:D100000${sep} "Ordenado"${sep} Receitas_Pontuais!E2:E100000) + ${fnSUMIF}(Receitas_Fixas_Registadas!D2:D100000${sep} "Salário"${sep} Receitas_Fixas_Registadas!E2:E100000) + ${fnSUMIF}(Receitas_Fixas_Registadas!D2:D100000${sep} "Ordenado"${sep} Receitas_Fixas_Registadas!E2:E100000)`],
+    ["Pensões", `=${fnSUMIF}(Receitas_Pontuais!D2:D100000${sep} "Pensões"${sep} Receitas_Pontuais!E2:E100000) + ${fnSUMIF}(Receitas_Fixas_Registadas!D2:D100000${sep} "Pensões"${sep} Receitas_Fixas_Registadas!E2:E100000)`],
+    ["Outros", `=${fnSUMIF}(Receitas_Pontuais!D2:D100000${sep} "Outros"${sep} Receitas_Pontuais!E2:E100000) + ${fnSUMIF}(Receitas_Fixas_Registadas!D2:D100000${sep} "Outros"${sep} Receitas_Fixas_Registadas!E2:E100000)`],
     ["", ""],
     ["RESUMO DE DESPESAS POR CATEGORIA", "TOTAL (€)"],
     ["Habitação", `=${fnSUMIF}(Despesas!D2:D100000${sep} "Habitação"${sep} Despesas!E2:E100000)`],

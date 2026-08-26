@@ -146,11 +146,11 @@ export function DashboardSecondarySummaryCards() {
             <GripHorizontal className="w-4 h-4 text-slate-300 dark:text-slate-600 hover:text-slate-400 cursor-grab" />
           </div>
 
-          <div className="mt-1">
+          <div className="mt-1 overflow-hidden">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
               Saldo Atual
             </span>
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block">
+            <span className="text-xl xs:text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
               {maskValue(saldoAtual, formatCurrencyWithCents)}
             </span>
           </div>
@@ -169,11 +169,11 @@ export function DashboardSecondarySummaryCards() {
             <GripHorizontal className="w-4 h-4 text-slate-300 dark:text-slate-600 hover:text-slate-400 cursor-grab" />
           </div>
 
-          <div className="mt-1">
+          <div className="mt-1 overflow-hidden">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
               Progresso Orçamental
             </span>
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block">
+            <span className="text-xl xs:text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
               {budgetProgress}%
             </span>
           </div>
@@ -192,11 +192,11 @@ export function DashboardSecondarySummaryCards() {
             <GripHorizontal className="w-4 h-4 text-slate-300 dark:text-slate-600 hover:text-slate-400 cursor-grab" />
           </div>
 
-          <div className="mt-1">
+          <div className="mt-1 overflow-hidden">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
               Receitas do Mês
             </span>
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block">
+            <span className="text-xl xs:text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
               {maskValue(receitasAtual, formatCurrencyWithCents)}
             </span>
           </div>
@@ -215,11 +215,11 @@ export function DashboardSecondarySummaryCards() {
             <GripHorizontal className="w-4 h-4 text-slate-300 dark:text-slate-600 hover:text-slate-400 cursor-grab" />
           </div>
 
-          <div className="mt-1">
+          <div className="mt-1 overflow-hidden">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
               Despesas do Mês
             </span>
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block">
+            <span className="text-xl xs:text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
               {maskValue(despesasAtual, formatCurrencyWithCents)}
             </span>
           </div>
@@ -240,11 +240,11 @@ export function DashboardSecondarySummaryCards() {
             <GripHorizontal className="w-4 h-4 text-slate-300 dark:text-slate-600 hover:text-slate-400 cursor-grab" />
           </div>
 
-          <div className="mt-1">
+          <div className="mt-1 overflow-hidden">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
               Taxa de Poupança
             </span>
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block">
+            <span className="text-xl xs:text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
               {savingsRateFormatted}
             </span>
           </div>
@@ -263,11 +263,11 @@ export function DashboardSecondarySummaryCards() {
             <GripHorizontal className="w-4 h-4 text-slate-300 dark:text-slate-600 hover:text-slate-400 cursor-grab" />
           </div>
 
-          <div className="mt-1">
+          <div className="mt-1 overflow-hidden">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
               Lembretes Viaturas
             </span>
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block">
+            <span className="text-xl xs:text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
               {vehiclesCount}
             </span>
           </div>
@@ -286,11 +286,11 @@ export function DashboardSecondarySummaryCards() {
             <GripHorizontal className="w-4 h-4 text-slate-300 dark:text-slate-600 hover:text-slate-400 cursor-grab" />
           </div>
 
-          <div className="mt-1">
+          <div className="mt-1 overflow-hidden">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
               Despesas Próximas
             </span>
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block">
+            <span className="text-xl xs:text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
               {maskValue(upcomingAmount, formatCurrencyWithCents)}
             </span>
           </div>
@@ -309,11 +309,11 @@ export function DashboardSecondarySummaryCards() {
             <GripHorizontal className="w-4 h-4 text-slate-300 dark:text-slate-600 hover:text-slate-400 cursor-grab" />
           </div>
 
-          <div className="mt-1">
+          <div className="mt-1 overflow-hidden">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
               Despesas por Categoria
             </span>
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
+            <span className="text-xl xs:text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
               {topCategory}
             </span>
           </div>
@@ -334,11 +334,11 @@ export function DashboardSecondarySummaryCards() {
             <GripHorizontal className="w-4 h-4 text-slate-300 dark:text-slate-600 hover:text-slate-400 cursor-grab" />
           </div>
 
-          <div className="mt-1">
+          <div className="mt-1 overflow-hidden">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
               Património Líquido
             </span>
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block">
+            <span className="text-xl xs:text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
               {maskValue(patrimonioLiquido, formatCurrencyNoCents)}
             </span>
           </div>

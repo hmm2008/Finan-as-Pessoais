@@ -39,10 +39,10 @@ export function ConfirmDeleteModal({
           const itemAmt = item.amount ? ` (${item.amount}€)` : '';
           moveToTrash(entityName, item.id || entityId, item, `${itemLabel}${itemAmt}`);
         });
-        setSuccessMsg(`${entityData.length} itens movidos para a Lixeira com sucesso!`);
+        setSuccessMsg(`${entityData.length} itens movidos para a Reciclagem com sucesso!`);
       } else {
         moveToTrash(entityName, entityId, entityData, entityLabel);
-        setSuccessMsg('Item movido para a Lixeira com sucesso!');
+        setSuccessMsg('Item movido para a Reciclagem com sucesso!');
       }
       if (onMoveToTrashSuccess) {
         setTimeout(() => {
@@ -71,17 +71,22 @@ export function ConfirmDeleteModal({
           <>
             <div className="flex items-start gap-3 p-3.5 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl">
               <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-              <div className="text-xs space-y-1">
-                <p className="font-bold">Tem a certeza que deseja apagar "{entityLabel}"?</p>
-                <p className="text-muted-foreground leading-relaxed">
+              <div className="space-y-1">
+                <p className="text-xs font-bold">Tem a certeza que deseja apagar "{entityLabel}"?</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
                   A eliminação definitiva apagará o registo do sistema para sempre de forma irreversível. 
-                  Se preferir, pode mover o item para a lixeira temporária e restaurá-lo mais tarde.
+                  Se preferir, pode mover o item para a Reciclagem e restaurá-lo mais tarde.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-border">
-              <Button variant="outline" size="sm" onClick={onClose} className="w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row justify-end items-center gap-2 pt-3 border-t border-border">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onClose} 
+                className="w-full sm:w-auto text-xs h-9 px-4 font-medium"
+              >
                 Cancelar
               </Button>
 
@@ -90,9 +95,9 @@ export function ConfirmDeleteModal({
                   variant="outline" 
                   size="sm" 
                   onClick={handleMoveToTrash}
-                  className="w-full sm:w-auto text-amber-600 border-amber-500/30 hover:bg-amber-500/10"
+                  className="w-full sm:w-auto text-xs h-9 px-4 font-medium text-amber-600 border-amber-500/30 hover:bg-amber-500/10 gap-1.5"
                 >
-                  <RotateCcw className="w-4 h-4 mr-1.5" /> Mover para Lixeira
+                  <RotateCcw className="w-3.5 h-3.5" /> Reciclagem
                 </Button>
               )}
 
@@ -103,9 +108,9 @@ export function ConfirmDeleteModal({
                   onConfirmPermanent();
                   onClose();
                 }}
-                className="w-full sm:w-auto font-semibold"
+                className="w-full sm:w-auto text-xs h-9 px-4 font-bold gap-1.5"
               >
-                <Trash2 className="w-4 h-4 mr-1.5" /> Eliminar Definitivamente
+                <Trash2 className="w-3.5 h-3.5" /> Eliminar
               </Button>
             </div>
           </>

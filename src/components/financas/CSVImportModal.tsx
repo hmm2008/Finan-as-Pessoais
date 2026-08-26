@@ -518,7 +518,7 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
           await addIncome({
             entity: row.entity,
             amount: row.amount,
-            category: row.category || 'Salário',
+            category: row.category || 'Outros',
             date: row.date,
             method: row.method,
             paymentMethod: row.method,

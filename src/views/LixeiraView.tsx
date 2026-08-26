@@ -72,7 +72,7 @@ export default function LixeiraView() {
       setSuccessMessage('Item eliminado definitivamente.');
     } else if (type === 'empty') {
       emptyTrash();
-      setSuccessMessage('A lixeira foi completamente esvaziada.');
+      setSuccessMessage('A reciclagem foi completamente esvaziada.');
       setIsEmptyConfirmOpen(false);
     }
 
@@ -102,7 +102,7 @@ export default function LixeiraView() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <PageHeader 
-          title="Lixeira & Recuperação" 
+          title="Reciclagem & Recuperação" 
           subtitle="Gerencie os itens eliminados do sistema com opção de restauro ou eliminação definitiva"
         />
         
@@ -112,7 +112,7 @@ export default function LixeiraView() {
             onClick={() => setIsEmptyConfirmOpen(true)}
             className="shrink-0 font-semibold"
           >
-            <Flame className="w-4 h-4 mr-2" /> Esvaziar Lixeira
+            <Flame className="w-4 h-4 mr-2" /> Esvaziar Reciclagem
           </Button>
         )}
       </div>
@@ -244,10 +244,10 @@ export default function LixeiraView() {
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center gap-3 text-destructive">
                 <AlertTriangle className="w-6 h-6 shrink-0" />
-                <h4 className="font-bold text-lg text-foreground">Esvaziar Toda a Lixeira?</h4>
+                <h4 className="font-bold text-lg text-foreground">Esvaziar Toda a Reciclagem?</h4>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Esta ação apagará permanentemente todos os <strong>{trashItems.length}</strong> itens contidos na lixeira. 
+                Esta ação apagará permanentemente todos os <strong>{trashItems.length}</strong> itens contidos na reciclagem. 
                 Esta operação é <strong>irreversível</strong>.
               </p>
 
@@ -288,7 +288,7 @@ export default function LixeiraView() {
             </CardHeader>
             <CardContent className="p-5 space-y-4">
               <p className="text-xs text-muted-foreground">
-                Insira o seu PIN de 4 dígitos para autorizar esta operação na lixeira.
+                Insira o seu PIN de 4 dígitos para autorizar esta operação na reciclagem.
               </p>
 
               <form onSubmit={handlePinSubmit} className="space-y-4">

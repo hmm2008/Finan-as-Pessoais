@@ -99,7 +99,7 @@ export const MAIN_PAGES_CONFIG: PageConfig[] = [
   },
   { 
     id: '/lixeira', 
-    defaultTitle: 'Lixeira & Recuperação', 
+    defaultTitle: 'Reciclagem & Recuperação', 
     defaultSubtitle: 'Gerencie os itens eliminados do sistema com opção de restauro ou eliminação definitiva', 
     icon: Trash2, 
     description: 'Área de segurança para restauração de registos apagados' 

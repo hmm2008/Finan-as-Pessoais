@@ -214,40 +214,7 @@ function mapToAssetCategory(val: string): AssetCategory {
   ) {
     return 'imovel';
   }
-  if (
-    lower.includes('financeiro') ||
-    lower.includes('ações') ||
-    lower.includes('acoes') ||
-    lower.includes('etf') ||
-    lower.includes('cripto') ||
-    lower.includes('crypto') ||
-    lower.includes('fundo') ||
-    lower.includes('ppr') ||
-    lower.includes('depósito') ||
-    lower.includes('deposito') ||
-    lower.includes('obrigação') ||
-    lower.includes('obrigacao') ||
-    lower.includes('investimento') ||
-    lower.includes('banco') ||
-    lower.includes('caixa') ||
-    lower.includes('poupança') ||
-    lower.includes('poupanca') ||
-    lower.includes('certificado') ||
-    lower.includes('tesouro') ||
-    lower.includes('plano') ||
-    lower.includes('seguro') ||
-    lower.includes('corretora') ||
-    lower.includes('broker') ||
-    lower.includes('reforma') ||
-    lower.includes('ouro') ||
-    lower.includes('prata') ||
-    lower.includes('stock') ||
-    lower.includes('dividend') ||
-    lower.includes('juro')
-  ) {
-    return 'financeiro';
-  }
-  return 'outros';
+  return 'financeiro';
 }
 
 /**
@@ -438,24 +405,34 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
 
     if (structuralRequests.length > 0) {
       console.log('A executar atualizações estruturais...', structuralRequests.length);
-      const structRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requests: structuralRequests })
-      });
+      try {
+        const structRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requests: structuralRequests })
+        });
 
-      if (!structRes.ok) {
-        // Individual fallback
-        for (const req of structuralRequests) {
-          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ requests: [req] })
-          }).catch(() => {});
+        if (!structRes.ok) {
+          console.warn('Batch update falhou, a tentar criação individual...');
+          // Individual fallback
+          for (const req of structuralRequests) {
+            try {
+              await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requests: [req] })
+              });
+            } catch (e) {
+              console.error('Falha ao criar aba individualmente:', e);
+            }
+          }
         }
+      } catch (err) {
+        console.error('Erro ao processar structuralRequests:', err);
       }
       
-      // RE-VERIFY AFTER UPDATE
+      // RE-VERIFY AFTER UPDATE with a small delay to allow consistency
+      await new Promise(resolve => setTimeout(resolve, 500));
       sheetsList = await getMeta();
       resolvedTitles = getResolvedTitles(sheetsList);
     }
@@ -813,7 +790,7 @@ export async function exportAllDataToSheets(
       'Receitas'
     ].filter(s => activeSheetTitles.includes(s));
 
-    const clearRanges = sheetsToClear.map(s => s === 'Dashboard_Calculos' ? `'${s}'!A1:Z1000` : `'${s}'!A1:Z100000`);
+    const clearRanges = sheetsToClear.map(s => s === 'Dashboard_Calculos' ? `'${s}'!A1:Z1000` : `'${s}'!A:Z`);
 
     if (clearRanges.length > 0) {
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
@@ -828,7 +805,7 @@ export async function exportAllDataToSheets(
 
     // Always run individual fallback clears to guarantee every sheet row is erased
     for (const sheetName of sheetsToClear) {
-      const rangeStr = sheetName === 'Dashboard_Calculos' ? `'${sheetName}'!A1:Z1000` : `'${sheetName}'!A2:Z100000`;
+      const rangeStr = sheetName === 'Dashboard_Calculos' ? `'${sheetName}'!A1:Z1000` : `'${sheetName}'!A2:Z`;
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeStr)}:clear`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}` }
@@ -1055,23 +1032,23 @@ export async function fetchAndParseRemoteSheets(
   };
 
   const sheetMapping = [
-    { key: 'Despesas', canonical: 'Despesas', range: 'A1:I5000' },
-    { key: 'Receitas_Pontuais', canonical: 'Receitas_Pontuais', range: 'A1:H5000' },
-    { key: 'Receitas_Fixas_Registadas', canonical: 'Receitas_Fixas_Registadas', range: 'A1:H5000' },
-    { key: 'Despesas_Fixas', canonical: 'Despesas_Fixas', range: 'A1:J5000' },
-    { key: 'Receitas_Fixas', canonical: 'Receitas_Fixas', range: 'A1:I5000' },
-    { key: 'Contas', canonical: 'Contas', range: 'A1:F1000' },
-    { key: 'Patrimonio', canonical: 'Patrimonio', range: 'A1:J5000' },
-    { key: 'Veiculos', canonical: 'Veiculos', range: 'A1:E1000' },
-    { key: 'Veiculos_Abastecimentos', canonical: 'Veiculos_Abastecimentos', range: 'A1:I5000' },
-    { key: 'Veiculos_Tarefas', canonical: 'Veiculos_Tarefas', range: 'A1:M5000' },
-    { key: 'Orcamentos', canonical: 'Orcamentos', range: 'A1:D1000' },
-    { key: 'Metas', canonical: 'Metas', range: 'A1:E1000' },
-    { key: 'Reciclagem', canonical: 'Reciclagem', range: 'A1:D1000' },
+    { key: 'Despesas', canonical: 'Despesas', range: 'A1:Z' },
+    { key: 'Receitas_Pontuais', canonical: 'Receitas_Pontuais', range: 'A1:Z' },
+    { key: 'Receitas_Fixas_Registadas', canonical: 'Receitas_Fixas_Registadas', range: 'A1:Z' },
+    { key: 'Despesas_Fixas', canonical: 'Despesas_Fixas', range: 'A1:Z' },
+    { key: 'Receitas_Fixas', canonical: 'Receitas_Fixas', range: 'A1:Z' },
+    { key: 'Contas', canonical: 'Contas', range: 'A1:Z' },
+    { key: 'Patrimonio', canonical: 'Patrimonio', range: 'A1:Z' },
+    { key: 'Veiculos', canonical: 'Veiculos', range: 'A1:Z' },
+    { key: 'Veiculos_Abastecimentos', canonical: 'Veiculos_Abastecimentos', range: 'A1:Z' },
+    { key: 'Veiculos_Tarefas', canonical: 'Veiculos_Tarefas', range: 'A1:Z' },
+    { key: 'Orcamentos', canonical: 'Orcamentos', range: 'A1:Z' },
+    { key: 'Metas', canonical: 'Metas', range: 'A1:Z' },
+    { key: 'Reciclagem', canonical: 'Reciclagem', range: 'A1:Z' },
     { key: 'Preferencias', canonical: 'Preferencias', range: 'A1:C5' },
-    { key: 'Regras_Categorizacao', canonical: 'Regras_Categorizacao', range: 'A1:E1000' },
-    { key: 'Notificacoes', canonical: 'Notificacoes', range: 'A1:F1000' },
-    { key: 'Arquivo', canonical: 'Arquivo', range: 'A1:E1000' }
+    { key: 'Regras_Categorizacao', canonical: 'Regras_Categorizacao', range: 'A1:Z' },
+    { key: 'Notificacoes', canonical: 'Notificacoes', range: 'A1:Z' },
+    { key: 'Arquivo', canonical: 'Arquivo', range: 'A1:Z' }
   ];
 
   // Filter based on selectedSheets if provided, and check if sheet exists remotely
@@ -1145,7 +1122,7 @@ export async function fetchAndParseRemoteSheets(
     id: row[0] || `inc_sheet_${i}`,
     date: row[1] || new Date().toISOString().slice(0, 10),
     entity: row[2] || 'Receita',
-    category: row[3] || 'Salário',
+    category: row[3] || 'Outros',
     amount: parseNum(row[4]),
     method: row[5] || 'Transferência Bancária',
     notes: row[6] || '',
@@ -1161,7 +1138,7 @@ export async function fetchAndParseRemoteSheets(
     id: row[0] || `inc_fixed_sheet_${i}`,
     date: row[1] || new Date().toISOString().slice(0, 10),
     entity: row[2] || 'Receita',
-    category: row[3] || 'Salário',
+    category: row[3] || 'Outros',
     amount: parseNum(row[4]),
     method: row[5] || 'Transferência Bancária',
     notes: row[6] || '',
@@ -1180,7 +1157,7 @@ export async function fetchAndParseRemoteSheets(
     id: row[0] || `fix_exp_${i}`,
     name: row[1] || row[2] || 'Despesa Fixa',
     entity: row[2] || row[1] || 'Entidade',
-    category: row[3] || 'Habitação',
+    category: row[3] || 'Outros',
     amount: parseNum(row[4]),
     dueDay: parseNum(row[5]) || 1,
     method: row[6] || 'Débito Direto',
@@ -1195,7 +1172,7 @@ export async function fetchAndParseRemoteSheets(
     id: row[0] || `fix_inc_${i}`,
     name: row[1] || row[2] || 'Receita Fixa',
     entity: row[2] || row[1] || 'Entidade',
-    category: row[3] || 'Salário',
+    category: row[3] || 'Outros',
     amount: parseNum(row[4]),
     dueDateDay: parseNum(row[5]) || 1,
     frequency: row[6] || 'Mensal',
@@ -1228,7 +1205,7 @@ export async function fetchAndParseRemoteSheets(
     zipCode: row[7] || '',
     city: row[8] || '',
     notes: row[9] || (row.length === 5 ? row[4] : '') || ''
-  })).filter((p: any) => p.name !== 'Ativo' || p.currentValue > 0 || p.subType !== 'Imóvel' || p.notes !== '');
+  })).filter((p: any) => p.name !== 'Ativo' || p.currentValue > 0);
 
   // Parse Vehicles
   const vehRows = getRowsByKey('Veiculos');
@@ -1578,7 +1555,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
           id: row[0] || `inc_sheet_${i}`,
           date: row[1] || new Date().toISOString().slice(0, 10),
           entity: row[2] || 'Receita',
-          category: row[3] || 'Salário',
+          category: row[3] || 'Outros',
           amount: parseNum(row[4]),
           method: row[5] || 'Transferência Bancária',
           notes: row[6] || ''
@@ -1602,7 +1579,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
           id: row[0] || `inc_fixed_sheet_${i}`,
           date: row[1] || new Date().toISOString().slice(0, 10),
           entity: row[2] || 'Receita',
-          category: row[3] || 'Salário',
+          category: row[3] || 'Outros',
           amount: parseNum(row[4]),
           method: row[5] || 'Transferência Bancária',
           notes: row[6] || '',
@@ -2023,9 +2000,9 @@ export async function clearAllSpreadsheetData(
   // 2. Clear entire ranges across ALL existing sheets
   const clearRanges = allExistingSheets.map(s => {
     if (s === 'Dashboard_Calculos' || s === 'Receitas' || s === 'Receitas_Fixas_Reg') {
-      return `'${s}'!A1:Z100000`;
+      return `'${s}'!A1:Z`;
     }
-    return `'${s}'!A2:Z100000`;
+    return `'${s}'!A2:Z`;
   });
 
   if (clearRanges.length > 0) {
@@ -2046,8 +2023,8 @@ export async function clearAllSpreadsheetData(
   // Fallback individual clear for guaranteed execution on every sheet
   for (const sheetName of allExistingSheets) {
     const rangeStr = (sheetName === 'Dashboard_Calculos' || sheetName === 'Receitas' || sheetName === 'Receitas_Fixas_Reg')
-      ? `'${sheetName}'!A1:Z100000`
-      : `'${sheetName}'!A2:Z100000`;
+      ? `'${sheetName}'!A1:Z`
+      : `'${sheetName}'!A2:Z`;
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeStr)}:clear`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}` }

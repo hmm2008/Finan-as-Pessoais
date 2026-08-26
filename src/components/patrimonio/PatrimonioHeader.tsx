@@ -5,16 +5,15 @@ import { Asset } from './types';
 import { usePrivacy } from '../../contexts';
 import { 
   Building2, Coins, TrendingUp, Info, Plus, Home, 
-  Archive, Download, FileSpreadsheet 
+  Download, FileSpreadsheet 
 } from 'lucide-react';
 
 interface PatrimonioHeaderProps {
   assets: Asset[];
-  activeTab: 'imovel' | 'financeiro' | 'outros';
-  onTabChange: (tab: 'imovel' | 'financeiro' | 'outros') => void;
+  activeTab: 'imovel' | 'financeiro';
+  onTabChange: (tab: 'imovel' | 'financeiro') => void;
   onAddImovel: () => void;
   onAddFinanceiro: () => void;
-  onAddOutros: () => void;
 }
 
 export function PatrimonioHeader({
@@ -22,8 +21,7 @@ export function PatrimonioHeader({
   activeTab,
   onTabChange,
   onAddImovel,
-  onAddFinanceiro,
-  onAddOutros
+  onAddFinanceiro
 }: PatrimonioHeaderProps) {
   const { maskValue } = usePrivacy();
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
@@ -72,16 +70,6 @@ export function PatrimonioHeader({
               Novo Ativo
             </Button>
           )}
-          {activeTab === 'outros' && (
-            <Button
-              type="button"
-              onClick={onAddOutros}
-              className="rounded-xl h-9 px-4 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 shadow-sm transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Novo Outro Ativo
-            </Button>
-          )}
         </div>
       </div>
 
@@ -112,19 +100,6 @@ export function PatrimonioHeader({
           <TrendingUp className="w-4 h-4 text-indigo-500" />
           Financeiro
         </button>
-
-        <button
-          type="button"
-          onClick={() => onTabChange('outros')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${
-            activeTab === 'outros'
-              ? 'bg-background text-foreground shadow-xs'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Archive className="w-4 h-4 text-indigo-500" />
-          Outros
-        </button>
       </div>
 
       {/* KPI Cards Row (4 Cards) */}
@@ -134,7 +109,7 @@ export function PatrimonioHeader({
           <CardContent className="p-0 flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">
-                {activeTab === 'imovel' ? 'Imóveis' : activeTab === 'financeiro' ? 'Financeiros' : 'Outros'}
+                {activeTab === 'imovel' ? 'Imóveis' : 'Financeiros'}
               </p>
               <p className="text-2xl font-bold tracking-tight text-foreground">
                 {maskValue(totalCurrent, formatter.format)}

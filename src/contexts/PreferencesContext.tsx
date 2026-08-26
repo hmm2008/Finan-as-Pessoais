@@ -35,7 +35,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     '/viaturas': 'Viaturas',
     '/objectivos': 'Objetivos',
     '/utilitarios': 'Utilitários',
-    '/lixeira': 'Lixeira',
+    '/lixeira': 'Reciclagem',
     '/configuracoes': 'Configurações'
   },
   pageTitles: {
@@ -48,7 +48,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     '/viaturas': 'Viaturas',
     '/objectivos': 'Objetivos',
     '/utilitarios': 'Utilitários',
-    '/lixeira': 'Lixeira',
+    '/lixeira': 'Reciclagem',
     '/configuracoes': 'Configurações'
   },
   pageSubtitles: {

@@ -213,7 +213,7 @@ export function RestoreBackupModal({ isOpen, onClose, onRestoreComplete }: Resto
                         onChange={(e) => setSelectedEntities(prev => ({ ...prev, trash: e.target.checked }))}
                         className="w-4 h-4 accent-primary rounded"
                       />
-                      <span>Itens da Lixeira ({parsedPayload.entities.trash.length})</span>
+                      <span>Itens da Reciclagem ({parsedPayload.entities.trash.length})</span>
                     </label>
                   )}
                 </div>

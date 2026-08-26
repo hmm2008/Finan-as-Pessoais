@@ -16,7 +16,7 @@ export interface IncomeFormProps {
   onClose: () => void;
 }
 
-const DEFAULT_CATEGORIES = ['Ordenado', 'Rendas', 'Dividendos', 'Reembolso', 'Prémio/Bónus', 'Prestação de Serviços', 'Outros'];
+const DEFAULT_CATEGORIES = ['Ordenado', 'Rendas', 'Pensões', 'Dividendos', 'Reembolso', 'Prémio/Bónus', 'Prestação de Serviços', 'Outros'];
 
 export function IncomeForm({ isOpen, onClose, initialData }: IncomeFormProps) {
   const { addIncome, updateIncome } = useIncomes();
@@ -25,7 +25,7 @@ export function IncomeForm({ isOpen, onClose, initialData }: IncomeFormProps) {
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [frequency, setFrequency] = useState('Mensal');
-  const [category, setCategory] = useState('Ordenado');
+  const [category, setCategory] = useState('Outros');
   const [entity, setEntity] = useState('');
   const [method, setMethod] = useState('Transferência Bancária');
   const [dueDateDay, setDueDateDay] = useState('1');
@@ -58,7 +58,7 @@ export function IncomeForm({ isOpen, onClose, initialData }: IncomeFormProps) {
         setName(initialData.name || initialData.description || initialData.entity || '');
         setAmount(initialData.amount !== undefined && initialData.amount !== null ? String(initialData.amount) : '');
         setFrequency(initialData.frequency || (initialData.recurring || initialData.isFixed ? 'Mensal' : 'Pontual'));
-        setCategory(initialData.category || 'Ordenado');
+        setCategory(initialData.category || 'Outros');
         setEntity(initialData.entity || initialData.name || '');
         setMethod(initialData.method || 'Transferência Bancária');
 
@@ -72,7 +72,7 @@ export function IncomeForm({ isOpen, onClose, initialData }: IncomeFormProps) {
         setName('');
         setAmount('');
         setFrequency('Mensal');
-        setCategory('Ordenado');
+        setCategory('Outros');
         setEntity('');
         setMethod('Transferência Bancária');
         setDueDateDay('1');

@@ -19,7 +19,7 @@ export function BottomPageNav() {
     { id: '/viaturas', label: customLabels['/viaturas'] || 'Viaturas' },
     { id: '/objectivos', label: customLabels['/objectivos'] || 'Objetivos', secure: true },
     { id: '/utilitarios', label: customLabels['/utilitarios'] || customLabels['/backup'] || customLabels['/arquivo'] || 'Utilitários' },
-    { id: '/lixeira', label: customLabels['/lixeira'] || 'Lixeira', secure: true },
+    { id: '/lixeira', label: customLabels['/lixeira'] || 'Reciclagem', secure: true },
     { id: '/configuracoes', label: customLabels['/configuracoes'] || 'Configurações', secure: true },
   ];
 
