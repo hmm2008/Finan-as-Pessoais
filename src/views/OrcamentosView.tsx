@@ -79,10 +79,17 @@ export default function OrcamentosView() {
   });
 
   // Filter budgets for selected month
-  const monthBudgets = budgets.filter((b: any) => !b.month || b.month === currentMonth);
+  const monthBudgets = budgets.filter((b: any) => {
+    if (!b.month) return true; // Include recurring (no-month) budgets
+    // Ensure strict format comparison (YYYY-MM)
+    return b.month === currentMonth || b.month === currentMonth.split('-')[1];
+  });
 
   // Budgets relevant to currently selected month for KPIs
-  const relevantBudgets = budgets.filter((b: any) => !b.month || b.month === currentMonth);
+  const relevantBudgets = budgets.filter((b: any) => {
+    if (!b.month) return true;
+    return b.month === currentMonth || b.month === currentMonth.split('-')[1];
+  });
 
   // Calculate actual spending per category from expenses for this month
   const monthExpenses = expenses.filter(
