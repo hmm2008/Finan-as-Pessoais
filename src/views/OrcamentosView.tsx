@@ -80,15 +80,30 @@ export default function OrcamentosView() {
 
   // Filter budgets for selected month
   const monthBudgets = budgets.filter((b: any) => {
-    if (!b.month) return true; // Include recurring (no-month) budgets
-    // Ensure strict format comparison (YYYY-MM)
-    return b.month === currentMonth || b.month === currentMonth.split('-')[1];
+    if (!b.month) return true; // Incluir orçamentos recorrentes (sem mês definido)
+    
+    const budgetMonthStr = String(b.month).trim();
+    if (!budgetMonthStr) return true;
+
+    // Caso 1: Orçamento tem Ano-Mês (Ex: 2024-08)
+    if (budgetMonthStr.includes('-')) {
+      return budgetMonthStr === currentMonth;
+    }
+
+    // Caso 2: Orçamento tem apenas o número do mês (Ex: "8" ou "08")
+    const selectedMonthOnly = currentMonth.split('-')[1]; // Ex: "08"
+    return budgetMonthStr.padStart(2, '0') === selectedMonthOnly;
   });
 
   // Budgets relevant to currently selected month for KPIs
   const relevantBudgets = budgets.filter((b: any) => {
     if (!b.month) return true;
-    return b.month === currentMonth || b.month === currentMonth.split('-')[1];
+    const budgetMonthStr = String(b.month).trim();
+    if (budgetMonthStr.includes('-')) {
+      return budgetMonthStr === currentMonth;
+    }
+    const selectedMonthOnly = currentMonth.split('-')[1];
+    return budgetMonthStr.padStart(2, '0') === selectedMonthOnly;
   });
 
   // Calculate actual spending per category from expenses for this month
