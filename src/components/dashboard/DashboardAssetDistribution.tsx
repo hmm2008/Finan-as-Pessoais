@@ -53,23 +53,27 @@ export function DashboardAssetDistribution() {
   const topCategory = [...data].sort((a, b) => b.value - a.value)[0]?.name || 'N/A';
 
   return (
-    <Card className="bg-card">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Distribuição de Património</CardTitle>
-        <Landmark className="h-4 w-4 text-muted-foreground" />
+    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-[2.5rem] h-full flex flex-col hover:bg-card/80 transition-all duration-300">
+      <CardHeader className="flex flex-row items-center justify-between pb-2 p-8">
+        <CardTitle className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
+          Distribuição de Património
+        </CardTitle>
+        <div className="w-12 h-12 rounded-[1.25rem] bg-foreground/5 text-foreground flex items-center justify-center">
+            <Landmark className="w-6 h-6" />
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 shrink-0 relative">
+      <CardContent className="flex-1 flex flex-col justify-center p-8 pt-0">
+        <div className="flex items-center gap-6">
+          <div className="w-24 h-24 shrink-0 relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data}
                   cx="50%"
                   cy="50%"
-                  innerRadius={20}
-                  outerRadius={30}
-                  paddingAngle={2}
+                  innerRadius={30}
+                  outerRadius={45}
+                  paddingAngle={4}
                   dataKey="value"
                   stroke="none"
                 >
@@ -82,10 +86,10 @@ export function DashboardAssetDistribution() {
             </ResponsiveContainer>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-2xl font-bold truncate">
+            <div className="text-3xl font-black text-foreground tracking-tighter tabular-nums truncate mb-1">
               {maskValue(total, formatter.format)}
             </div>
-            <div className="text-xs text-muted-foreground truncate">
+            <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 truncate">
               Maior fatia: {topCategory}
             </div>
           </div>

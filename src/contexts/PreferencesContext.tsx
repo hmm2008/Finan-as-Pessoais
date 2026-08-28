@@ -9,11 +9,20 @@ export interface WelcomeFeature {
   description: string;
 }
 
+export interface TextStyle {
+  fontFamily?: string;
+  fontSize?: string;
+  fontWeight?: string;
+  color?: string;
+  italic?: boolean;
+  backgroundColor?: string;
+}
+
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
   density: 'compact' | 'normal' | 'spaced' | 'comfortable' | 'spacious';
   accentColor: string;
-  fontFamily: 'sans' | 'serif' | 'mono' | 'system';
+  fontFamily: string;
   baseFontSize: 'sm' | 'md' | 'lg';
   privacyMode: boolean;
   pinHash: string | null;
@@ -24,6 +33,16 @@ export interface UserPreferences {
     title: string;
     subtitle: string;
     features: WelcomeFeature[];
+  };
+  customStyles?: {
+    pageTitles?: TextStyle;
+    welcomeScreen?: {
+      title?: TextStyle;
+      subtitle?: TextStyle;
+      features?: TextStyle;
+    };
+    sidebar?: TextStyle;
+    global?: TextStyle;
   };
   updatedAt?: string;
 }
@@ -100,6 +119,16 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
         description: 'Proteção por PIN de acesso local e gestão/recuperação segura por e-mail autorizado.'
       }
     ]
+  },
+  customStyles: {
+    pageTitles: {},
+    welcomeScreen: {
+      title: {},
+      subtitle: {},
+      features: {}
+    },
+    sidebar: {},
+    global: {}
   }
 };
 
@@ -156,7 +185,8 @@ function getLocalPrefs(): UserPreferences {
         navLabels: { ...DEFAULT_PREFERENCES.navLabels, ...(parsed.navLabels || {}) },
         pageTitles: { ...DEFAULT_PREFERENCES.pageTitles, ...(parsed.pageTitles || {}) },
         pageSubtitles: { ...DEFAULT_PREFERENCES.pageSubtitles, ...(parsed.pageSubtitles || {}) },
-        welcomeScreen: { ...DEFAULT_PREFERENCES.welcomeScreen, ...(parsed.welcomeScreen || {}) }
+        welcomeScreen: { ...DEFAULT_PREFERENCES.welcomeScreen, ...(parsed.welcomeScreen || {}) },
+        customStyles: { ...DEFAULT_PREFERENCES.customStyles, ...(parsed.customStyles || {}) }
       };
     }
   } catch (e) {
@@ -213,14 +243,25 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     root.style.setProperty('--custom-accent-color', prefs.accentColor);
 
     root.classList.remove('font-inter', 'font-system', 'font-serif', 'font-mono');
-    if (prefs.fontFamily === 'serif') {
-      root.style.fontFamily = 'Georgia, Cambria, "Times New Roman", Times, serif';
+    
+    // Apply Global Custom Font if set
+    if (prefs.customStyles?.global?.fontFamily) {
+      root.style.fontFamily = prefs.customStyles.global.fontFamily;
+    } else if (prefs.fontFamily === 'serif') {
+      root.style.fontFamily = 'Lora, Playfair Display, serif';
     } else if (prefs.fontFamily === 'mono') {
       root.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
     } else if (prefs.fontFamily === 'system') {
       root.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     } else {
       root.style.fontFamily = 'Plus Jakarta Sans, Inter, sans-serif';
+    }
+
+    // Apply Global Base Styles
+    if (prefs.customStyles?.global?.color) {
+      root.style.color = prefs.customStyles.global.color;
+    } else {
+      root.style.color = '';
     }
 
     if (prefs.baseFontSize === 'sm') {
@@ -236,52 +277,73 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
   const updatePrefs = useCallback(async (newPrefs: Partial<UserPreferences>) => {
     const now = new Date().toISOString();
-    lastLocalUpdateTimestampRef.current = Date.now();
+    
+    // Use functional update to ensure we always work with the latest state
+    setPrefs(prev => {
+      const current = prev;
+      const updatedPayload: UserPreferences = {
+        ...current,
+        ...newPrefs,
+        navLabels: { ...(current.navLabels || {}), ...(newPrefs.navLabels || {}) },
+        pageTitles: { ...(current.pageTitles || {}), ...(newPrefs.pageTitles || {}) },
+        pageSubtitles: { ...(current.pageSubtitles || {}), ...(newPrefs.pageSubtitles || {}) },
+        welcomeScreen: newPrefs.welcomeScreen ? { ...(current.welcomeScreen || DEFAULT_PREFERENCES.welcomeScreen!), ...newPrefs.welcomeScreen } : current.welcomeScreen,
+        customStyles: newPrefs.customStyles ? { 
+          ...(current.customStyles || DEFAULT_PREFERENCES.customStyles!), 
+          ...newPrefs.customStyles,
+          welcomeScreen: {
+            ...(current.customStyles?.welcomeScreen || DEFAULT_PREFERENCES.customStyles!.welcomeScreen!),
+            ...(newPrefs.customStyles.welcomeScreen || {})
+          }
+        } : current.customStyles,
+        updatedAt: now
+      };
 
-    const current = prefsRef.current;
-    const updatedPayload: UserPreferences = {
-      ...current,
-      ...newPrefs,
-      navLabels: { ...(current.navLabels || {}), ...(newPrefs.navLabels || {}) },
-      pageTitles: { ...(current.pageTitles || {}), ...(newPrefs.pageTitles || {}) },
-      pageSubtitles: { ...(current.pageSubtitles || {}), ...(newPrefs.pageSubtitles || {}) },
-      welcomeScreen: newPrefs.welcomeScreen ? { ...(current.welcomeScreen || DEFAULT_PREFERENCES.welcomeScreen!), ...newPrefs.welcomeScreen } : current.welcomeScreen,
-      updatedAt: now
-    };
+      if (isDeepEqual(updatedPayload, current)) {
+        return current;
+      }
 
-    if (isDeepEqual(updatedPayload, current)) {
-      return;
-    }
+      // Update ref and localStorage immediately within the state update cycle
+      prefsRef.current = updatedPayload;
+      lastLocalUpdateTimestampRef.current = Date.now();
+      
+      try {
+        localStorage.setItem('finanas_user_prefs', JSON.stringify(updatedPayload));
+      } catch (e) {
+        console.warn('LocalStorage save error:', e);
+      }
 
-    // 1. Instant local state update
-    setPrefs(updatedPayload);
+      // Trigger background sync
+      saveToFirestore(updatedPayload);
 
-    // 2. Local storage persistence
-    try {
-      localStorage.setItem('finanas_user_prefs', JSON.stringify(updatedPayload));
-    } catch (e) {
-      console.warn('LocalStorage save error:', e);
-    }
-
-    // 3. Firestore persistence
-    await saveToFirestore(updatedPayload);
+      return updatedPayload;
+    });
   }, [saveToFirestore]);
 
   const resetToDefaults = useCallback(async () => {
     const now = new Date().toISOString();
-    lastLocalUpdateTimestampRef.current = Date.now();
+    
+    setPrefs(prev => {
+      const resetPayload: UserPreferences = {
+        ...DEFAULT_PREFERENCES,
+        updatedAt: now
+      };
 
-    const resetPayload: UserPreferences = {
-      ...DEFAULT_PREFERENCES,
-      updatedAt: now
-    };
+      // Update ref and localStorage immediately
+      prefsRef.current = resetPayload;
+      lastLocalUpdateTimestampRef.current = Date.now();
+      
+      try {
+        localStorage.setItem('finanas_user_prefs', JSON.stringify(resetPayload));
+      } catch (e) {
+        console.warn('LocalStorage save error:', e);
+      }
 
-    setPrefs(resetPayload);
-    try {
-      localStorage.setItem('finanas_user_prefs', JSON.stringify(resetPayload));
-    } catch (e) {}
+      // Trigger background sync
+      saveToFirestore(resetPayload);
 
-    await saveToFirestore(resetPayload);
+      return resetPayload;
+    });
   }, [saveToFirestore]);
 
   const getUserPrefs = useCallback(async (): Promise<UserPreferences> => prefsRef.current, []);
@@ -416,6 +478,18 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       {children}
     </PreferencesContext.Provider>
   );
+}
+
+export function textStyleToCSS(style?: TextStyle): React.CSSProperties {
+  if (!style) return {};
+  return {
+    fontFamily: style.fontFamily,
+    fontSize: style.fontSize,
+    fontWeight: style.fontWeight,
+    color: style.color,
+    fontStyle: style.italic ? 'italic' : 'normal',
+    backgroundColor: style.backgroundColor
+  };
 }
 
 export function usePreferences() {

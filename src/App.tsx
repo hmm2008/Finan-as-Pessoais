@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { useAuth } from './contexts';
-import { Layout, ProtectedRoute, PageLoader } from './components/layout';
+import { Layout, ProtectedRoute, PageLoader, ScrollToTop } from './components/layout';
 import { CookieConsent } from './components/ui/CookieConsent';
 import { useConnectDrive } from './hooks/useConnectDrive';
 
@@ -56,6 +56,7 @@ export default function App() {
 
   return (
     <Suspense fallback={<PageLoader />}>
+      <ScrollToTop />
       <CookieConsent />
       <Routes>
         <Route path="/welcome" element={<Navigate to="/" replace />} />

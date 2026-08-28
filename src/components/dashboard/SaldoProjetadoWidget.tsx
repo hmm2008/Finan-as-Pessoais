@@ -104,31 +104,43 @@ export function SaldoProjetadoWidget() {
   const isPositive = projectedBalance >= 0;
 
   return (
-    <Card className="bg-card">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Saldo Projetado</CardTitle>
-        {isPositive ? (
-          <TrendingUp className="h-4 w-4 text-emerald-500" />
-        ) : (
-          <TrendingDown className="h-4 w-4 text-destructive" />
-        )}
+    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-[2.5rem] h-full flex flex-col justify-between overflow-hidden group hover:bg-card/80 transition-all duration-300">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-8">
+        <CardTitle className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
+          Saldo Projetado
+        </CardTitle>
+        <div className={`w-12 h-12 rounded-[1.25rem] flex items-center justify-center ${isPositive ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+          {isPositive ? (
+            <TrendingUp className="h-6 w-6" />
+          ) : (
+            <TrendingDown className="h-6 w-6" />
+          )}
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className={`text-2xl font-bold ${isPositive ? 'text-foreground' : 'text-destructive'}`}>
+      <CardContent className="flex-1 flex flex-col justify-end p-8 pt-0">
+        <div className={`text-4xl font-black tracking-tighter ${isPositive ? 'text-foreground' : 'text-rose-500'}`}>
           {maskValue(projectedBalance, formatter.format)}
         </div>
-        <p className="text-xs text-muted-foreground mt-1">Estimativa fim do mês ({currentMonth})</p>
+        <p className="text-[10px] font-black uppercase text-muted-foreground/60 mt-1 tracking-widest">Estimativa fim do mês</p>
         
-        <div className="h-10 mt-2 -mx-2">
+        <div className="h-20 mt-8 -mx-4 relative">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={sparklineData}>
               <defs>
                 <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0}/>
+                  <stop offset="5%" stopColor={isPositive ? "#10b981" : "#f43f5e"} stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor={isPositive ? "#10b981" : "#f43f5e"} stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <Area type="monotone" dataKey="value" stroke={isPositive ? "#10b981" : "#ef4444"} fillOpacity={1} fill="url(#colorValue)" strokeWidth={1.5} />
+              <Area 
+                type="monotone" 
+                dataKey="value" 
+                stroke={isPositive ? "#10b981" : "#f43f5e"} 
+                fillOpacity={1} 
+                fill="url(#colorValue)" 
+                strokeWidth={3}
+                animationDuration={1500}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>

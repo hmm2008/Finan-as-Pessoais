@@ -471,3 +471,25 @@ export async function getSpreadsheetModifiedTime(accessToken: string, spreadshee
     return null;
   }
 }
+
+/**
+ * Lists all revisions for a specific file in Google Drive.
+ */
+export async function listSpreadsheetRevisions(accessToken: string, fileId: string) {
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions?fields=revisions(id,modifiedTime,lastModifyingUser,publishAuto,published)`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(`Erro ao listar versões: ${error.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  // Sort by modifiedTime descending (newest first)
+  return (data.revisions || []).sort((a: any, b: any) => 
+    new Date(b.modifiedTime).getTime() - new Date(a.modifiedTime).getTime()
+  );
+}

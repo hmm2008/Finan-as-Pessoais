@@ -1,10 +1,9 @@
 import React from 'react';
-import { Card } from '../ui/card';
 import { usePrivacy, useDashboard } from '../../contexts';
 import { Wallet, ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
 import { useExpenses, useIncomes, useAssets, useVehicles } from '../../hooks/queries';
-
 import { Expense, Income, Asset, Vehicle } from '../../types';
+import { motion } from 'motion/react';
 
 export function DashboardSummaryCards() {
   const { maskValue } = usePrivacy();
@@ -44,18 +43,16 @@ export function DashboardSummaryCards() {
   const saldoPrev = receitasPrev - despesasPrev;
 
   // Percentage calculations
-  const calcPctChange = (curr: number, prev: number, fallbackDefault: number) => {
+  const calcPctChange = (curr: number, prev: number) => {
     if (prev !== 0) {
-      const pct = Math.round(((curr - prev) / Math.abs(prev)) * 100);
-      return pct;
+      return Math.round(((curr - prev) / Math.abs(prev)) * 100);
     }
-    // If no previous month data, show real ratio or fallback relative indicator
-    return curr !== 0 ? fallbackDefault : 0;
+    return 0;
   };
 
-  const saldoPct = calcPctChange(saldoAtual, saldoPrev, 12);
-  const receitasPct = calcPctChange(receitasAtual, receitasPrev, -45);
-  const despesasPct = calcPctChange(despesasAtual, despesasPrev, -81);
+  const saldoPct = calcPctChange(saldoAtual, saldoPrev);
+  const receitasPct = calcPctChange(receitasAtual, receitasPrev);
+  const despesasPct = calcPctChange(despesasAtual, despesasPrev);
 
   // Total Patrimonio calculation
   const totalAssets = (assets as Asset[]).reduce((acc, asset) => {
@@ -68,137 +65,97 @@ export function DashboardSummaryCards() {
 
   const totalPatrimonio = totalAssets + totalVehicles;
 
-  // Currency Formatter matching design: €910,34
   const formatCurrency = (val: number) => {
-    const numFormatted = new Intl.NumberFormat('pt-PT', {
+    return new Intl.NumberFormat('pt-PT', {
+      style: 'currency',
+      currency: 'EUR',
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
     }).format(val);
-    return `€${numFormatted}`;
   };
 
+  const cards = [
+    {
+      title: "Saldo Mensal",
+      value: saldoAtual,
+      icon: Wallet,
+      color: "blue",
+      trend: saldoPct,
+      trendPositive: saldoPct >= 0
+    },
+    {
+      title: "Receitas",
+      value: receitasAtual,
+      icon: ArrowUpRight,
+      color: "emerald",
+      trend: receitasPct,
+      trendPositive: receitasPct >= 0
+    },
+    {
+      title: "Despesas",
+      value: despesasAtual,
+      icon: ArrowDownRight,
+      color: "rose",
+      trend: despesasPct,
+      trendPositive: despesasPct <= 0
+    },
+    {
+      title: "Património Total",
+      value: totalPatrimonio,
+      icon: TrendingUp,
+      color: "indigo",
+      trend: null
+    }
+  ];
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {/* 1. Saldo do Mês */}
-      <Card className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            Saldo do Mês
-          </span>
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <Wallet className="w-5 h-5 stroke-[2]" />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {cards.map((card, idx) => (
+        <motion.div
+          key={card.title}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: idx * 0.1, duration: 0.5, ease: "easeOut" }}
+          whileHover={{ y: -5 }}
+          className="relative group"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 rounded-[2.5rem] -m-0.5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="relative bg-card/60 backdrop-blur-2xl border border-border/40 rounded-[2.5rem] p-8 overflow-hidden shadow-2xl shadow-black/5 h-full flex flex-col justify-between hover:bg-card/80 transition-all duration-300">
+            {/* Background pattern */}
+            <div className="absolute -right-4 -top-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
+               <card.icon className="w-32 h-32" />
+            </div>
+
+            <div className="flex items-center justify-between mb-8">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-500 group-hover:rotate-6 ${
+                card.color === 'blue' ? 'bg-blue-500/10 text-blue-600' :
+                card.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-600' :
+                card.color === 'rose' ? 'bg-rose-500/10 text-rose-600' :
+                'bg-indigo-500/10 text-indigo-600'
+              }`}>
+                <card.icon className="w-7 h-7" />
+              </div>
+
+              {card.trend !== null && (
+                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase flex items-center gap-1 ${
+                  card.trendPositive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
+                }`}>
+                  {card.trendPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                  {Math.abs(card.trend)}%
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest mb-2">
+                {card.title}
+              </p>
+              <h3 className="text-3xl font-black text-foreground tracking-tighter tabular-nums leading-none">
+                {maskValue(card.value, formatCurrency)}
+              </h3>
+            </div>
           </div>
-        </div>
-
-        <div className="my-1 overflow-hidden">
-          <span className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
-            {maskValue(saldoAtual, formatCurrency)}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1 mt-2 text-xs text-slate-400 dark:text-slate-500 font-medium">
-          {saldoPct >= 0 ? (
-            <span className="flex items-center gap-0.5 text-emerald-500 dark:text-emerald-400 font-semibold">
-              <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
-              +{saldoPct}%
-            </span>
-          ) : (
-            <span className="flex items-center gap-0.5 text-rose-500 dark:text-rose-400 font-semibold">
-              <ArrowDownRight className="w-3.5 h-3.5 stroke-[2.5]" />
-              {saldoPct}%
-            </span>
-          )}
-          <span>vs mês anterior</span>
-        </div>
-      </Card>
-
-      {/* 2. Receitas */}
-      <Card className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            Receitas
-          </span>
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <ArrowUpRight className="w-5 h-5 stroke-[2.5]" />
-          </div>
-        </div>
-
-        <div className="my-1 overflow-hidden">
-          <span className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
-            {maskValue(receitasAtual, formatCurrency)}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1 mt-2 text-xs text-slate-400 dark:text-slate-500 font-medium">
-          {receitasPct >= 0 ? (
-            <span className="flex items-center gap-0.5 text-emerald-500 dark:text-emerald-400 font-semibold">
-              <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
-              +{receitasPct}%
-            </span>
-          ) : (
-            <span className="flex items-center gap-0.5 text-rose-500 dark:text-rose-400 font-semibold">
-              <ArrowDownRight className="w-3.5 h-3.5 stroke-[2.5]" />
-              {receitasPct}%
-            </span>
-          )}
-          <span>vs mês anterior</span>
-        </div>
-      </Card>
-
-      {/* 3. Despesas */}
-      <Card className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            Despesas
-          </span>
-          <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-500 dark:text-rose-400 flex items-center justify-center shrink-0">
-            <ArrowDownRight className="w-5 h-5 stroke-[2.5]" />
-          </div>
-        </div>
-
-        <div className="my-1 overflow-hidden">
-          <span className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
-            {maskValue(despesasAtual, formatCurrency)}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1 mt-2 text-xs text-slate-400 dark:text-slate-500 font-medium">
-          {despesasPct <= 0 ? (
-            <span className="flex items-center gap-0.5 text-rose-500 dark:text-rose-400 font-semibold">
-              <ArrowDownRight className="w-3.5 h-3.5 stroke-[2.5]" />
-              {despesasPct}%
-            </span>
-          ) : (
-            <span className="flex items-center gap-0.5 text-emerald-500 dark:text-emerald-400 font-semibold">
-              <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
-              +{despesasPct}%
-            </span>
-          )}
-          <span>vs mês anterior</span>
-        </div>
-      </Card>
-
-      {/* 4. Património Total */}
-      <Card className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            Património Total
-          </span>
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-            <TrendingUp className="w-5 h-5 stroke-[2.5]" />
-          </div>
-        </div>
-
-        <div className="my-1 overflow-hidden">
-          <span className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight block truncate">
-            {maskValue(totalPatrimonio, formatCurrency)}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1 mt-2 text-xs text-slate-400 dark:text-slate-500 font-medium">
-          <span>atualizado hoje</span>
-        </div>
-      </Card>
+        </motion.div>
+      ))}
     </div>
   );
 }

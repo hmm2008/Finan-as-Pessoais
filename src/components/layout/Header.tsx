@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { Menu, Sun, Moon, Eye, EyeOff, Lock, Unlock, Database, Loader2, Check, AlertCircle, AlertTriangle, UploadCloud } from 'lucide-react';
 import { NotificationDropdown } from './NotificationDropdown';
 import { useAuth, usePrivacy, usePin, usePreferences } from '../../contexts';
@@ -47,23 +48,27 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-background px-4 sm:px-8 shrink-0">
+      <motion.header 
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="sticky top-0 z-30 flex h-20 w-full items-center justify-between bg-background/80 backdrop-blur-2xl border-b border-border/40 px-4 sm:px-8 shrink-0"
+      >
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuClick}>
+          <Button variant="ghost" size="icon" className="md:hidden rounded-2xl" onClick={onMenuClick}>
             <Menu className="h-5 w-5" />
-            <span className="sr-only">Menu</span>
           </Button>
         </div>
         
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-1 sm:gap-2">
           <Button 
             variant="ghost" 
             size="icon"
             onClick={handleSyncDriveData}
             disabled={isRefreshing || isConnecting}
             title="Enviar dados para a Google Drive"
+            className="rounded-2xl text-muted-foreground hover:text-foreground"
           >
-            <UploadCloud className={`h-5 w-5 text-muted-foreground hover:text-foreground transition-transform ${isRefreshing ? 'animate-bounce text-primary' : ''}`} />
+            <UploadCloud className={`h-5 w-5 transition-transform ${isRefreshing ? 'animate-bounce text-foreground' : ''}`} />
           </Button>
 
           <Button 
@@ -72,11 +77,12 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
             onClick={toggleDriveConnection}
             disabled={isConnecting || isRefreshing}
             title={isConnected ? 'Desconectar da Drive' : (userPrefs.navLabels?.['drive_connect'] || 'Conectar à Drive')}
+            className="rounded-2xl"
           >
             {isConnecting ? (
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             ) : (
-              <Database className={`h-5 w-5 ${isConnected ? 'text-emerald-500' : 'text-red-500'}`} />
+              <Database className={`h-5 w-5 ${isConnected ? 'text-emerald-500' : 'text-rose-500'}`} />
             )}
           </Button>
 
@@ -84,13 +90,12 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
             onNavigateToNotifications={() => navigate('/notificacoes')} 
             onNavigateToLink={(link) => navigate('/' + link)} 
           />
-          <Button variant="ghost" size="icon" onClick={togglePrivacy} title="Modo Privacidade">
+          <Button variant="ghost" size="icon" onClick={togglePrivacy} title="Modo Privacidade" className="rounded-2xl">
             {privacyMode ? <EyeOff className="h-5 w-5 text-muted-foreground" /> : <Eye className="h-5 w-5 text-muted-foreground" />}
           </Button>
-          <Button variant="ghost" size="icon" onClick={toggleTheme} title="Alternar Tema">
+          <Button variant="ghost" size="icon" onClick={toggleTheme} title="Alternar Tema" className="rounded-2xl">
             <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">Toggle theme</span>
           </Button>
           {hasPin && (
             <Button 
@@ -98,25 +103,27 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
               size="icon" 
               onClick={handleLockClick} 
               title={unlocked ? "Bloquear Aplicação (Atualmente Desbloqueada)" : "Desbloquear Aplicação (Atualmente Bloqueada)"}
-              className="relative"
+              className="relative rounded-2xl"
             >
               {unlocked ? (
-                <Unlock className="h-5 w-5 text-emerald-500 hover:text-emerald-400" />
+                <Unlock className="h-5 w-5 text-emerald-500" />
               ) : (
-                <Lock className="h-5 w-5 text-amber-500 hover:text-amber-400 animate-pulse" />
+                <Lock className="h-5 w-5 text-amber-500 animate-pulse" />
               )}
             </Button>
           )}
-          <div className="flex items-center gap-2 pl-2 sm:pl-4 border-l border-border">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold overflow-hidden">
+          <div className="flex items-center gap-3 pl-4 border-l border-border/40">
+            <div className="h-9 w-9 rounded-2xl bg-foreground text-background flex items-center justify-center text-xs font-black overflow-hidden">
               {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="h-full w-full object-cover" /> : user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U'}
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs font-medium">{user?.displayName || 'Utilizador'}</p>
-              <p className="text-[10px] text-muted-foreground">{user?.email}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest">{user?.displayName || 'Utilizador'}</p>
+              <p className="text-[9px] text-muted-foreground uppercase tracking-widest">{user?.email}</p>
             </div>
           </div>
         </div>
+        
+        {/* ... (keep rest of the file as is: Toast, Modal) */}
 
         {/* Floating Toast */}
         {toastMsg && (
@@ -162,7 +169,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
             </div>
           </div>
         </Modal>
-      </header>
+      </motion.header>
 
       <PinUnlockModal open={showUnlockModal} onClose={() => setShowUnlockModal(false)} />
     </>

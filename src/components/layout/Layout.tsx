@@ -4,12 +4,15 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { BottomPageNav } from './BottomPageNav';
 import { PageLoader } from './PageLoader';
-import { usePin } from '../../contexts';
+import { usePin, usePreferences } from '../../contexts';
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const location = useLocation();
   const { lock } = usePin();
+  const { prefs } = usePreferences();
+
+  const mainBgColor = prefs.customStyles?.global?.backgroundColor;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -29,7 +32,10 @@ export function Layout() {
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto bg-background min-h-0">
+        <main 
+          className={`flex-1 overflow-y-auto ${mainBgColor ? '' : 'bg-background'} min-h-0 transition-colors duration-300`}
+          style={{ backgroundColor: mainBgColor }}
+        >
           <div className="max-w-7xl mx-auto p-4 sm:p-6 w-full pb-8">
             <Suspense fallback={<PageLoader />}>
               <Outlet />

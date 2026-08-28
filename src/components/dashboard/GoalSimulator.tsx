@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
-import { Calculator } from 'lucide-react';
+import { Calculator, Target, TrendingUp } from 'lucide-react';
 import { format, addMonths } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { usePrivacy } from '../../contexts';
@@ -11,28 +11,29 @@ export function GoalSimulator() {
 
   const [targetAmount, setTargetAmount] = useState(10000);
   const [monthlySavings, setMonthlySavings] = useState(250);
+  const [extraInvestment, setExtraInvestment] = useState(0);
 
-  const monthsNeeded = monthlySavings > 0 ? Math.ceil(targetAmount / monthlySavings) : 0;
+  const totalMonthly = monthlySavings + extraInvestment;
+  const monthsNeeded = totalMonthly > 0 ? Math.ceil(targetAmount / totalMonthly) : 0;
   const targetDate = addMonths(new Date(), monthsNeeded);
 
   return (
-    <Card className="bg-gradient-to-br from-card to-secondary/30">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Calculator className="w-5 h-5 text-primary" />
-          <CardTitle className="text-lg">Simulador de Objetivos</CardTitle>
+    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-[2.5rem] h-full flex flex-col hover:bg-card/80 transition-all duration-300">
+      <CardHeader className="flex flex-row items-center justify-between pb-2 p-8">
+        <CardTitle className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
+          Simulador de Objetivos (E se?)
+        </CardTitle>
+        <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+            <Calculator className="w-6 h-6" />
         </div>
-        <CardDescription>
-          Descubra quando alcançará a sua meta ajustando a poupança mensal.
-        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 p-8 pt-0">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           <div className="space-y-6">
             <div className="space-y-2">
               <div className="flex justify-between items-end">
-                <label className="text-sm font-semibold">Valor do Objetivo</label>
-                <span className="text-xl font-bold">{maskValue(targetAmount, formatter.format)}</span>
+                <label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Valor do Objetivo</label>
+                <span className="text-xl font-black text-foreground tabular-nums">{maskValue(targetAmount, formatter.format)}</span>
               </div>
               <input
                 type="range"
@@ -41,14 +42,14 @@ export function GoalSimulator() {
                 step="500"
                 value={targetAmount}
                 onChange={(e) => setTargetAmount(Number(e.target.value))}
-                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                className="w-full h-2 bg-foreground/5 rounded-full appearance-none cursor-pointer accent-indigo-500"
               />
             </div>
             
             <div className="space-y-2">
               <div className="flex justify-between items-end">
-                <label className="text-sm font-semibold">Poupança Mensal</label>
-                <span className="text-xl font-bold text-primary">{maskValue(monthlySavings, formatter.format)}</span>
+                <label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Poupança Atual</label>
+                <span className="text-xl font-black text-indigo-500 tabular-nums">{maskValue(monthlySavings, formatter.format)}</span>
               </div>
               <input
                 type="range"
@@ -57,24 +58,43 @@ export function GoalSimulator() {
                 step="50"
                 value={monthlySavings}
                 onChange={(e) => setMonthlySavings(Number(e.target.value))}
-                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                className="w-full h-2 bg-foreground/5 rounded-full appearance-none cursor-pointer accent-indigo-500"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-end">
+                <label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Investimento Extra</label>
+                <span className="text-xl font-black text-emerald-500 tabular-nums">{maskValue(extraInvestment, formatter.format)}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1000"
+                step="25"
+                value={extraInvestment}
+                onChange={(e) => setExtraInvestment(Number(e.target.value))}
+                className="w-full h-2 bg-foreground/5 rounded-full appearance-none cursor-pointer accent-emerald-500"
               />
             </div>
           </div>
           
-          <div className="flex flex-col items-center justify-center p-6 bg-background rounded-xl border border-border text-center h-full">
-            <p className="text-sm text-muted-foreground mb-2 uppercase tracking-widest font-semibold">Meta Alcançada em</p>
+          <div className="flex flex-col items-center justify-center p-8 bg-foreground/5 rounded-[2rem] border border-border/40 text-center h-full">
+            <p className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest mb-4">Meta Alcançada em</p>
             {monthsNeeded > 0 ? (
               <>
-                <div className="text-4xl font-bold text-foreground mb-1">
-                  {monthsNeeded} {monthsNeeded === 1 ? 'mês' : 'meses'}
+                <div className="text-5xl font-black text-foreground mb-2 tabular-nums">
+                  {monthsNeeded}
                 </div>
-                <div className="text-primary font-semibold">
+                <div className="text-sm font-bold text-muted-foreground mb-4">
+                  {monthsNeeded === 1 ? 'mês' : 'meses'}
+                </div>
+                <div className="text-xs font-black uppercase tracking-widest text-indigo-500">
                   {format(targetDate, "MMMM 'de' yyyy", { locale: pt })}
                 </div>
               </>
             ) : (
-              <div className="text-xl text-muted-foreground">Ajuste os valores</div>
+              <div className="text-sm font-bold text-muted-foreground">Ajuste os valores</div>
             )}
           </div>
         </div>

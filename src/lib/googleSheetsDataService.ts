@@ -311,14 +311,14 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     'Despesas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo"],
     'Receitas_Pontuais': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas"],
     'Receitas_Fixas_Registadas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas", "ID Fixo"],
-    'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas"],
+    'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Próximo Vencimento"],
     'Receitas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Ativo", "Notas"],
     'Contas': ["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"],
-    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas"],
+    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Custos Fixos Detalhados (JSON)"],
     'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
     'Veiculos_Abastecimentos': ["ID", "ID Viatura", "Data", "Litros", "Valor Total (€)", "Preço/L (€)", "Quilometragem (km)", "Posto / Local", "Notas"],
     'Veiculos_Tarefas': ["ID", "ID Viatura", "Título", "Tipo", "Custo (€)", "Estado", "Data Limite", "Data Conclusão", "Periodicidade", "Próx. Data Vencimento", "Próx. Custo (€)", "Documento", "Notas"],
-    'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês"],
+    'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês", "Ano"],
     'Metas': ["ID", "Nome", "Valor Alvo (€)", "Valor Atual (€)", "Data Limite"],
     'Reciclagem': ["ID", "Tipo", "Dados JSON", "Data Eliminação"],
     'Preferencias': ["Chave", "Dados JSON", "Atualizado Em"],
@@ -447,7 +447,7 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
         const headers = allHeaders[sheet];
         const endChar = String.fromCharCode(64 + headers.length);
         return {
-          range: `${sheet}!A1:${endChar}1`,
+          range: `'${sheet}'!A1:${endChar}1`,
           values: [headers]
         };
       });
@@ -470,7 +470,8 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
 export async function exportAllDataToSheets(
   accessToken: string,
   spreadsheetId: string,
-  onProgress?: (status: string, percent: number) => void
+  onProgress?: (status: string, percent: number) => void,
+  force = false
 ): Promise<SyncStats> {
   notifySyncStatus('syncing', 'A exportar dados para a Google Drive...');
   onProgress?.('A recolher dados da aplicação...', 10);
@@ -484,24 +485,22 @@ export async function exportAllDataToSheets(
   onProgress?.('A verificar estrutura da folha...', 15);
   const activeSheetTitles = await ensureMissingSheetsExist(accessToken, spreadsheetId);
 
-  // 1. Gather Data directly from LocalStorage without pre-export merge
-  let expenses = getLocalData('fin_expenses');
-  let rawIncomesPunctual = getLocalData('fin_incomes');
-  let rawIncomesFixedRealized = getLocalData('fin_incomes_fixed_realized');
-
-  // Re-classify and partition incomes cleanly to fix any historical mix-ups
+  // --- SAFETY CHECK: Change Detection & Anti-Wipe ---
+  const lastSyncStatsRaw = localStorage.getItem('google_drive_sync_stats');
+  const lastSyncStats = lastSyncStatsRaw ? JSON.parse(lastSyncStatsRaw) : null;
+  
+  // Get current local data
+  const expenses = getLocalData('fin_expenses');
+  const rawIncomesPunctual = getLocalData('fin_incomes');
+  const rawIncomesFixedRealized = getLocalData('fin_incomes_fixed_realized');
   const { punctual: incomesPunctual, fixedRealized: incomesFixedRealized } = partitionIncomes([
     ...rawIncomesPunctual,
     ...rawIncomesFixedRealized
   ]);
+  const fixedExpenses = getLocalData('fin_fixed_expenses');
+  const fixedIncomes = getLocalData('fin_fixed_incomes');
 
-  // Persist cleaned lists back to LocalStorage
-  setLocalData('fin_incomes', incomesPunctual);
-  setLocalData('fin_incomes_fixed_realized', incomesFixedRealized);
-
-  let fixedExpenses = getLocalData('fin_fixed_expenses');
-  let fixedIncomes = getLocalData('fin_fixed_incomes');
-  let acc1 = getLocalData('fin_accounts');
+  const acc1 = getLocalData('fin_accounts');
   let acc2 = getLocalData('fin_bank_accounts');
   const accMap = new Map<string, any>();
   [...acc1, ...acc2].forEach((item: any) => {
@@ -521,6 +520,14 @@ export async function exportAllDataToSheets(
     }
   });
   let patrimonio = Array.from(patMap.values());
+  let propertyExpenses = getLocalData('fin_property_expenses');
+  
+  // Attach property expenses to patrimonio items for export
+  patrimonio = patrimonio.map((p: any) => ({
+    ...p,
+    expenses: propertyExpenses.filter((pe: any) => pe.assetId === p.id)
+  }));
+
   let vehicles = getLocalData('fin_vehicles');
   let vehicleFuel = getLocalData('fin_vehicle_fuel');
   let vehicleTasks = getLocalData('fin_vehicle_tasks');
@@ -535,9 +542,82 @@ export async function exportAllDataToSheets(
   if (trash.length === 0) {
     trash = getLocalData('finanas_trash_items');
   }
+  
+  const currentTotalRecords = 
+    expenses.length + 
+    incomesPunctual.length + 
+    incomesFixedRealized.length + 
+    fixedExpenses.length + 
+    fixedIncomes.length +
+    accounts.length +
+    patrimonio.length +
+    vehicles.length +
+    categorizationRules.length;
 
-  // Note: LocalStorage is the primary source of truth for user edits/deletions.
-  // We do NOT pull missing items from Firestore during export to prevent deleted items from resurrecting.
+  // 1. Check if remote version was restored or edited manually
+  if (!force) {
+    try {
+      const remoteModTime = await getSpreadsheetModifiedTime(accessToken, spreadsheetId);
+      const lastSyncedModTime = localStorage.getItem('google_drive_last_synced_modified_time');
+      
+      if (remoteModTime && lastSyncedModTime && remoteModTime !== lastSyncedModTime) {
+        console.warn('Conflito de Sincronização: A folha na Drive foi alterada externamente ou restaurada. Abortando exportação automática.');
+        notifySyncStatus('error', 'A folha na Drive foi alterada ou restaurada. Por favor, use "Puxar do Google Sheets" para reconciliar.');
+        return lastSyncStats || { lastSyncedAt: new Date().toISOString() } as any;
+      }
+    } catch (modErr) {
+      console.warn('Não foi possível verificar data de modificação da folha:', modErr);
+    }
+  }
+
+  // 2. Prevent accidental wipe during auto-sync
+  if (!force && lastSyncStats && lastSyncStats.expensesCount > 0 && expenses.length === 0) {
+    console.error('ALERTA: Tentativa de apagar todos os dados via Sincronização Automática.');
+    notifySyncStatus('error', 'Sincronização bloqueada: Os seus dados locais parecem estar vazios.');
+    throw new Error('Proteção Anti-Wipe: Operação cancelada para evitar perda de dados.');
+  }
+
+  // 3. Robust Data Change Detection
+  const generateChecksum = (obj: any) => {
+    const str = JSON.stringify(obj);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash |= 0;
+    }
+    return hash.toString();
+  };
+
+  const currentDataHash = generateChecksum({
+    exp: expenses,
+    incP: incomesPunctual,
+    incF: incomesFixedRealized,
+    fExp: fixedExpenses,
+    fInc: fixedIncomes,
+    acc: accounts,
+    pat: patrimonio,
+    veh: vehicles,
+    rules: categorizationRules,
+    goals: goals,
+    budgets: budgets,
+    prefs: userPrefs
+  });
+  const lastDataHash = localStorage.getItem('google_drive_last_export_hash');
+  
+  if (!force && currentDataHash === lastDataHash) {
+    console.log('Dados idênticos ao último envio. Sincronização ignorada.');
+    onProgress?.('Concluído (Sem alterações)!', 100);
+    notifySyncStatus('synced', 'Dados já estão sincronizados.');
+    return lastSyncStats;
+  }
+
+  // 1. Gather Data directly from LocalStorage without pre-export merge
+  // (Redundant call removed since we already gathered data for safety checks)
+  
+  // Persist cleaned lists back to LocalStorage
+  setLocalData('fin_incomes', incomesPunctual);
+  setLocalData('fin_incomes_fixed_realized', incomesFixedRealized);
 
   onProgress?.('A formatar dados para o formato Google Sheets...', 40);
 
@@ -585,7 +665,7 @@ export async function exportAllDataToSheets(
   ];
 
   const fixExpRows = [
-    ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas"],
+    ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Próximo Vencimento"],
     ...fixedExpenses.map((fe: any) => [
       fe.id || '',
       fe.name || fe.entity || '',
@@ -596,7 +676,10 @@ export async function exportAllDataToSheets(
       fe.method || '',
       fe.active !== false ? 'Sim' : 'Não',
       fe.vehicle ? 'Sim' : 'Não',
-      fe.notes || ''
+      fe.notes || '',
+      fe.startDate || '',
+      fe.endDate || '',
+      fe.dueDate || ''
     ])
   ];
 
@@ -633,7 +716,7 @@ export async function exportAllDataToSheets(
   };
 
   const patRows = [
-    ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas"],
+    ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Custos Fixos Detalhados (JSON)"],
     ...patrimonio.map((p: any) => [
       p.id || '',
       p.name || '',
@@ -644,7 +727,8 @@ export async function exportAllDataToSheets(
       p.street || '',
       p.zipCode || '',
       p.city || '',
-      p.notes || ''
+      p.notes || '',
+      JSON.stringify(p.expenses || [])
     ])
   ];
 
@@ -694,13 +778,25 @@ export async function exportAllDataToSheets(
   ];
 
   const budRows = [
-    ["ID", "Categoria", "Limite (€)", "Mês"],
-    ...budgets.map((b: any) => [
-      b.id || '',
-      b.category || '',
-      Number(b.limit || b.amount || 0),
-      b.month || ''
-    ])
+    ["ID", "Categoria", "Limite (€)", "Mês", "Ano"],
+    ...budgets.map((b: any) => {
+      let m = '';
+      let y = '';
+      if (b.month && b.month.includes('-')) {
+        [y, m] = b.month.split('-');
+      } else if (b.month) {
+        m = b.month;
+      }
+      if (b.year) y = b.year;
+
+      return [
+        b.id || '',
+        b.category || '',
+        Number(b.limit || b.amount || 0),
+        m || '',
+        y || ''
+      ];
+    })
   ];
 
   const goalRows = [
@@ -726,7 +822,8 @@ export async function exportAllDataToSheets(
 
   const prefsRows = [
     ["Chave", "Dados JSON", "Atualizado Em"],
-    ["Preferencias", JSON.stringify(userPrefs || {}), userPrefs.updatedAt || '']
+    ["Preferencias", JSON.stringify(userPrefs || {}), userPrefs.updatedAt || ''],
+    ["CustomCategories", localStorage.getItem('expense_custom_categories') || '[]', new Date().toISOString()]
   ];
 
   const catRulesRows = [
@@ -763,68 +860,20 @@ export async function exportAllDataToSheets(
     ])
   ];
 
-  onProgress?.('A limpar dados antigos na Google Sheets...', 60);
-
-  // Clear existing data rows completely so that deleted items are properly removed from the spreadsheet
-  // Only target sheets that actually exist in the workbook to avoid 400 errors
-  try {
-    const sheetsToClear = [
-      'Despesas',
-      'Receitas_Pontuais',
-      'Receitas_Fixas_Registadas',
-      'Despesas_Fixas',
-      'Receitas_Fixas',
-      'Contas',
-      'Patrimonio',
-      'Veiculos',
-      'Veiculos_Abastecimentos',
-      'Veiculos_Tarefas',
-      'Orcamentos',
-      'Metas',
-      'Reciclagem',
-      'Preferencias',
-      'Regras_Categorizacao',
-      'Notificacoes',
-      'Arquivo',
-      'Dashboard_Calculos',
-      'Receitas'
-    ].filter(s => activeSheetTitles.includes(s));
-
-    const clearRanges = sheetsToClear.map(s => s === 'Dashboard_Calculos' ? `'${s}'!A1:Z1000` : `'${s}'!A:Z`);
-
-    if (clearRanges.length > 0) {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ ranges: clearRanges })
-      }).catch(() => {});
-    }
-
-    // Always run individual fallback clears to guarantee every sheet row is erased
-    for (const sheetName of sheetsToClear) {
-      const rangeStr = sheetName === 'Dashboard_Calculos' ? `'${sheetName}'!A1:Z1000` : `'${sheetName}'!A2:Z`;
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeStr)}:clear`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` }
-      }).catch(() => {});
-    }
-  } catch (clearErr) {
-    console.warn('Limpeza pré-exportação falhou:', clearErr);
-  }
-
-  onProgress?.('A enviar novos dados para a Google Sheets API...', 75);
+  onProgress?.('A preparar dados para envio...', 60);
 
     // 3. Send batchUpdate to Google Sheets API only for existing active sheets
   const dataPayload = [];
+  const clearRanges = [];
   const missingCriticalSheets = [];
   
-  const checkAndPush = (sheetName, rows) => {
-    if (rows.length > 1) { // More than just headers
+  const checkAndPush = (sheetName: string, rows: any[][]) => {
+    // Push if we have data OR if it's a critical sheet (to ensure headers stay if we somehow cleared them)
+    if (rows.length > 1 || ['Preferencias', 'Dashboard_Calculos'].includes(sheetName)) {
       if (activeSheetTitles.includes(sheetName)) {
-        dataPayload.push({ range: `${sheetName}!A1`, values: rows });
+        // Clear first (up to Z1000) to ensure old records don't persist if we have fewer now
+        clearRanges.push(`'${sheetName}'!A1:Z1000`);
+        dataPayload.push({ range: `'${sheetName}'!A1`, values: rows });
       } else {
         missingCriticalSheets.push(sheetName);
       }
@@ -856,7 +905,7 @@ export async function exportAllDataToSheets(
   }
 
 
-if (dataPayload.length === 0) {
+  if (dataPayload.length === 0) {
     onProgress?.('Concluído!', 100);
     return {
       expensesCount: expenses.length,
@@ -872,6 +921,17 @@ if (dataPayload.length === 0) {
       lastSyncedAt: new Date().toISOString()
     };
   }
+
+  // Clear ranges first
+  onProgress?.('A limpar dados antigos na Drive...', 80);
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ ranges: clearRanges })
+  }).catch(e => console.warn('Erro ao limpar abas:', e));
 
   const batchBody = {
     valueInputOption: 'USER_ENTERED',
@@ -936,17 +996,30 @@ if (dataPayload.length === 0) {
     lastSyncedAt: new Date().toISOString()
   };
 
-  localStorage.setItem('google_drive_sync_stats', JSON.stringify(stats));
-  
-  // Update last synced modifiedTime asynchronously so auto-sync knows local user made the edit
-  setTimeout(() => {
-    getSpreadsheetModifiedTime(accessToken, spreadsheetId).then(modTime => {
-      if (modTime) {
-        localStorage.setItem('google_drive_last_synced_modified_time', modTime);
-      }
-    }).catch(() => {});
-  }, 1000);
+  // Update hash and mod time after successful export
+  localStorage.setItem('google_drive_last_export_hash', generateChecksum({
+    exp: expenses,
+    incP: incomesPunctual,
+    incF: incomesFixedRealized,
+    fExp: fixedExpenses,
+    fInc: fixedIncomes,
+    acc: accounts,
+    pat: patrimonio,
+    veh: vehicles,
+    rules: categorizationRules,
+    goals: goals,
+    budgets: budgets,
+    prefs: userPrefs
+  }));
 
+  try {
+    const newModTime = await getSpreadsheetModifiedTime(accessToken, spreadsheetId);
+    if (newModTime) {
+      localStorage.setItem('google_drive_last_synced_modified_time', newModTime);
+    }
+  } catch (e) {}
+
+  localStorage.setItem('google_drive_sync_stats', JSON.stringify(stats));
   notifySyncStatus('synced', 'Dados sincronizados com o Google Sheets');
   
   addSyncAuditLog({
@@ -1163,7 +1236,10 @@ export async function fetchAndParseRemoteSheets(
     method: row[6] || 'Débito Direto',
     active: parseBool(row[7]),
     vehicle: parseBool(row[8]),
-    notes: row[9] || ''
+    notes: row[9] || '',
+    startDate: row[10] || undefined,
+    endDate: row[11] || undefined,
+    dueDate: row[12] || undefined
   })).filter((e: any) => e.amount > 0 || (e.name !== 'Despesa Fixa' && e.name));
 
   // Parse Fixed Incomes
@@ -1193,19 +1269,31 @@ export async function fetchAndParseRemoteSheets(
 
   // Parse Patrimonio
   const patRows = getRowsByKey('Patrimonio');
-  const parsedPatrimonio = patRows.map((row: any[], i: number) => ({
-    id: row[0] || `pat_${i}`,
-    name: row[1] || 'Ativo',
-    category: mapToAssetCategory(row[2]),
-    subType: row[2] || 'Imóvel',
-    currentValue: parseNum(row[3]) || 0,
-    purchaseValue: parseNum(row[4]) || parseNum(row[3]) || 0,
-    acquisitionDate: row[5] || new Date().toISOString().slice(0, 10),
-    street: row[6] || '',
-    zipCode: row[7] || '',
-    city: row[8] || '',
-    notes: row[9] || (row.length === 5 ? row[4] : '') || ''
-  })).filter((p: any) => p.name !== 'Ativo' || p.currentValue > 0);
+  const parsedPatrimonio = patRows.map((row: any[], i: number) => {
+    let detailedExpenses = [];
+    try {
+      if (row[10]) {
+        detailedExpenses = JSON.parse(row[10]);
+      }
+    } catch (e) {
+      console.warn('Erro ao processar custos detalhados do imóvel:', e);
+    }
+
+    return {
+      id: row[0] || `pat_${i}`,
+      name: row[1] || 'Ativo',
+      category: mapToAssetCategory(row[2]),
+      subType: row[2] || 'Imóvel',
+      currentValue: parseNum(row[3]) || 0,
+      purchaseValue: parseNum(row[4]) || parseNum(row[3]) || 0,
+      acquisitionDate: row[5] || new Date().toISOString().slice(0, 10),
+      street: row[6] || '',
+      zipCode: row[7] || '',
+      city: row[8] || '',
+      notes: row[9] || (row.length === 5 ? row[4] : '') || '',
+      expenses: detailedExpenses
+    };
+  }).filter((p: any) => p.name !== 'Ativo' || p.currentValue > 0);
 
   // Parse Vehicles
   const vehRows = getRowsByKey('Veiculos');
@@ -1252,12 +1340,16 @@ export async function fetchAndParseRemoteSheets(
 
   // Parse Budgets
   const budRows = getRowsByKey('Orcamentos');
-  const parsedBudgets = budRows.map((row: any[], i: number) => ({
-    id: row[0] || `bud_${i}`,
-    category: row[1] || '',
-    limit: parseNum(row[2]),
-    month: row[3] || ''
-  }));
+  const parsedBudgets = budRows.map((row: any[], i: number) => {
+    const m = row[3] || '';
+    const y = row[4] || '';
+    return {
+      id: row[0] || `bud_${i}`,
+      category: row[1] || '',
+      limit: parseNum(row[2]),
+      month: m && y ? `${y}-${m.padStart(2, '0')}` : (m || '')
+    };
+  });
 
   // Parse Goals
   const goalRows = getRowsByKey('Metas');
@@ -1286,13 +1378,25 @@ export async function fetchAndParseRemoteSheets(
   // Parse Preferences
   const prefsRowsData = getRowsByKey('Preferencias');
   let userPrefs: any = null;
-  if (prefsRowsData.length > 0 && prefsRowsData[0][1]) {
-    try {
-      userPrefs = JSON.parse(prefsRowsData[0][1]);
-    } catch (e) {
-      console.warn('Erro ao parsear preferências', e);
+  let customCategories: any[] = [];
+  
+  prefsRowsData.forEach((row: any[]) => {
+    const key = row[0] || '';
+    const json = row[1] || '';
+    if (key === 'Preferencias' && json) {
+      try {
+        userPrefs = JSON.parse(json);
+      } catch (e) {
+        console.warn('Erro ao parsear preferências', e);
+      }
+    } else if (key === 'CustomCategories' && json) {
+      try {
+        customCategories = JSON.parse(json);
+      } catch (e) {
+        console.warn('Erro ao parsear categorias personalizadas', e);
+      }
     }
-  }
+  });
 
   // Parse Categorization Rules
   const catRulesRowsData = getRowsByKey('Regras_Categorizacao');
@@ -1344,6 +1448,7 @@ export async function fetchAndParseRemoteSheets(
     parsedGoals,
     parsedTrash,
     userPrefs,
+    customCategories,
     parsedCatRules,
     parsedNotifs,
     parsedArchives
@@ -1407,8 +1512,25 @@ export async function importAllDataFromSheets(
   if (!selectedSheets || selectedSheets.includes('Receitas_Fixas')) { setLocalData('fin_fixed_incomes', remote.parsedFixedIncomes); }
   if (!selectedSheets || selectedSheets.includes('Contas')) { setLocalData('fin_accounts', remote.parsedAccounts); }
   setLocalData('fin_bank_accounts', remote.parsedAccounts);
-  if (!selectedSheets || selectedSheets.includes('Patrimonio')) { setLocalData('fin_assets', remote.parsedPatrimonio); }
-  setLocalData('fin_patrimonio', remote.parsedPatrimonio);
+  if (!selectedSheets || selectedSheets.includes('Patrimonio')) {
+    const remotePatrimonio = remote.parsedPatrimonio || [];
+    const allPropertyExpenses: any[] = [];
+    
+    const assetsWithoutExpenses = remotePatrimonio.map((p: any) => {
+      if (Array.isArray(p.expenses)) {
+        p.expenses.forEach((pe: any) => {
+          if (!pe.assetId) pe.assetId = p.id;
+          allPropertyExpenses.push(pe);
+        });
+      }
+      const { expenses, ...rest } = p;
+      return rest;
+    });
+
+    setLocalData('fin_assets', assetsWithoutExpenses);
+    setLocalData('fin_patrimonio', assetsWithoutExpenses);
+    setLocalData('fin_property_expenses', allPropertyExpenses);
+  }
   if (!selectedSheets || selectedSheets.includes('Veiculos')) { setLocalData('fin_vehicles', remote.parsedVehicles); }
   if (!selectedSheets || selectedSheets.includes('Veiculos_Abastecimentos')) { setLocalData('fin_vehicle_fuel', remote.parsedVehicleFuel); }
   if (!selectedSheets || selectedSheets.includes('Veiculos_Tarefas')) { setLocalData('fin_vehicle_tasks', remote.parsedVehicleTasks); }
@@ -1429,6 +1551,9 @@ export async function importAllDataFromSheets(
 
   if (remote.userPrefs && (!selectedSheets || selectedSheets.includes('Preferencias'))) {
     localStorage.setItem('finanas_user_prefs', JSON.stringify(remote.userPrefs));
+    if (remote.customCategories && remote.customCategories.length > 0) {
+      localStorage.setItem('expense_custom_categories', JSON.stringify(remote.customCategories));
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('finanas_prefs_updated'));
     }
@@ -1817,12 +1942,13 @@ export function scheduleSheetsBackgroundSync(delayMs = 1200, force = false) {
 
   backgroundSyncTimer = setTimeout(async () => {
     try {
-      await exportAllDataToSheets(token, spreadsheetId);
+      await exportAllDataToSheets(token, spreadsheetId, undefined, force);
+      notifySyncStatus('synced', 'Sincronizado com sucesso.');
     } catch (err: any) {
       console.warn('Falha na sincronização em segundo plano com o Google Sheets:', err);
       notifySyncStatus('error', err?.message || 'Falha ao sincronizar');
     }
-  }, delayMs);
+  }, 500);
 }
 
 /**
@@ -2038,12 +2164,12 @@ export async function clearAllSpreadsheetData(
     'Despesas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo"],
     'Receitas_Pontuais': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas"],
     'Receitas_Fixas_Registadas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas", "ID Fixo"],
-    'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas"],
+    'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Próximo Vencimento"],
     'Receitas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Ativo", "Notas"],
     'Contas': ["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"],
-    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas"],
+    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Custos Fixos Detalhados (JSON)"],
     'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
-    'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês"],
+    'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês", "Ano"],
     'Metas': ["ID", "Nome", "Valor Alvo (€)", "Valor Atual (€)", "Data Limite"],
     'Reciclagem': ["ID", "Tipo", "Dados JSON", "Data Eliminação"],
     'Preferencias': ["Chave", "Dados JSON", "Atualizado Em"],

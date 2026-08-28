@@ -3,8 +3,9 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { X, Home, Plus, Trash2 } from 'lucide-react';
+import { X, Home, Plus, Trash2, Building2, MapPin, Calendar, Euro, Info } from 'lucide-react';
 import { Asset, PropertyExpense } from './types';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface AssetImovelFormProps {
   isOpen: boolean;
@@ -19,7 +20,9 @@ export interface LocalPropertyExpenseItem {
   category: 'Condomínio' | 'IMI' | 'Seguro Multirriscos' | 'Manutenção' | 'Outro';
   amount: string;
   frequency: 'mensal' | 'anual' | 'semestral' | 'trimestral';
-  dayOfMonth: string;
+  dueDate: string;
+  startDate: string;
+  endDate: string;
 }
 
 const EXPENSE_CATEGORIES: LocalPropertyExpenseItem['category'][] = [
@@ -78,22 +81,18 @@ export function AssetImovelForm({
             category: e.category,
             amount: e.amount ? e.amount.toString() : '',
             frequency: e.frequency || 'mensal',
-            dayOfMonth: e.dayOfMonth ? e.dayOfMonth.toString() : '1'
+            dueDate: e.dueDate || '',
+            startDate: e.startDate || '',
+            endDate: e.endDate || ''
           }))
         );
       } else {
-        setExpenseItems([
-          {
-            id: `pe_${Date.now()}_0`,
-            category: 'Condomínio',
-            amount: '',
-            frequency: 'mensal',
-            dayOfMonth: ''
-          }
-        ]);
+        setExpenseItems([]);
       }
     } else {
       setName('');
+      setPropertyType('Apartamento');
+      setCustomPropertyType('');
       setCurrentValue('');
       setPurchaseValue('');
       setAcquisitionDate('');
@@ -101,15 +100,7 @@ export function AssetImovelForm({
       setZipCode('');
       setCity('');
       setNotes('');
-      setExpenseItems([
-        {
-          id: `pe_${Date.now()}_0`,
-          category: 'Condomínio',
-          amount: '',
-          frequency: 'mensal',
-          dayOfMonth: ''
-        }
-      ]);
+      setExpenseItems([]);
     }
   }, [initialData, initialExpenses, isOpen]);
 
@@ -123,7 +114,9 @@ export function AssetImovelForm({
         category: 'Condomínio',
         amount: '',
         frequency: 'mensal',
-        dayOfMonth: ''
+        dueDate: '',
+        startDate: '',
+        endDate: ''
       }
     ]);
   };
@@ -171,7 +164,9 @@ export function AssetImovelForm({
         amount: parseFloat(exp.amount) || 0,
         frequency: exp.frequency as 'mensal' | 'anual',
         category: exp.category,
-        dayOfMonth: parseInt(exp.dayOfMonth) || 1,
+        dueDate: exp.dueDate || undefined,
+        startDate: exp.startDate || undefined,
+        endDate: exp.endDate || undefined,
         fixedExpenseId: `fe_prop_${exp.id}`
       }));
 
@@ -180,307 +175,360 @@ export function AssetImovelForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-lg bg-background rounded-2xl shadow-2xl border border-border p-6 space-y-5 animate-in fade-in zoom-in-95 my-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-foreground">
-            {initialData ? 'Editar Imóvel' : 'Novo Imóvel'}
-          </h2>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
-            onClick={onClose}
-          >
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="fixed inset-0 bg-black/60 backdrop-blur-md"
+        />
+        
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative w-full max-w-2xl bg-card rounded-[2.5rem] shadow-2xl border border-border/50 overflow-hidden"
+        >
+          {/* Header Accent */}
+          <div className="h-2 w-full bg-indigo-600" />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Nome */}
-          <div className="space-y-1.5">
-            <Label htmlFor="propName" className="text-sm font-medium text-foreground">
-              Nome <span className="text-muted-foreground">*</span>
-            </Label>
-            <Input
-              id="propName"
-              placeholder="Ex: Apartamento Vale das Flores"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="rounded-xl h-11 bg-muted/20"
-              required
-            />
-          </div>
-
-          {/* Tipo de Imóvel */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="propType" className="text-sm font-medium text-foreground">
-                Tipo de Imóvel
-              </Label>
-              <Select
-                value={propertyType}
-                onValueChange={(v) => setPropertyType(v)}
-              >
-                <SelectTrigger id="propType" className="rounded-xl h-11 bg-muted/20">
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Apartamento">Apartamento</SelectItem>
-                  <SelectItem value="Moradia">Moradia</SelectItem>
-                  <SelectItem value="Terreno">Terreno</SelectItem>
-                  <SelectItem value="Loja">Loja</SelectItem>
-                  <SelectItem value="Outro">Outro (Personalizar)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {propertyType === 'Outro' && (
-              <div className="space-y-1.5 animate-in fade-in slide-in-from-left-2">
-                <Label htmlFor="customPropType" className="text-sm font-medium text-foreground">
-                  Especifique o Tipo
-                </Label>
-                <Input
-                  id="customPropType"
-                  placeholder="Ex: Garagem, Armazém"
-                  value={customPropertyType}
-                  onChange={(e) => setCustomPropertyType(e.target.value)}
-                  className="rounded-xl h-11 bg-muted/20"
-                  required
-                />
+          <div className="p-8 sm:p-10 space-y-8">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center border border-indigo-500/20 shadow-sm">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black tracking-tight text-foreground">
+                    {initialData ? 'Editar Imóvel' : 'Novo Imóvel'}
+                  </h2>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                    Detalhes do Ativo Imobiliário
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-
-          {/* Valor Atual / Valor de Compra */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="currentValue" className="text-sm font-medium text-foreground">
-                Valor Atual (€) <span className="text-muted-foreground">*</span>
-              </Label>
-              <Input
-                id="currentValue"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={currentValue}
-                onChange={(e) => setCurrentValue(e.target.value)}
-                className="rounded-xl h-11 bg-muted/20"
-                required
-              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-colors"
+                onClick={onClose}
+              >
+                <X className="w-5 h-5" />
+              </Button>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="purchaseValue" className="text-sm font-medium text-foreground">
-                Valor de Compra (€)
-              </Label>
-              <Input
-                id="purchaseValue"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={purchaseValue}
-                onChange={(e) => setPurchaseValue(e.target.value)}
-                className="rounded-xl h-11 bg-muted/20"
-              />
-            </div>
-          </div>
-
-          {/* Data de Aquisição */}
-          <div className="space-y-1.5">
-            <Label htmlFor="acqDate" className="text-sm font-medium text-foreground">
-              Data de Aquisição
-            </Label>
-            <Input
-              id="acqDate"
-              type="date"
-              placeholder="dd/mm/aaaa"
-              value={acquisitionDate}
-              onChange={(e) => setAcquisitionDate(e.target.value)}
-              className="rounded-xl h-11 bg-muted/20"
-            />
-          </div>
-
-          {/* Rua */}
-          <div className="space-y-1.5">
-            <Label htmlFor="street" className="text-sm font-medium text-foreground">
-              Rua
-            </Label>
-            <Input
-              id="street"
-              placeholder="Ex: Rua das Flores, 123"
-              value={street}
-              onChange={(e) => setStreet(e.target.value)}
-              className="rounded-xl h-11 bg-muted/20"
-            />
-          </div>
-
-          {/* Código Postal / Localidade */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="zipCode" className="text-sm font-medium text-foreground">
-                Código Postal
-              </Label>
-              <Input
-                id="zipCode"
-                placeholder="0000-000"
-                value={zipCode}
-                onChange={(e) => setZipCode(e.target.value)}
-                className="rounded-xl h-11 bg-muted/20"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="city" className="text-sm font-medium text-foreground">
-                Localidade
-              </Label>
-              <Input
-                id="city"
-                placeholder="Ex: Coimbra"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="rounded-xl h-11 bg-muted/20"
-              />
-            </div>
-          </div>
-
-          {/* Observações */}
-          <div className="space-y-1.5">
-            <Label htmlFor="propNotes" className="text-sm font-medium text-foreground">
-              Observações
-            </Label>
-            <textarea
-              id="propNotes"
-              rows={3}
-              placeholder=""
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-xl border border-border bg-muted/20 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
-            />
-          </div>
-
-          <div className="pt-2 border-t border-border/80">
-            {/* Custos Fixos do Imóvel Header */}
-            <div className="flex items-center gap-2 mb-3">
-              <Home className="w-4 h-4 text-indigo-500" />
-              <span className="text-sm font-medium text-foreground">Custos Fixos do Imóvel</span>
-            </div>
-
-            {/* Expenses list rows */}
-            <div className="space-y-2 mb-3">
-              {expenseItems.map((item) => (
-                <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
-                  {/* Categoria */}
-                  <div className="col-span-3">
-                    <Select
-                      value={item.category}
-                      onValueChange={(v) => handleUpdateExpenseRow(item.id, 'category', v)}
-                    >
-                      <SelectTrigger className="h-10 rounded-xl bg-muted/20 text-xs px-2">
-                        <SelectValue placeholder="Categoria" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EXPENSE_CATEGORIES.map((cat) => (
-                          <SelectItem key={cat} value={cat} className="text-xs">
-                            {cat}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Basic Info Column */}
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Info className="w-3.5 h-3.5 text-indigo-500" />
+                      <Label htmlFor="propName" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nome do Imóvel</Label>
+                    </div>
+                    <Input
+                      id="propName"
+                      placeholder="Ex: Apartamento Vale das Flores"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="rounded-2xl h-12 bg-muted/30 border-border/40 focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium"
+                      required
+                    />
                   </div>
 
-                  {/* Valor (€) */}
-                  <div className="col-span-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Euro className="w-3.5 h-3.5 text-indigo-500" />
+                      <Label htmlFor="currentValue" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor Atual Estimado (€)</Label>
+                    </div>
                     <Input
+                      id="currentValue"
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={item.amount}
-                      onChange={(e) => handleUpdateExpenseRow(item.id, 'amount', e.target.value)}
-                      className="h-10 rounded-xl bg-muted/20 text-xs px-2"
+                      value={currentValue}
+                      onChange={(e) => setCurrentValue(e.target.value)}
+                      className="rounded-2xl h-12 bg-muted/30 border-border/40 focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium"
+                      required
                     />
                   </div>
 
-                  {/* Frequência */}
-                  <div className="col-span-3">
-                    <Select
-                      value={item.frequency}
-                      onValueChange={(v) => handleUpdateExpenseRow(item.id, 'frequency', v)}
-                    >
-                      <SelectTrigger className="h-10 rounded-xl bg-muted/20 text-xs px-2">
-                        <SelectValue placeholder="Mensal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mensal" className="text-xs">Mensal</SelectItem>
-                        <SelectItem value="anual" className="text-xs">Anual</SelectItem>
-                        <SelectItem value="semestral" className="text-xs">Semestral</SelectItem>
-                        <SelectItem value="trimestral" className="text-xs">Trimestral</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Dia mês */}
-                  <div className="col-span-2">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Euro className="w-3.5 h-3.5 text-indigo-500" />
+                      <Label htmlFor="purchaseValue" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor de Compra (€)</Label>
+                    </div>
                     <Input
+                      id="purchaseValue"
                       type="number"
-                      min="1"
-                      max="31"
-                      placeholder="Dia mês"
-                      value={item.dayOfMonth}
-                      onChange={(e) => handleUpdateExpenseRow(item.id, 'dayOfMonth', e.target.value)}
-                      className="h-10 rounded-xl bg-muted/20 text-xs px-2"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={purchaseValue}
+                      onChange={(e) => setPurchaseValue(e.target.value)}
+                      className="rounded-2xl h-12 bg-muted/30 border-border/40 focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium"
                     />
                   </div>
 
-                  {/* Trash / Delete */}
-                  <div className="col-span-1 flex justify-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleRemoveExpenseRow(item.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                      <Label htmlFor="acqDate" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Data de Aquisição</Label>
+                    </div>
+                    <Input
+                      id="acqDate"
+                      type="date"
+                      value={acquisitionDate}
+                      onChange={(e) => setAcquisitionDate(e.target.value)}
+                      className="rounded-2xl h-12 bg-muted/30 border-border/40 focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium"
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
 
-            {/* Adicionar Despesa Button */}
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleAddExpenseRow}
-              className="w-full h-11 rounded-xl bg-indigo-50/50 hover:bg-indigo-100/60 text-indigo-600 dark:bg-indigo-950/30 dark:hover:bg-indigo-950/50 dark:text-indigo-400 font-medium text-sm flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Adicionar Despesa
-            </Button>
-          </div>
+                {/* Location & Details Column */}
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Home className="w-3.5 h-3.5 text-indigo-500" />
+                      <Label htmlFor="propType" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tipo de Imóvel</Label>
+                    </div>
+                    <Select value={propertyType} onValueChange={(v) => setPropertyType(v)}>
+                      <SelectTrigger id="propType" className="rounded-2xl h-12 bg-muted/30 border-border/40 text-sm font-medium">
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl">
+                        <SelectItem value="Apartamento">Apartamento</SelectItem>
+                        <SelectItem value="Moradia">Moradia</SelectItem>
+                        <SelectItem value="Terreno">Terreno</SelectItem>
+                        <SelectItem value="Loja">Loja</SelectItem>
+                        <SelectItem value="Outro">Outro (Personalizar)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {propertyType === 'Outro' && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-2"
+                      >
+                        <Input
+                          placeholder="Especifique o Tipo"
+                          value={customPropertyType}
+                          onChange={(e) => setCustomPropertyType(e.target.value)}
+                          className="rounded-2xl h-12 bg-muted/30 border-border/40 text-sm font-medium"
+                        />
+                      </motion.div>
+                    )}
+                  </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="flex-1 h-11 rounded-xl font-medium border-border"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1 h-11 rounded-xl font-medium bg-indigo-500 hover:bg-indigo-600 text-white"
-            >
-              Guardar
-            </Button>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                      <Label htmlFor="street" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Morada</Label>
+                    </div>
+                    <Input
+                      id="street"
+                      placeholder="Ex: Rua das Flores, 123"
+                      value={street}
+                      onChange={(e) => setStreet(e.target.value)}
+                      className="rounded-2xl h-12 bg-muted/30 border-border/40 text-sm font-medium"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <Label htmlFor="zipCode" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Cód. Postal</Label>
+                      <Input
+                        id="zipCode"
+                        placeholder="0000-000"
+                        value={zipCode}
+                        onChange={(e) => setZipCode(e.target.value)}
+                        className="rounded-2xl h-12 bg-muted/30 border-border/40 text-sm font-medium"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <Label htmlFor="city" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Localidade</Label>
+                      <Input
+                        id="city"
+                        placeholder="Ex: Coimbra"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        className="rounded-2xl h-12 bg-muted/30 border-border/40 text-sm font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label htmlFor="propNotes" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observações Adicionais</Label>
+                    <textarea
+                      id="propNotes"
+                      rows={2}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="w-full rounded-2xl border border-border/40 bg-muted/30 px-4 py-3 text-sm font-medium placeholder:text-muted-foreground focus:ring-2 focus:ring-indigo-500/20 resize-none outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Property Expenses Section */}
+              <div className="space-y-6 pt-6 border-t border-border/40">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                      <Euro className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-foreground">Encargos & Custos Fixos</h3>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={handleAddExpenseRow}
+                    className="h-9 px-4 rounded-xl bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 text-[10px] font-black uppercase tracking-widest gap-1.5 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Adicionar Encargo
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  <AnimatePresence initial={false}>
+                    {expenseItems.length === 0 ? (
+                      <motion.p 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-center py-8 text-xs text-muted-foreground font-medium bg-muted/20 rounded-2xl border border-dashed border-border/40"
+                      >
+                        Nenhum custo fixo registado para este imóvel.
+                      </motion.p>
+                    ) : (
+                      expenseItems.map((item, index) => (
+                        <motion.div 
+                          key={item.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          className="p-5 rounded-3xl bg-muted/20 border border-border/30 space-y-4"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria</Label>
+                                <Select
+                                  value={item.category}
+                                  onValueChange={(v) => handleUpdateExpenseRow(item.id, 'category', v)}
+                                >
+                                  <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/40 text-xs font-bold">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-xl">
+                                    {EXPENSE_CATEGORIES.map((cat) => (
+                                      <SelectItem key={cat} value={cat} className="text-xs font-medium">{cat}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor (€)</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  value={item.amount}
+                                  onChange={(e) => handleUpdateExpenseRow(item.id, 'amount', e.target.value)}
+                                  className="h-10 rounded-xl bg-background/50 border-border/40 text-xs font-bold"
+                                />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Frequência</Label>
+                                <Select
+                                  value={item.frequency}
+                                  onValueChange={(v) => handleUpdateExpenseRow(item.id, 'frequency', v)}
+                                >
+                                  <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/40 text-xs font-bold">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-xl">
+                                    <SelectItem value="mensal" className="text-xs font-medium">Mensal</SelectItem>
+                                    <SelectItem value="anual" className="text-xs font-medium">Anual</SelectItem>
+                                    <SelectItem value="semestral" className="text-xs font-medium">Semestral</SelectItem>
+                                    <SelectItem value="trimestral" className="text-xs font-medium">Trimestral</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-10 w-10 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors shrink-0 self-end mb-0.5"
+                              onClick={() => handleRemoveExpenseRow(item.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="space-y-1.5">
+                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Próximo Vencimento</Label>
+                              <Input
+                                type="date"
+                                value={item.dueDate}
+                                onChange={(e) => handleUpdateExpenseRow(item.id, 'dueDate', e.target.value)}
+                                className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Início Vigência</Label>
+                              <Input
+                                type="date"
+                                value={item.startDate}
+                                onChange={(e) => handleUpdateExpenseRow(item.id, 'startDate', e.target.value)}
+                                className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Fim Vigência</Label>
+                              <Input
+                                type="date"
+                                value={item.endDate}
+                                onChange={(e) => handleUpdateExpenseRow(item.id, 'endDate', e.target.value)}
+                                className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
+                              />
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="flex gap-4 pt-6 border-t border-border/40">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={onClose}
+                  className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] border-border hover:bg-muted transition-all"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+                >
+                  {initialData ? 'Guardar Alterações' : 'Registar Imóvel'}
+                </Button>
+              </div>
+            </form>
           </div>
-        </form>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
 }

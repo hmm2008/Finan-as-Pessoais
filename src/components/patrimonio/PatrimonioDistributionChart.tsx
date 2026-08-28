@@ -6,6 +6,8 @@ import {
 } from 'recharts';
 import { Asset } from './types';
 import { usePrivacy } from '../../contexts';
+import { motion } from 'motion/react';
+import { PieChart as PieIcon, BarChart3 } from 'lucide-react';
 
 interface PatrimonioDistributionChartProps {
   assets: Asset[];
@@ -13,13 +15,13 @@ interface PatrimonioDistributionChartProps {
 }
 
 const COLORS = [
-  '#5850ec', // Indigo
-  '#10b981', // Emerald
-  '#f59e0b', // Amber
-  '#ef4444', // Red
-  '#8b5cf6', // Violet
-  '#06b6d4', // Cyan
-  '#ec4899', // Pink
+  '#6366f1', // Indigo 500
+  '#10b981', // Emerald 500
+  '#f59e0b', // Amber 500
+  '#ef4444', // Red 500
+  '#8b5cf6', // Violet 500
+  '#06b6d4', // Cyan 500
+  '#ec4899', // Pink 500
 ];
 
 export function PatrimonioDistributionChart({ assets, activeTab }: PatrimonioDistributionChartProps) {
@@ -39,17 +41,17 @@ export function PatrimonioDistributionChart({ assets, activeTab }: PatrimonioDis
     categoryMap[key] = (categoryMap[key] || 0) + (a.currentValue || 0);
   });
 
-  const pieData = Object.entries(categoryMap).map(([name, val]) => ({
+  const pieData = Object.entries(categoryMap).map(([name, value]) => ({
     name,
-    value: val
+    value
   }));
 
   const totalVal = pieData.reduce((sum, d) => sum + d.value, 0);
 
   // Bar data for "Valor por Tipo"
-  const barData = Object.entries(categoryMap).map(([name, val]) => ({
+  const barData = Object.entries(categoryMap).map(([name, value]) => ({
     name,
-    valor: val
+    valor: value
   }));
 
   const formatShortEuros = (val: number) => {
@@ -59,124 +61,156 @@ export function PatrimonioDistributionChart({ assets, activeTab }: PatrimonioDis
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Chart 1: Distribuição por Tipo */}
-      <Card className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
-        <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-base font-bold text-foreground">
-            Distribuição por Tipo
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 flex flex-col items-center justify-center">
-          <div className="w-full h-56 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={65}
-                  outerRadius={95}
-                  paddingAngle={2}
-                  dataKey="value"
-                  strokeWidth={0}
-                >
-                  {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(val: number) => [maskValue(val, formatter.format), 'Valor']}
-                  contentStyle={{
-                    backgroundColor: 'var(--card)',
-                    borderColor: 'var(--border)',
-                    borderRadius: '12px',
-                    color: 'var(--foreground)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <Card className="rounded-3xl border-none shadow-sm bg-card/50 overflow-hidden h-full">
+          <CardHeader className="p-6 bg-muted/20 border-b border-border/40">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                <PieIcon className="w-4 h-4" />
+              </div>
+              <CardTitle className="text-sm font-black uppercase tracking-tight">Distribuição por Categoria</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="w-full h-64 flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={100}
+                    paddingAngle={4}
+                    dataKey="value"
+                    strokeWidth={0}
+                    animationBegin={200}
+                    animationDuration={1200}
+                  >
+                    {pieData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} className="focus:outline-none" />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(val: number) => [maskValue(val, formatter.format), 'Valor']}
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      backdropFilter: 'blur(12px)',
+                      borderColor: 'rgba(226, 232, 240, 0.5)',
+                      borderRadius: '16px',
+                      color: '#0f172a',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      padding: '12px'
+                    }}
+                    itemStyle={{ padding: '2px 0' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
 
-          {/* Donut Legend */}
-          <div className="w-full pt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground font-medium border-t border-border/40">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {/* Donut Legend */}
+            <div className="mt-4 pt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 border-t border-border/40">
               {pieData.map((item, index) => {
                 const pct = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
                 return (
-                  <div key={item.name} className="flex items-center gap-2">
+                  <div key={item.name} className="flex items-center gap-2.5">
                     <span 
-                      className="w-2.5 h-2.5 rounded-full inline-block" 
+                      className="w-3 h-3 rounded-md inline-block shadow-sm" 
                       style={{ backgroundColor: COLORS[index % COLORS.length] }} 
                     />
-                    <span className="text-foreground font-medium">
-                      {item.name} ({pct.toFixed(0)}%)
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                        {item.name}
+                      </span>
+                      <span className="text-xs font-bold text-foreground">
+                        {pct.toFixed(1)}%
+                      </span>
+                    </div>
                   </div>
                 );
               })}
             </div>
-            <span className="font-bold text-foreground">100%</span>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Chart 2: Valor por Tipo */}
-      <Card className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
-        <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-base font-bold text-foreground">
-            Valor por Tipo
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="w-full h-60">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={barData}
-                layout="vertical"
-                margin={{ top: 10, right: 20, left: 20, bottom: 20 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />
-                <XAxis 
-                  type="number" 
-                  tickFormatter={formatShortEuros} 
-                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis 
-                  type="category" 
-                  dataKey="name" 
-                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={60}
-                />
-                <Tooltip
-                  formatter={(val: number) => [maskValue(val, formatter.format), 'Valor']}
-                  contentStyle={{
-                    backgroundColor: 'var(--card)',
-                    borderColor: 'var(--border)',
-                    borderRadius: '12px',
-                    color: 'var(--foreground)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                  }}
-                />
-                <Bar 
-                  dataKey="valor" 
-                  radius={[0, 8, 8, 0]} 
-                  barSize={40}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <Card className="rounded-3xl border-none shadow-sm bg-card/50 overflow-hidden h-full">
+          <CardHeader className="p-6 bg-muted/20 border-b border-border/40">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                <BarChart3 className="w-4 h-4" />
+              </div>
+              <CardTitle className="text-sm font-black uppercase tracking-tight">Análise de Valor por Tipo</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="w-full h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={barData}
+                  layout="vertical"
+                  margin={{ top: 10, right: 30, left: 10, bottom: 20 }}
                 >
-                  {barData.map((_, index) => (
-                    <Cell key={`cell-bar-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.1} />
+                  <XAxis 
+                    type="number" 
+                    tickFormatter={formatShortEuros} 
+                    tick={{ fontSize: 10, fill: 'var(--muted-foreground)', fontWeight: 600 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    tick={{ fontSize: 10, fill: 'var(--muted-foreground)', fontWeight: 700 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={80}
+                  />
+                  <Tooltip
+                    formatter={(val: number) => [maskValue(val, formatter.format), 'Valor']}
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      backdropFilter: 'blur(12px)',
+                      borderColor: 'rgba(226, 232, 240, 0.5)',
+                      borderRadius: '16px',
+                      color: '#0f172a',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      padding: '12px'
+                    }}
+                  />
+                  <Bar 
+                    dataKey="valor" 
+                    radius={[0, 12, 12, 0]} 
+                    barSize={24}
+                    animationDuration={1500}
+                  >
+                    {barData.map((_, index) => (
+                      <Cell key={`cell-bar-${index}`} fill={COLORS[index % COLORS.length]} className="opacity-90 hover:opacity-100 transition-opacity" />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { usePreferences } from '../../contexts/PreferencesContext';
+import { usePreferences, TextStyle } from '../../contexts/PreferencesContext';
+import { TextStyleEditor } from './TextStyleEditor';
 import { 
   LayoutDashboard, 
   Wallet, 
@@ -23,7 +24,8 @@ import {
   Database,
   Wrench,
   Loader2,
-  KeyRound
+  KeyRound,
+  Palette
 } from 'lucide-react';
 
 export interface NavItemConfig {
@@ -125,7 +127,13 @@ export function SidebarLabelsCustomizer() {
       setLabels(cleanedLabels);
 
       // Update in context (which updates React components and writes to Firestore)
-      await updatePrefs({ navLabels: cleanedLabels });
+      await updatePrefs({ 
+        navLabels: cleanedLabels,
+        customStyles: {
+          ...prefs.customStyles,
+          sidebar: sidebarStyle
+        }
+      });
 
       setIsModified(false);
       setSavedSuccess(true);
@@ -136,6 +144,8 @@ export function SidebarLabelsCustomizer() {
       setIsSaving(false);
     }
   };
+
+  const [sidebarStyle, setSidebarStyle] = useState<TextStyle>(prefs.customStyles?.sidebar || {});
 
   return (
     <Card className="border border-border bg-card shadow-sm rounded-xl relative">
@@ -218,7 +228,93 @@ export function SidebarLabelsCustomizer() {
           </div>
         )}
 
-        <form onSubmit={handleSave}>
+        <form onSubmit={handleSave} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <TextStyleEditor 
+              label="Estilo Visual das Letras do Menu Lateral" 
+              style={sidebarStyle} 
+              onChange={setSidebarStyle} 
+              onReset={() => setSidebarStyle({})}
+            />
+
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <Palette className="w-4 h-4 text-primary" /> Cor de Fundo do Menu Lateral
+              </Label>
+              <div className="p-4 rounded-xl border border-border bg-secondary/10 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { color: '#020617', label: 'Slate 950 (Padrão)' },
+                    { color: '#0f172a', label: 'Slate 900' },
+                    { color: '#1e293b', label: 'Slate 800' },
+                    { color: '#111827', label: 'Gray 950' },
+                    { color: '#171717', label: 'Neutral 900' },
+                    { color: '#312e81', label: 'Indigo 900' },
+                    { color: '#1e1b4b', label: 'Indigo 950' },
+                    { color: '#4c1d95', label: 'Violet 900' },
+                    { color: '#581c87', label: 'Purple 900' },
+                    { color: '#701a75', label: 'Fuchsia 900' },
+                    { color: '#831843', label: 'Pink 900' },
+                    { color: '#7f1d1d', label: 'Red 900' },
+                  ].map((colorObj) => (
+                    <button
+                      key={colorObj.color}
+                      type="button"
+                      onClick={() => setSidebarStyle(prev => ({ ...prev, backgroundColor: colorObj.color }))}
+                      className={`w-9 h-9 rounded-lg border-2 transition-all hover:scale-105 shrink-0 ${
+                        sidebarStyle.backgroundColor === colorObj.color 
+                          ? 'border-primary ring-2 ring-primary/20 scale-105' 
+                          : 'border-border/40'
+                      }`}
+                      style={{ backgroundColor: colorObj.color }}
+                      title={colorObj.label}
+                    />
+                  ))}
+                  
+                  {/* Custom Color Input */}
+                  <div className="relative group">
+                    <input
+                      type="color"
+                      value={sidebarStyle.backgroundColor || '#020617'}
+                      onChange={(e) => setSidebarStyle(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                      className="w-9 h-9 p-0 rounded-lg border-2 border-border/40 cursor-pointer overflow-hidden"
+                      title="Escolher cor personalizada"
+                    />
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSidebarStyle(prev => {
+                      const { backgroundColor, ...rest } = prev;
+                      return rest;
+                    })}
+                    className="w-9 h-9 rounded-lg"
+                    title="Remover cor personalizada"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-3 pt-2">
+                  <div 
+                    className="w-12 h-12 rounded-lg border border-border shadow-sm flex items-center justify-center"
+                    style={{ backgroundColor: sidebarStyle.backgroundColor || '#020617' }}
+                  >
+                    <Menu className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-medium">Pré-visualização da Cor</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      {sidebarStyle.backgroundColor || '#020617'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {DEFAULT_NAV_ITEMS.map((item) => {
               const Icon = item.icon;

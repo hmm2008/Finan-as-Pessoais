@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { usePreferences } from '../../contexts/PreferencesContext';
+import { usePreferences, TextStyle } from '../../contexts/PreferencesContext';
+import { TextStyleEditor } from './TextStyleEditor';
 import { 
   LayoutDashboard, 
   Wallet, 
@@ -22,7 +23,8 @@ import {
   Bookmark,
   Database,
   Wrench,
-  Loader2
+  Loader2,
+  Palette
 } from 'lucide-react';
 
 export interface PageConfig {
@@ -191,6 +193,9 @@ export function PageTitlesCustomizer() {
     }
   };
 
+  const [pageTitleStyle, setPageTitleStyle] = useState<TextStyle>(prefs.customStyles?.pageTitles || {});
+  const [globalStyle, setGlobalStyle] = useState<TextStyle>(prefs.customStyles?.global || {});
+
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsSaving(true);
@@ -211,7 +216,15 @@ export function PageTitlesCustomizer() {
       setTitles(cleanedTitles);
       setSubtitles(cleanedSubtitles);
 
-      await updatePrefs({ pageTitles: cleanedTitles, pageSubtitles: cleanedSubtitles });
+      await updatePrefs({ 
+        pageTitles: cleanedTitles, 
+        pageSubtitles: cleanedSubtitles,
+        customStyles: {
+          ...prefs.customStyles,
+          pageTitles: pageTitleStyle,
+          global: globalStyle
+        }
+      });
 
       setIsModified(false);
       setSavedSuccess(true);
@@ -304,7 +317,175 @@ export function PageTitlesCustomizer() {
           </div>
         )}
 
-        <form onSubmit={handleSave}>
+        <form onSubmit={handleSave} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <TextStyleEditor 
+              label="Aspeto Visual dos Títulos (Topo da Página)" 
+              style={pageTitleStyle} 
+              onChange={setPageTitleStyle} 
+              onReset={() => setPageTitleStyle({})}
+            />
+
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <Palette className="w-4 h-4 text-primary" /> Cor de Fundo do Cabeçalho
+              </Label>
+              <div className="p-4 rounded-xl border border-border bg-secondary/10 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { color: 'transparent', label: 'Transparente (Padrão)' },
+                    { color: '#f8fafc', label: 'Slate 50' },
+                    { color: '#f1f5f9', label: 'Slate 100' },
+                    { color: '#f8fafc00', label: 'Nenhum' },
+                    { color: '#eef2ff', label: 'Indigo 50' },
+                    { color: '#e0e7ff', label: 'Indigo 100' },
+                    { color: '#f5f3ff', label: 'Violet 50' },
+                    { color: '#ede9fe', label: 'Violet 100' },
+                    { color: '#0f172a', label: 'Slate 900' },
+                    { color: '#1e293b', label: 'Slate 800' },
+                    { color: '#312e81', label: 'Indigo 900' },
+                    { color: '#1e1b4b', label: 'Indigo 950' },
+                  ].map((colorObj) => (
+                    <button
+                      key={colorObj.color}
+                      type="button"
+                      onClick={() => setPageTitleStyle(prev => ({ ...prev, backgroundColor: colorObj.color }))}
+                      className={`w-9 h-9 rounded-lg border-2 transition-all hover:scale-105 shrink-0 flex items-center justify-center ${
+                        pageTitleStyle.backgroundColor === colorObj.color 
+                          ? 'border-primary ring-2 ring-primary/20 scale-105' 
+                          : 'border-border/40'
+                      }`}
+                      style={{ backgroundColor: colorObj.color === 'transparent' ? undefined : colorObj.color }}
+                      title={colorObj.label}
+                    >
+                      {colorObj.color === 'transparent' && <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />}
+                    </button>
+                  ))}
+                  
+                  {/* Custom Color Input */}
+                  <div className="relative group">
+                    <input
+                      type="color"
+                      value={pageTitleStyle.backgroundColor && pageTitleStyle.backgroundColor !== 'transparent' ? pageTitleStyle.backgroundColor : '#ffffff'}
+                      onChange={(e) => setPageTitleStyle(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                      className="w-9 h-9 p-0 rounded-lg border-2 border-border/40 cursor-pointer overflow-hidden"
+                      title="Escolher cor personalizada"
+                    />
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPageTitleStyle(prev => {
+                      const { backgroundColor, ...rest } = prev;
+                      return rest;
+                    })}
+                    className="w-9 h-9 rounded-lg"
+                    title="Remover cor personalizada"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-3 pt-2">
+                  <div 
+                    className="w-12 h-12 rounded-lg border border-border shadow-sm flex items-center justify-center"
+                    style={{ backgroundColor: pageTitleStyle.backgroundColor || 'transparent' }}
+                  >
+                    <span className="text-xs font-bold" style={{ color: pageTitleStyle.color }}>Aa</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-medium">Pré-visualização do Fundo</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      {pageTitleStyle.backgroundColor || 'Transparente'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Nova Secção: Cor de Fundo da Aplicação */}
+            <div className="space-y-4 md:col-span-2 border-t border-border/50 pt-6">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <Palette className="w-4 h-4 text-primary" /> Cor de Fundo da Área de Conteúdo (Resto da Aplicação)
+              </Label>
+              <div className="p-5 rounded-xl border border-border bg-secondary/5 space-y-4">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Esta cor será aplicada a toda a área de trabalho da aplicação onde os dados e tabelas são apresentados.
+                </p>
+                <div className="flex flex-wrap gap-2.5">
+                  {[
+                    { color: '', label: 'Padrão (Fundo do Sistema)' },
+                    { color: '#ffffff', label: 'Branco Puro' },
+                    { color: '#fafafa', label: 'Neutral 50' },
+                    { color: '#f4f4f5', label: 'Zinc 50' },
+                    { color: '#fdfcfb', label: 'Warm White' },
+                    { color: '#fcfcfc', label: 'Cool White' },
+                    { color: '#f5f5f5', label: 'Gray 100' },
+                    { color: '#09090b', label: 'Zinc 950' },
+                    { color: '#020617', label: 'Slate 950' },
+                    { color: '#030712', label: 'Gray 950' },
+                    { color: '#0a0a0a', label: 'Neutral 950' },
+                  ].map((colorObj) => (
+                    <button
+                      key={colorObj.color}
+                      type="button"
+                      onClick={() => setGlobalStyle(prev => ({ ...prev, backgroundColor: colorObj.color }))}
+                      className={`w-10 h-10 rounded-xl border-2 transition-all hover:scale-105 shrink-0 flex items-center justify-center ${
+                        (globalStyle.backgroundColor || '') === colorObj.color 
+                          ? 'border-primary ring-2 ring-primary/20 scale-105 shadow-md' 
+                          : 'border-border/40'
+                      }`}
+                      style={{ backgroundColor: colorObj.color || undefined }}
+                      title={colorObj.label}
+                    >
+                      {colorObj.color === '' && <RotateCcw className="w-4 h-4 text-muted-foreground" />}
+                    </button>
+                  ))}
+                  
+                  {/* Custom Color Input */}
+                  <div className="relative group">
+                    <input
+                      type="color"
+                      value={globalStyle.backgroundColor || '#ffffff'}
+                      onChange={(e) => setGlobalStyle(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                      className="w-10 h-10 p-0 rounded-xl border-2 border-border/40 cursor-pointer overflow-hidden shadow-sm"
+                      title="Escolher cor personalizada para o fundo"
+                    />
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setGlobalStyle(prev => {
+                      const { backgroundColor, ...rest } = prev;
+                      return rest;
+                    })}
+                    className="h-10 px-3 rounded-xl border-2 border-dashed border-border/60 hover:border-destructive hover:text-destructive"
+                    title="Remover fundo personalizado"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    <span className="text-xs">Repor Fundo</span>
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-4 p-3 bg-background/50 rounded-lg border border-border/40">
+                  <div 
+                    className="w-16 h-10 rounded-lg border border-border shadow-inner"
+                    style={{ backgroundColor: globalStyle.backgroundColor || 'var(--background)' }}
+                  />
+                  <div>
+                    <p className="text-xs font-bold">Pré-visualização</p>
+                    <p className="text-[10px] text-muted-foreground font-mono uppercase">
+                      {globalStyle.backgroundColor || 'DINÂMICO (TEMA)'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {MAIN_PAGES_CONFIG.map((page) => {
               const Icon = page.icon;

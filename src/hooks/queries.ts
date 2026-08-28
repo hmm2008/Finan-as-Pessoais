@@ -43,14 +43,13 @@ export function getLocalEntityList<T>(localStorageKey: string): T[] {
     const list = JSON.parse(raw);
     if (Array.isArray(list)) {
       let modified = false;
-      const sanitized = list.filter(item => !isBannedDemoRecord(item)).map((item: any) => {
+      const sanitized = list.map((item: any) => {
         if (item && typeof item.date === 'string' && item.date.includes('2026-2026')) {
           modified = true;
           return { ...item, date: item.date.replace(/2026-2026-?/g, '2026-') };
         }
         return item;
       });
-      if (sanitized.length !== list.length) modified = true;
       if (modified) {
         localStorage.setItem(localStorageKey, JSON.stringify(sanitized));
         return sanitized as T[];

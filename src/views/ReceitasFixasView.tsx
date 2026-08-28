@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { PageHeader } from '../components/layout';
 import { ReceitasFixasHeader, FixedIncomeList, FixedIncomeForm } from '../components/receitas-fixas';
 import { useFixedIncomes } from '../hooks/queries';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
+import { motion } from 'motion/react';
 
 export default function ReceitasFixasView() {
   const { fixedIncomes, deleteFixedIncome } = useFixedIncomes();
@@ -27,22 +28,34 @@ export default function ReceitasFixasView() {
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader 
-        title="Receitas Fixas" 
-        subtitle="Entradas mensais recorrentes"
-      />
-      
-      <ReceitasFixasHeader 
-        onAdd={handleOpenAdd} 
-        incomes={fixedIncomes}
-      />
-      
-      <FixedIncomeList 
-        incomes={fixedIncomes}
-        onEdit={handleOpenEdit}
-        onDelete={(item) => setItemToDelete(item)}
-      />
+    <div className="relative min-h-screen pb-20">
+      {/* Background Orbs */}
+      <div className="absolute top-0 right-0 -z-10 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[100px]" />
+      <div className="absolute bottom-20 left-0 -z-10 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px]" />
+
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-8"
+      >
+        <PageHeader 
+          title="Receitas Fixas" 
+          subtitle="Acompanhamento detalhado das suas entradas mensais recorrentes"
+        />
+        
+        <ReceitasFixasHeader 
+          onAdd={handleOpenAdd} 
+          incomes={fixedIncomes}
+        />
+        
+        <div className="pt-4">
+          <FixedIncomeList 
+            incomes={fixedIncomes}
+            onEdit={handleOpenEdit}
+            onDelete={(item) => setItemToDelete(item)}
+          />
+        </div>
+      </motion.div>
 
       <FixedIncomeForm 
         isOpen={isFormOpen} 

@@ -14,3 +14,4 @@ export * from './LoadingSpinner';
 export * from './MonthSelector';
 export * from './HelpWrappers';
 export * from './badge';
+export * from './skeleton';

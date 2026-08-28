@@ -1,39 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
 import { 
-  FileSpreadsheet, 
   CheckCircle, 
   AlertCircle, 
-  AlertTriangle,
-  ExternalLink, 
   RefreshCw, 
-  Database, 
   HardDrive, 
-  ShieldCheck, 
   Loader2,
-  Table,
-  Layers,
-  UploadCloud,
-  DownloadCloud,
-  Clock,
-  Zap,
-  Radio,
-  Sliders,
-  Sparkles,
-  Wifi,
-  WifiOff,
-  History,
   Trash2,
   CheckCheck,
-  Calculator,
-  FolderSync,
-  ArrowRight,
-  GitFork,
-  Search,
-  Check
+  History,
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 import { 
   connectGoogleDrive, 
@@ -42,13 +20,13 @@ import {
   formatAndStyleFinanceSpreadsheet,
   getCachedDriveToken, 
   setCachedDriveToken, 
-  DriveSpreadsheetInfo 
+  DriveSpreadsheetInfo,
+  listSpreadsheetRevisions
 } from '../../lib/googleDriveService';
 import { 
   exportAllDataToSheets, 
   importAllDataFromSheets, 
   getSpreadsheetSheetTitles,
-  ALIAS_MAP,
   clearAllSpreadsheetData,
   reorganizeIncomeSheetsAndDatabase,
   ReorganizeResult,
@@ -72,6 +50,15 @@ import {
 import { auth } from '../../lib/firebase';
 import { useQueryClient } from '@tanstack/react-query';
 import { Modal } from '../ui/Modal';
+import { motion } from 'motion/react';
+
+// Sub-components
+import { SyncStatusBanner } from './sync/SyncStatusBanner';
+import { SyncConnectionStep } from './sync/SyncConnectionStep';
+import { SyncSpreadsheetStep } from './sync/SyncSpreadsheetStep';
+import { SyncConfigStep } from './sync/SyncConfigStep';
+import { SyncActionsSection } from './sync/SyncActionsSection';
+import { SyncAuditLogsSection } from './sync/SyncAuditLogsSection';
 
 export function GoogleDriveSyncCard() {
   const queryClient = useQueryClient();
@@ -91,6 +78,9 @@ export function GoogleDriveSyncCard() {
   const [reorganizeResult, setReorganizeResult] = useState<ReorganizeResult | null>(null);
   const [isFlushingQueue, setIsFlushingQueue] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ status: string; percent: number } | null>(null);
+  const [revisions, setRevisions] = useState<any[]>([]);
+  const [isFetchingRevisions, setIsFetchingRevisions] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -98,7 +88,7 @@ export function GoogleDriveSyncCard() {
   // Connectivity state
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
-  // Phase 3 & 4 States: Storage Mode, AutoSync, Audit Logs, Queue
+  // Storage Mode, AutoSync, Audit Logs, Queue
   const [storageMode, setStorageModeState] = useState<StorageMode>(getStorageMode());
   const [autoSync, setAutoSyncState] = useState<boolean>(isAutoSyncEnabled());
   const [pendingCount, setPendingCount] = useState<number>(getPendingSyncQueueCount());
@@ -222,12 +212,16 @@ export function GoogleDriveSyncCard() {
       setSpreadsheetInfo(info);
       localStorage.setItem('google_drive_spreadsheet_info', JSON.stringify(info));
       
+      // Auto-enable Hybrid Mode for real-time sync
+      setStorageMode('hybrid');
+      setStorageModeState('hybrid');
+      
       if (info.createdNow) {
         setSuccessMsg('Nova folha de cálculo "Finanças Pessoais" criada com sucesso na sua Google Drive!');
       } else {
         setSuccessMsg('Folha de cálculo "Finanças Pessoais" localizada e associada! A descarregar dados...');
         
-        // Auto-pull existing data since the user is connecting on a device that likely has empty data
+        // Auto-pull existing data
         try {
           const stats = await importAllDataFromSheets(activeToken, info.id, (status, percent) => {
             setSyncProgress({ status, percent });
@@ -235,10 +229,6 @@ export function GoogleDriveSyncCard() {
           setSyncStats(stats);
           refreshAuditLogs();
           queryClient.invalidateQueries();
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('finanas_prefs_updated'));
-            window.dispatchEvent(new Event('finanas_data_imported'));
-          }
           setSuccessMsg(`Folha localizada e dados importados com sucesso! (${stats.expensesCount} despesas, ${stats.incomesCount} receitas)`);
         } catch (pullErr: any) {
           console.error(pullErr);
@@ -262,9 +252,9 @@ export function GoogleDriveSyncCard() {
     try {
       const isOk = await testSpreadsheetHealth(accessToken, spreadsheetInfo.id);
       if (isOk) {
-        setSuccessMsg('Ligação testada e confirmada! A folha de cálculo está acessível com permissões de leitura e escrita.');
+        setSuccessMsg('Ligação testada e confirmada! A folha de cálculo está acessível.');
       } else {
-        setErrorMsg('Não foi possível aceder à folha de cálculo. Tente ligar novamente a conta Google.');
+        setErrorMsg('Não foi possível aceder à folha de cálculo.');
       }
     } catch (err: any) {
       setErrorMsg('Erro ao testar ligação: ' + err.message);
@@ -274,119 +264,48 @@ export function GoogleDriveSyncCard() {
   };
 
   const handleFormatSpreadsheet = async () => {
-    if (!accessToken || !spreadsheetInfo?.id) {
-      setErrorMsg('Por favor, conecte a sua conta Google e certifique-se de que a folha de cálculo está criada.');
-      return;
-    }
+    if (!accessToken || !spreadsheetInfo?.id) return;
     setIsFormatting(true);
     setErrorMsg(null);
     setSuccessMsg(null);
 
     try {
       await formatAndStyleFinanceSpreadsheet(accessToken, spreadsheetInfo.id);
-      
       addSyncAuditLog({
         action: 'format',
         status: 'success',
-        details: 'Formatadas abas com tema Esmeralda e criada a aba "Dashboard_Calculos" com fórmulas automáticas'
+        details: 'Formatadas abas e criada a aba Dashboard_Calculos'
       });
       refreshAuditLogs();
-
-      // Refresh sheets list in info
       await handleFindOrCreateSpreadsheet(accessToken);
-      setSuccessMsg('Folha de cálculo formatada com sucesso! A aba "Dashboard_Calculos" com fórmulas automáticas foi adicionada.');
+      setSuccessMsg('Folha de cálculo formatada com sucesso!');
     } catch (err: any) {
       console.error(err);
-      const msg = err.message || String(err);
-      setErrorMsg('Erro ao formatar folha de cálculo: ' + msg);
-      if (msg.includes('Sessão Google expirada') || !getCachedDriveToken()) {
-        setAccessToken(null);
-      }
+      setErrorMsg('Erro ao formatar folha de cálculo: ' + err.message);
     } finally {
       setIsFormatting(false);
     }
   };
 
-  const handleForceRecreate = async () => {
-    if (!accessToken || !spreadsheetInfo?.id) return;
-    setIsRecreating(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    
-    try {
-      const activeSheets = await forceRecreateMissingSheets(accessToken, spreadsheetInfo.id);
-      const hasPatrimonio = activeSheets.some(s => s === 'Patrimonio');
-
-      addSyncAuditLog({
-        action: 'export',
-        status: 'success',
-        details: `Estrutura verificada. Abas detetadas: ${activeSheets.join(', ')}.`
-      });
-      
-      await handleFindOrCreateSpreadsheet(accessToken);
-
-      if (!hasPatrimonio) {
-        setErrorMsg('ERRO: A aba "Patrimonio" não foi encontrada após a recriação. Por favor, verifique se a folha não está protegida ou tente reconectar.');
-      } else {
-        setSuccessMsg(`Estrutura de abas verificada. A aba 'Patrimonio' foi confirmada na folha de cálculo (Total de ${activeSheets.length} abas ativas).`);
-      }
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(`Erro ao recriar abas: ${err.message || 'Falha de comunicação'}`);
-    } finally {
-      setIsRecreating(false);
-    }
-  };
-
   const handleAnalyzeSpreadsheet = async () => {
-    if (!recoveryUrl.trim()) {
-      setErrorMsg('Por favor, insira o link ou ID da folha de cálculo antiga.');
-      return;
-    }
-
+    if (!recoveryUrl.trim()) return;
     let targetId = recoveryUrl.trim();
     if (targetId.includes('/d/')) {
       const match = targetId.match(/\/d\/([^/]+)/);
       if (match && match[1]) targetId = match[1];
     }
 
-    const accessToken = getCachedDriveToken();
-    if (!accessToken) {
-      setErrorMsg('Sessão Google não encontrada. Por favor, reconecte-se.');
-      return;
-    }
+    const token = getCachedDriveToken();
+    if (!token) return;
 
     setIsAnalyzing(true);
     setErrorMsg(null);
     setSuccessMsg(null);
-    setDetectedSheets([]);
-    setSelectedSheets([]);
 
     try {
-      const titles = await getSpreadsheetSheetTitles(accessToken, targetId);
-      if (titles.length === 0) {
-        throw new Error('Não foram encontradas abas nesta folha ou não há permissões de acesso.');
-      }
-      
-      const mappedTitles = [
-        'Despesas', 'Receitas_Pontuais', 'Receitas_Fixas_Registadas', 'Despesas_Fixas',
-        'Receitas_Fixas', 'Contas', 'Patrimonio', 'Veiculos', 'Veiculos_Abastecimentos',
-        'Veiculos_Tarefas', 'Orcamentos', 'Metas', 'Reciclagem', 'Preferencias',
-        'Regras_Categorizacao', 'Notificacoes', 'Arquivo'
-      ].filter(canonical => {
-        const cleanCanonical = canonical.toLowerCase().trim();
-        const hasDirectMatch = titles.some(t => t.toLowerCase().trim() === cleanCanonical);
-        if (hasDirectMatch) return true;
-        
-        // Check aliases
-        const aliases = ALIAS_MAP[canonical] || [];
-        return aliases.some(a => titles.some(t => t.toLowerCase().trim() === a.toLowerCase().trim()));
-      });
-
-      // Show all detected titles, but pre-select the ones we mapped
+      const titles = await getSpreadsheetSheetTitles(token, targetId);
       setDetectedSheets(titles);
-      setSelectedSheets(mappedTitles.length > 0 ? mappedTitles : titles);
-      setSuccessMsg(`Folha analisada! Detetámos ${titles.length} abas na sua folha antiga.`);
+      setSuccessMsg(`Folha analisada! Detetámos ${titles.length} abas.`);
     } catch (err: any) {
       console.error(err);
       setErrorMsg(`Falha ao analisar folha: ${err.message}`);
@@ -396,55 +315,34 @@ export function GoogleDriveSyncCard() {
   };
 
   const handleRecoverData = async () => {
-    if (selectedSheets.length === 0) {
-      setErrorMsg('Por favor, selecione pelo menos uma aba para recuperar.');
-      return;
-    }
-
+    if (selectedSheets.length === 0) return;
     let targetId = recoveryUrl.trim();
     if (targetId.includes('/d/')) {
       const match = targetId.match(/\/d\/([^/]+)/);
       if (match && match[1]) targetId = match[1];
     }
 
-    const accessToken = getCachedDriveToken();
-    if (!accessToken) {
-      setErrorMsg('Sessão Google não encontrada. Por favor, reconecte-se.');
-      return;
-    }
+    const token = getCachedDriveToken();
+    if (!token) return;
 
     setIsRecovering(true);
     setErrorMsg(null);
-    setSuccessMsg(null);
-    setSyncProgress({ status: 'A iniciar recuperação seletiva...', percent: 5 });
+    setSyncProgress({ status: 'Recuperando dados...', percent: 5 });
 
     try {
-      await importAllDataFromSheets(accessToken, targetId, (status, percent) => {
+      await importAllDataFromSheets(token, targetId, (status, percent) => {
         setSyncProgress({ status, percent });
       }, selectedSheets);
-
       addSyncAuditLog({
         action: 'import',
         status: 'success',
-        details: `Dados recuperados seletivamente (${selectedSheets.length} abas) da folha externa (ID: ${targetId})`
+        details: `Dados recuperados seletivamente (${selectedSheets.length} abas)`
       });
-
-      setSuccessMsg('Recuperação concluída com sucesso! A aplicação irá recarregar em instantes para mostrar os novos dados...');
-      setRecoveryUrl('');
-      setDetectedSheets([]);
-      setSelectedSheets([]);
-      
-      const stats = localStorage.getItem('google_drive_sync_stats');
-      if (stats) setSyncStats(JSON.parse(stats));
-
-      // Force reload after a short delay to allow the user to see the success message
-      setTimeout(() => {
-        window.location.reload();
-      }, 2500);
-      
+      setSuccessMsg('Recuperação concluída! A aplicação irá recarregar...');
+      setTimeout(() => window.location.reload(), 2000);
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(`Falha na recuperação: ${err.message || 'Erro desconhecido'}`);
+      setErrorMsg(`Falha na recuperação: ${err.message}`);
     } finally {
       setIsRecovering(false);
       setSyncProgress(null);
@@ -452,36 +350,22 @@ export function GoogleDriveSyncCard() {
   };
 
   const handleReorganizeIncomes = async () => {
-    if (!accessToken || !spreadsheetInfo?.id) {
-      setErrorMsg('Por favor, conecte a sua conta Google e certifique-se de que a folha de cálculo está ativa.');
-      return;
-    }
+    if (!accessToken || !spreadsheetInfo?.id) return;
     setIsReorganizing(true);
     setErrorMsg(null);
-    setSuccessMsg(null);
 
     try {
       const res = await reorganizeIncomeSheetsAndDatabase(accessToken, spreadsheetInfo.id, (status, percent) => {
         setSyncProgress({ status, percent });
       });
-
       setReorganizeResult(res);
       refreshAuditLogs();
-
-      // Refresh sheets list in info
       await handleFindOrCreateSpreadsheet(accessToken);
-
-      // Invalidate queries so UI refreshes everywhere instantly
       queryClient.invalidateQueries();
-
       setSuccessMsg(res.message);
     } catch (err: any) {
       console.error(err);
-      const msg = err.message || String(err);
-      setErrorMsg('Erro ao reorganizar estrutura de receitas: ' + msg);
-      if (msg.includes('Sessão Google expirada') || !getCachedDriveToken()) {
-        setAccessToken(null);
-      }
+      setErrorMsg('Erro ao reorganizar: ' + err.message);
     } finally {
       setIsReorganizing(false);
       setSyncProgress(null);
@@ -492,19 +376,17 @@ export function GoogleDriveSyncCard() {
     if (!accessToken || !spreadsheetInfo?.id) return;
     setIsSyncing(true);
     setErrorMsg(null);
-    setSuccessMsg(null);
 
     try {
       const stats = await exportAllDataToSheets(accessToken, spreadsheetInfo.id, (status, percent) => {
         setSyncProgress({ status, percent });
-      });
-
+      }, true);
       setSyncStats(stats);
       refreshAuditLogs();
-      setSuccessMsg(`Exportação concluída! ${stats.expensesCount} despesas, ${stats.incomesCount} receitas e restantes dados guardados no Google Sheets.`);
+      setSuccessMsg('Exportação concluída com sucesso!');
     } catch (err: any) {
       console.error(err);
-      setErrorMsg('Erro na exportação para o Google Sheets: ' + (err.message || err));
+      setErrorMsg('Erro na exportação: ' + err.message);
     } finally {
       setIsSyncing(false);
       setSyncProgress(null);
@@ -515,97 +397,45 @@ export function GoogleDriveSyncCard() {
     if (!accessToken || !spreadsheetInfo?.id) return;
     setIsSyncing(true);
     setErrorMsg(null);
-    setSuccessMsg(null);
 
     try {
       const stats = await importAllDataFromSheets(accessToken, spreadsheetInfo.id, (status, percent) => {
         setSyncProgress({ status, percent });
       });
-
       setSyncStats(stats);
       refreshAuditLogs();
-      
-      // Invalidate queries so UI refreshes everywhere instantly
       queryClient.invalidateQueries();
-
-      setSuccessMsg(`Importação concluída! Sincronizados ${stats.expensesCount} despesas e ${stats.incomesCount} receitas do Google Sheets para a aplicação.`);
+      setSuccessMsg('Importação concluída com sucesso!');
     } catch (err: any) {
       console.error(err);
-      setErrorMsg('Erro na importação da Google Sheets: ' + (err.message || err));
+      setErrorMsg('Erro na importação: ' + err.message);
     } finally {
       setIsSyncing(false);
       setSyncProgress(null);
     }
-  };
-
-  const handleOpenClearModal = () => {
-    setShowClearModal(true);
   };
 
   const handleConfirmClearSpreadsheetData = async () => {
     setShowClearModal(false);
-
-    let activeToken = accessToken || getCachedDriveToken();
-
-    // If no active token, attempt to re-authenticate
-    if (!activeToken) {
-      try {
-        const res = await connectGoogleDrive();
-        if (res?.accessToken) {
-          activeToken = res.accessToken;
-          setAccessToken(activeToken);
-        }
-      } catch (err) {
-        setErrorMsg('Erro de autenticação no Google Drive. Por favor, autorize a sua conta.');
-        return;
-      }
-    }
-
-    if (!activeToken || !spreadsheetInfo?.id) {
-      setErrorMsg('Folha do Google Sheets não encontrada. Ligue primeiro o Google Drive.');
-      return;
-    }
+    let token = accessToken || getCachedDriveToken();
+    if (!token) return;
 
     setIsSyncing(true);
     setErrorMsg(null);
-    setSuccessMsg(null);
 
     try {
-      const stats = await clearAllSpreadsheetData(activeToken, spreadsheetInfo.id, (status, percent) => {
+      await clearAllSpreadsheetData(token, spreadsheetInfo!.id, (status, percent) => {
         setSyncProgress({ status, percent });
       });
-
-      setSyncStats(stats);
       queryClient.invalidateQueries();
-      window.dispatchEvent(new Event('storage'));
       refreshAuditLogs();
-      setSuccessMsg('Limpeza total concluída! Todos os registos no Google Drive, e na aplicação foram eliminados definitivamente.');
+      setSuccessMsg('Limpeza total concluída!');
     } catch (err: any) {
       console.error(err);
-      setErrorMsg('Erro ao limpar folha no Google Sheets: ' + (err.message || err));
+      setErrorMsg('Erro ao limpar: ' + err.message);
     } finally {
       setIsSyncing(false);
       setSyncProgress(null);
-    }
-  };
-
-  const handleFlushPendingQueue = async () => {
-    setIsFlushingQueue(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    try {
-      const ok = await flushPendingSyncQueue();
-      refreshAuditLogs();
-      if (ok) {
-        setSuccessMsg('Fila de sincronização offline processada com sucesso!');
-      } else {
-        setSuccessMsg('Não existem itens pendentes para sincronizar.');
-      }
-    } catch (err: any) {
-      setErrorMsg('Erro ao processar fila offline: ' + (err.message || 'Falha na ligação.'));
-    } finally {
-      setIsFlushingQueue(false);
     }
   };
 
@@ -614,22 +444,16 @@ export function GoogleDriveSyncCard() {
     setStorageMode(mode);
     if (mode === 'hybrid') {
       scheduleSheetsBackgroundSync(100);
-      setSuccessMsg('Modo Híbrido ativado! As alterações serão sincronizadas com o Google Sheets em tempo real.');
-    } else {
-      setSuccessMsg('Modo Local/Drive ativado. O Google Sheets será atualizado apenas em exportações manuais.');
     }
+    setSuccessMsg(mode === 'hybrid' ? 'Modo Híbrido ativado!' : 'Modo Local ativado.');
   };
 
   const handleAutoSyncToggle = () => {
     const newVal = !autoSync;
     setAutoSyncState(newVal);
     setAutoSyncEnabled(newVal);
-    if (newVal) {
-      scheduleSheetsBackgroundSync(100);
-      setSuccessMsg('Sincronização automática em tempo real ativada!');
-    } else {
-      setSuccessMsg('Sincronização automática em tempo real pausada.');
-    }
+    if (newVal) scheduleSheetsBackgroundSync(100);
+    setSuccessMsg(newVal ? 'Auto-Sync ativado!' : 'Auto-Sync desativado.');
   };
 
   const handleDisconnect = () => {
@@ -639,807 +463,235 @@ export function GoogleDriveSyncCard() {
     setSyncStats(null);
     localStorage.removeItem('google_drive_spreadsheet_info');
     localStorage.removeItem('google_drive_sync_stats');
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('finanas_drive_connected'));
-    }
     setSuccessMsg('Conexão Google Drive removida.');
   };
 
+  const handleDownloadBackupJSON = () => {
+    const data: any = {};
+    const keys = ['fin_expenses', 'fin_incomes', 'fin_fixed_expenses', 'fin_accounts', 'fin_assets', 'fin_goals', 'finanas_user_prefs'];
+    keys.forEach(key => {
+      const raw = localStorage.getItem(key);
+      if (raw) data[key] = JSON.parse(raw);
+    });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup_financas_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setSuccessMsg('Backup JSON descarregado!');
+  };
+
+  const handleFetchRevisions = async () => {
+    if (!accessToken) return;
+    setIsFetchingRevisions(true);
+    try {
+      const revs = await listSpreadsheetRevisions(accessToken, spreadsheetInfo!.id);
+      setRevisions(revs);
+      setIsHistoryModalOpen(true);
+    } catch (err: any) {
+      setErrorMsg(`Erro ao carregar histórico: ${err.message}`);
+    } finally {
+      setIsFetchingRevisions(false);
+    }
+  };
+
   return (
-    <Card className="border border-border bg-card shadow-sm rounded-2xl overflow-hidden">
-      <CardHeader className="border-b border-border/50 bg-slate-50/50 dark:bg-slate-900/40 p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs">
-              <HardDrive className="w-6 h-6" />
+    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden relative hover:bg-card/80 transition-all duration-300">
+      <CardHeader className="bg-foreground/5 p-6 sm:p-8 border-b border-border/40">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-foreground text-card flex items-center justify-center shrink-0 shadow-lg">
+              <HardDrive className="w-7 h-7" />
             </div>
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-lg font-bold">Google Drive & Sheets</CardTitle>
-                <span className="px-2.5 py-0.5 text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-full border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
-                  <CheckCheck className="w-3 h-3 text-emerald-600" /> Fase 4: Autonomia & Resiliência Offline
+              <div className="flex items-center gap-2 mb-1">
+                <CardTitle className="text-xl font-black tracking-tight text-foreground">Google Sheets Sync</CardTitle>
+                <span className="px-2 py-0.5 text-[9px] font-black bg-foreground/10 text-foreground rounded-lg border border-border/40 uppercase tracking-widest">
+                  Premium Cloud
                 </span>
               </div>
-              <CardDescription className="text-xs sm:text-sm mt-0.5">
-                Dual-Storage com sincronização automática, fila de resiliência offline e cálculos automatizados no Google Drive.
+              <CardDescription className="text-xs font-black uppercase text-muted-foreground/60 tracking-widest max-w-md">
+                Sincronização bidirecional em tempo real com resiliência offline.
               </CardDescription>
             </div>
           </div>
-
-          {/* Connection & Network Status Badges */}
-          <div className="hidden sm:flex flex-col items-end gap-1.5">
-            <div className="flex items-center gap-1.5 text-xs">
-              {isOnline ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold">
-                  <Wifi className="w-3 h-3" /> Online
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-semibold">
-                  <WifiOff className="w-3 h-3" /> Modo Offline
-                </span>
-              )}
-            </div>
-
-            {accessToken && spreadsheetInfo && (
-              <div className="flex items-center gap-2 px-3 py-1 rounded-xl border bg-card text-xs font-medium shadow-2xs">
-                {liveSyncStatus.state === 'syncing' ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />
-                    <span className="text-blue-600 font-semibold">A sincronizar...</span>
-                  </>
-                ) : liveSyncStatus.state === 'offline_queued' || pendingCount > 0 ? (
-                  <>
-                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                    <span className="text-amber-600 font-semibold">{pendingCount} na fila offline</span>
-                  </>
-                ) : liveSyncStatus.state === 'error' ? (
-                  <>
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                    <span className="text-rose-600 font-semibold">Erro no Auto-Sync</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold">Sincronizado</span>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          
+          <SyncStatusBanner 
+            isOnline={isOnline} 
+            syncStatus={liveSyncStatus} 
+            pendingCount={pendingCount} 
+          />
         </div>
       </CardHeader>
 
-      <CardContent className="p-5 sm:p-6 space-y-5">
-        
-        {/* Status Alerts */}
-        {successMsg && (
-          <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm rounded-xl flex items-start gap-2.5 animate-in fade-in">
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-            <div className="flex-1">{successMsg}</div>
-          </div>
-        )}
-
-        {errorMsg && (
-          <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-800 dark:text-rose-200 text-xs sm:text-sm rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
-            <div className="flex items-start gap-2.5 flex-1">
-              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium">{errorMsg}</p>
-                {(errorMsg.includes('expirada') || errorMsg.includes('reconecte') || !accessToken) && (
-                  <p className="text-[11px] text-rose-600 dark:text-rose-300 mt-0.5">
-                    Os tokens de segurança da Google expiram periodicamente por motivos de segurança. Clique no botão ao lado para renovar a autorização.
-                  </p>
-                )}
+      <CardContent className="p-6 sm:p-8 space-y-8">
+        {/* Alerts Area */}
+        {(successMsg || errorMsg || syncProgress) && (
+          <div className="space-y-3">
+            {syncProgress && (
+              <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-2xl animate-in fade-in">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">{syncProgress.status}</span>
+                  <span className="text-xs font-bold text-blue-600">{syncProgress.percent}%</span>
+                </div>
+                <div className="h-1.5 w-full bg-blue-500/10 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-blue-500" 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${syncProgress.percent}%` }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </div>
               </div>
-            </div>
-            {(errorMsg.includes('expirada') || errorMsg.includes('reconecte') || !accessToken) && (
-              <Button
-                size="sm"
-                onClick={handleConnect}
-                disabled={isLoading}
-                className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs h-8 px-3.5 shrink-0 gap-1.5 shadow-xs"
+            )}
+            
+            {successMsg && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-2xl flex items-center gap-3"
               >
-                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                Reconectar Agora
-              </Button>
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+                {successMsg}
+              </motion.div>
+            )}
+
+            {errorMsg && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold rounded-2xl flex items-center gap-3"
+              >
+                <AlertCircle className="w-5 h-5 text-rose-600" />
+                {errorMsg}
+              </motion.div>
             )}
           </div>
         )}
 
-        {/* Offline Pending Items Banner */}
-        {pendingCount > 0 && (
-          <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-xs rounded-xl flex items-center justify-between gap-3 animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <WifiOff className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>
-                Existem <strong>{pendingCount} alterações registadas offline</strong> prontas para serem enviadas para o Google Sheets.
-              </span>
-            </div>
-            <Button
-              size="sm"
-              onClick={handleFlushPendingQueue}
-              disabled={isFlushingQueue || !isOnline}
-              className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-7 px-3 shrink-0"
-            >
-              {isFlushingQueue ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
-              Enviar Agora
-            </Button>
-          </div>
-        )}
-
-        {/* Step 1: Connect Account */}
-        <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <ShieldCheck className="w-4 h-4 text-primary" />
-              <span>1. Conexão de Conta Google</span>
-            </div>
-            {accessToken ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                <CheckCircle className="w-3.5 h-3.5" /> Autorizado
-              </span>
-            ) : (
-              <span className="text-xs text-muted-foreground font-medium">Não Conectado</span>
-            )}
-          </div>
-
-          {!accessToken ? (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Autorize a aplicação a aceder à sua Google Drive para sincronizar todas as suas transações e dados financeiros.
-              </p>
-              <Button 
-                onClick={handleConnect} 
-                disabled={isLoading}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 text-xs sm:text-sm font-semibold shadow-xs"
-              >
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <HardDrive className="w-4 h-4" />}
-                Conectar Conta Google Drive
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between pt-1">
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                Conta: <strong className="text-foreground">{userEmail || 'Utilizador Google'}</strong>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleDisconnect}
-                className="text-xs text-rose-600 dark:text-rose-400 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-              >
-                Desconectar
-              </Button>
-            </div>
-          )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <SyncConnectionStep 
+            accessToken={accessToken}
+            userEmail={userEmail}
+            isLoading={isLoading}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+          />
+          
+          <SyncSpreadsheetStep 
+            spreadsheetInfo={spreadsheetInfo}
+            isLoading={isLoading}
+            isTesting={isTesting}
+            isFormatting={isFormatting}
+            onFindOrCreate={() => handleFindOrCreateSpreadsheet()}
+            onTest={handleTestConnection}
+            onFormat={handleFormatSpreadsheet}
+          />
         </div>
 
-        {/* Step 2: Spreadsheet File & Professional Format */}
-        {accessToken && (
-          <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>2. Ficheiro no Google Drive ("Finanças Pessoais")</span>
-              </div>
-              {spreadsheetInfo && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                  <Table className="w-3.5 h-3.5" /> Ficheiro Pronto
-                </span>
-              )}
-            </div>
-
-            {!spreadsheetInfo ? (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  Clique no botão abaixo para localizar ou criar a folha de cálculo com todas as abas estruturadas na sua Drive.
-                </p>
-                <Button 
-                  onClick={() => handleFindOrCreateSpreadsheet()} 
-                  disabled={isLoading}
-                  variant="outline"
-                  className="gap-2 text-xs sm:text-sm font-semibold border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
-                  Localizar / Criar Folha de Cálculo na Drive
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3 pt-1">
-                <div className="p-3 bg-card border border-border rounded-lg space-y-2 text-xs">
-                  <div className="flex items-center justify-between font-semibold text-foreground">
-                    <span className="flex items-center gap-1.5 text-sm">
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                      {spreadsheetInfo.name}
-                    </span>
-                    <a 
-                      href={spreadsheetInfo.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-emerald-600 hover:underline font-medium"
-                    >
-                      Abrir no Google Sheets <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                  <div className="text-muted-foreground font-mono text-[11px] truncate">
-                    ID: {spreadsheetInfo.id}
-                  </div>
-                </div>
-
-                {/* Structured Sheets List */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
-                    <Layers className="w-3.5 h-3.5" /> Abas Estruturadas na Folha ({spreadsheetInfo.sheets.length}):
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {spreadsheetInfo.sheets.map((s) => (
-                      <span 
-                        key={s} 
-                        className={`px-2 py-0.5 text-[11px] font-medium rounded-md border ${
-                          s === 'Dashboard_Calculos' 
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700 font-bold'
-                            : 'bg-secondary text-secondary-foreground border-border/60'
-                        }`}
-                      >
-                        {s === 'Dashboard_Calculos' && <Sparkles className="w-3 h-3 inline mr-1 text-emerald-600" />}
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Actions: Health Test & Format / Create Dashboard Tab */}
-                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleTestConnection}
-                    disabled={isTesting}
-                    className="text-xs gap-1.5"
-                  >
-                    {isTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                    Testar Permissões
-                  </Button>
-
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleFormatSpreadsheet}
-                    disabled={isFormatting}
-                    className="text-xs gap-1.5 border-emerald-600/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                  >
-                    {isFormatting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Calculator className="w-3.5 h-3.5 text-emerald-600" />}
-                    Formatar Folha & Criar Aba Dashboard de Cálculos
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Storage Configuration & AutoSync */}
         {accessToken && spreadsheetInfo && (
-          <div className="p-4 rounded-xl border border-indigo-500/30 bg-indigo-50/20 dark:bg-indigo-950/20 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-bold text-indigo-950 dark:text-indigo-100">
-                <Sliders className="w-4 h-4 text-indigo-600" />
-                <span>3. Configuração de Sincronização e Resiliência</span>
-              </div>
-              <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 rounded-full">
-                Dual-Storage + Fila Offline
-              </span>
-            </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-8 pt-4"
+          >
+            <SyncConfigStep 
+              storageMode={storageMode}
+              autoSync={autoSync}
+              onStorageModeChange={handleStorageModeChange}
+              onAutoSyncToggle={handleAutoSyncToggle}
+            />
 
-            {/* Storage Mode Selector */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div 
-                onClick={() => handleStorageModeChange('hybrid')}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
-                  storageMode === 'hybrid'
-                    ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/50 ring-1 ring-indigo-500'
-                    : 'border-border bg-card hover:bg-muted/30'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-semibold text-xs text-foreground flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                    Modo Híbrido em Tempo Real
-                  </span>
-                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${storageMode === 'hybrid' ? 'border-indigo-600 bg-indigo-600' : 'border-muted-foreground'}`}>
-                    {storageMode === 'hybrid' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Grava instantaneamente na app e sincroniza automaticamente cada nova despesa/receita com o Google Sheets em segundo plano.
-                </p>
-              </div>
+            <SyncActionsSection 
+              isSyncing={isSyncing}
+              isAnalyzing={isAnalyzing}
+              isRecovering={isRecovering}
+              isReorganizing={isReorganizing}
+              recoveryUrl={recoveryUrl}
+              detectedSheets={detectedSheets}
+              selectedSheets={selectedSheets}
+              onSetRecoveryUrl={setRecoveryUrl}
+              onSetSelectedSheets={setSelectedSheets}
+              onExport={handleExportToSheets}
+              onImport={handleImportFromSheets}
+              onClear={() => setShowClearModal(true)}
+              onDownloadBackup={handleDownloadBackupJSON}
+              onAnalyze={handleAnalyzeSpreadsheet}
+              onRecover={handleRecoverData}
+              onReorganize={handleReorganizeIncomes}
+              onShowHistory={handleFetchRevisions}
+            />
 
-              <div 
-                onClick={() => handleStorageModeChange('local_only')}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
-                  storageMode === 'local_only'
-                    ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/50 ring-1 ring-indigo-500'
-                    : 'border-border bg-card hover:bg-muted/30'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-semibold text-xs text-foreground flex items-center gap-1.5">
-                    <Database className="w-3.5 h-3.5 text-slate-500" />
-                    Apenas Local / Drive
-                  </span>
-                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${storageMode === 'local_only' ? 'border-indigo-600 bg-indigo-600' : 'border-muted-foreground'}`}>
-                    {storageMode === 'local_only' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Mantém os dados apenas localmente, usando o Google Sheets como ponto de backup estático sob demanda.
-                </p>
-              </div>
-            </div>
+            <SyncAuditLogsSection 
+              logs={auditLogs}
+              showLogs={showLogs}
+              onToggleLogs={() => setShowLogs(!showLogs)}
+              onClearLogs={() => {
+                clearSyncAuditLogs();
+                refreshAuditLogs();
+              }}
+            />
+          </motion.div>
+        )}
+      </CardContent>
 
-          {/* Spreadsheet Link Info */}
-          {spreadsheetInfo && (
-            <div className="flex flex-col sm:flex-row items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50 rounded-xl gap-3">
+      {/* History Modal */}
+      <Modal 
+        open={isHistoryModalOpen} 
+        onClose={() => setIsHistoryModalOpen(false)}
+        title="Histórico de Versões do Google Sheets"
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+          {revisions.map((rev) => (
+            <div key={rev.id} className="p-3 bg-muted/30 border border-border rounded-xl flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                  <FileSpreadsheet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-border flex items-center justify-center">
+                  <History className="w-4 h-4 text-indigo-600" />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-foreground">
-                    Google Spreadsheet Ativa
-                  </div>
-                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    ID: {spreadsheetInfo.id}
-                  </div>
+                  <p className="text-xs font-bold text-foreground">
+                    {new Date(rev.modifiedTime).toLocaleString('pt-PT')}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{rev.lastModifyingUserName || 'Sistema'}</p>
                 </div>
               </div>
               <a 
-                href={spreadsheetInfo.url} 
+                href={spreadsheetInfo?.url + `?rev=${rev.id}`}
                 target="_blank" 
                 rel="noreferrer"
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline px-3 py-2 bg-white dark:bg-slate-900 rounded-lg shadow-xs border border-blue-200/50"
+                className="text-[10px] font-black text-indigo-600 hover:underline"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Abrir na Google Drive
+                VER VERSÃO
               </a>
             </div>
-          )}
+          ))}
+        </div>
+      </Modal>
 
-          {/* Auto-Sync Switch */}
-          {storageMode === 'hybrid' && (
-              <div className="flex items-center justify-between p-3 bg-card border border-border rounded-xl">
-                <div className="space-y-0.5">
-                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-                    Sincronização Automática em Tempo Real (Auto-Sync)
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    Sincroniza automaticamente a cada registo, edição ou exclusão de movimentos.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAutoSyncToggle}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                    autoSync ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      autoSync ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            )}
-
-            {/* Manual Sync Actions */}
-            <div className="pt-2 border-t border-border/50 space-y-3">
-              <div className="text-xs font-medium text-muted-foreground">
-                Ações Manuais de Exportação / Importação Integral:
-              </div>
-
-              {/* Sync Progress Bar */}
-              {isSyncing && syncProgress && (
-                <div className="p-3 bg-card border border-border rounded-xl space-y-2 animate-in fade-in">
-                  <div className="flex justify-between text-xs font-medium text-foreground">
-                    <span>{syncProgress.status}</span>
-                    <span>{syncProgress.percent}%</span>
-                  </div>
-                  <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-emerald-600 h-full transition-all duration-300" 
-                      style={{ width: `${syncProgress.percent}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Button 
-                  onClick={handleExportToSheets} 
-                  disabled={isSyncing}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 text-xs sm:text-sm font-semibold shadow-xs h-10"
-                >
-                  {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-                  Exportar / Sincronizar
-                </Button>
-
-                <Button 
-                  onClick={handleImportFromSheets} 
-                  disabled={isSyncing}
-                  variant="outline"
-                  className="border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 gap-2 text-xs sm:text-sm font-semibold h-10"
-                >
-                  {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
-                  Puxar do Google Sheets
-                </Button>
-
-                <Button 
-                  onClick={handleOpenClearModal} 
-                  disabled={isSyncing}
-                  variant="outline"
-                  className="border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 gap-2 text-xs sm:text-sm font-semibold h-10"
-                >
-                  {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                  Limpar Registos na Drive
-                </Button>
-              </div>
-
-              {/* Sync Stats Block */}
-              {syncStats && (
-                <div className="p-3.5 bg-card border border-border rounded-xl space-y-2 text-xs text-muted-foreground">
-                  <div className="flex items-center justify-between font-semibold text-foreground pb-1 border-b border-border/50">
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                      Última Sincronização Integral
-                    </span>
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      {new Date(syncStats.lastSyncedAt).toLocaleString('pt-PT')}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
-                    <div className="p-2 bg-muted/40 rounded-lg">
-                      <span className="text-muted-foreground block">Despesas:</span>
-                      <strong className="text-foreground text-sm">{syncStats.expensesCount}</strong>
-                    </div>
-                    <div className="p-2 bg-muted/40 rounded-lg">
-                      <span className="text-muted-foreground block">Receitas:</span>
-                      <strong className="text-foreground text-sm">{syncStats.incomesCount}</strong>
-                    </div>
-                    <div className="p-2 bg-muted/40 rounded-lg">
-                      <span className="text-muted-foreground block">Despesas Fixas:</span>
-                      <strong className="text-foreground text-sm">{syncStats.fixedExpensesCount}</strong>
-                    </div>
-                    <div className="p-2 bg-muted/40 rounded-lg">
-                      <span className="text-muted-foreground block">Receitas Fixas:</span>
-                      <strong className="text-foreground text-sm">{syncStats.fixedIncomesCount}</strong>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Recovery Zone */}
-              <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400">
-                  <Database className="w-4 h-4" />
-                  ZONA DE RECUPERAÇÃO DE DADOS ANTIGOS
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Se tem dados numa folha de cálculo antiga e deseja trazê-los para esta aplicação, cole o link ou ID da folha abaixo. 
-                  <strong className="text-rose-600 dark:text-rose-400 block mt-1">AVISO: Isto irá substituir os dados atuais do seu dispositivo pelos dados da folha escolhida.</strong>
-                </p>
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Input 
-                      placeholder="Cole o Link da Folha de Cálculo antiga aqui..." 
-                      value={recoveryUrl}
-                      onChange={(e) => setRecoveryUrl(e.target.value)}
-                      className="flex-1 h-9 text-xs rounded-lg"
-                      disabled={isRecovering || isAnalyzing}
-                    />
-                    <Button
-                      onClick={handleAnalyzeSpreadsheet}
-                      disabled={isRecovering || isAnalyzing || !recoveryUrl}
-                      variant="outline"
-                      className="border-slate-400 text-slate-700 dark:text-slate-300 hover:bg-slate-100 h-9 px-4 text-xs font-bold whitespace-nowrap"
-                    >
-                      {isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Search className="w-3.5 h-3.5 mr-1.5" />}
-                      Analisar Folha
-                    </Button>
-                  </div>
-
-                  {detectedSheets.length > 0 && (
-                    <div className="p-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg space-y-3 animate-in fade-in slide-in-from-top-2">
-                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-2">
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                          Abas Detetadas ({selectedSheets.length}/{detectedSheets.length})
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 text-[10px] px-2 hover:bg-slate-100"
-                          onClick={() => {
-                            if (selectedSheets.length === detectedSheets.length) setSelectedSheets([]);
-                            else setSelectedSheets([...detectedSheets]);
-                          }}
-                        >
-                          {selectedSheets.length === detectedSheets.length ? 'Desmarcar Todas' : 'Selecionar Todas'}
-                        </Button>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {detectedSheets.map(sheet => (
-                          <div 
-                            key={sheet} 
-                            onClick={() => {
-                              setSelectedSheets(prev => 
-                                prev.includes(sheet) ? prev.filter(s => s !== sheet) : [...prev, sheet]
-                              );
-                            }}
-                            className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
-                              selectedSheets.includes(sheet) 
-                                ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800' 
-                                : 'bg-slate-50/50 border-slate-100 dark:bg-slate-900/30 dark:border-slate-800 hover:bg-slate-100'
-                            }`}
-                          >
-                            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
-                              selectedSheets.includes(sheet) ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'
-                            }`}>
-                              {selectedSheets.includes(sheet) && <Check className="w-2.5 h-2.5 text-white" />}
-                            </div>
-                            <span className="text-[10px] font-medium truncate">{sheet}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="pt-2">
-                        <Button
-                          onClick={handleRecoverData}
-                          disabled={isRecovering || selectedSheets.length === 0}
-                          className="w-full bg-slate-800 hover:bg-slate-700 text-white h-9 text-xs font-bold shadow-sm"
-                        >
-                          {isRecovering ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                          ) : (
-                            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                          )}
-                          Confirmar Recuperação das {selectedSheets.length} Abas
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* New Step: Reparar / Recriar Abas */}
-        {accessToken && spreadsheetInfo && (
-          <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-50/20 dark:bg-amber-950/20 space-y-3.5">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Sliders className="w-4 h-4 text-amber-600 dark:text-amber-500" />
-                  <span>Reparar Abas da Google Drive</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Se apagou folhas (como "Patrimonio") ou ocorreram erros de estrutura, utilize esta opção para recriá-las e forçar cabeçalhos corretos.
-                </p>
-              </div>
-            </div>
-            <div className="pt-1">
-              <Button
-                onClick={handleForceRecreate}
-                disabled={isRecreating || isSyncing}
-                className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white gap-2 text-xs sm:text-sm font-semibold shadow-xs h-10 px-5"
-              >
-                {isRecreating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> A reconstruir...
-                  </>
-                ) : (
-                  <>
-                    <Database className="w-4 h-4" /> Forçar Recriação de Abas em Falta
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 4: Income Structure Reorganization (User Requested Command) */}
-        {accessToken && spreadsheetInfo && (
-          <div className="p-4 rounded-xl border border-emerald-500/40 bg-emerald-50/20 dark:bg-emerald-950/20 space-y-3.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-bold text-emerald-950 dark:text-emerald-100">
-                <FolderSync className="w-4 h-4 text-emerald-600" />
-                <span>4. Reorganização Estrutural de Receitas</span>
-              </div>
-              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/50 px-2.5 py-0.5 rounded-full">
-                Google Sheets & Local
-              </span>
-            </div>
-
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Executa a reestruturação completa pedida para separar receitas pontuais e receitas fixas registadas:
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-              <div className="p-2.5 bg-card border border-border rounded-lg space-y-1">
-                <div className="font-semibold text-foreground flex items-center gap-1 text-[11px]">
-                  <span className="w-2 h-2 rounded-full bg-rose-500" /> 1. Eliminar
-                </div>
-                <p className="text-[11px] text-muted-foreground">Remove a folha antiga <code>Receitas</code> do Sheets</p>
-              </div>
-
-              <div className="p-2.5 bg-card border border-border rounded-lg space-y-1">
-                <div className="font-semibold text-foreground flex items-center gap-1 text-[11px]">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> 2. Criar Novas Abas
-                </div>
-                <p className="text-[11px] text-muted-foreground">Cria <code>Receitas_Pontuais</code> e <code>Receitas_Fixas_Registadas</code></p>
-              </div>
-
-              <div className="p-2.5 bg-card border border-border rounded-lg space-y-1">
-                <div className="font-semibold text-foreground flex items-center gap-1 text-[11px]">
-                  <span className="w-2 h-2 rounded-full bg-blue-500" /> 3. Sincronizar Tudo
-                </div>
-                <p className="text-[11px] text-muted-foreground">Atualiza e reconcilia documentos </p>
-              </div>
-            </div>
-
-            {reorganizeResult && (
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-1 text-xs text-emerald-900 dark:text-emerald-200 animate-in fade-in">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" /> Reorganização Concluída com Sucesso!
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  • <strong>{reorganizeResult.incomesPunctualMigrated}</strong> receitas pontuais migradas para <code>Receitas_Pontuais</code><br />
-                  • <strong>{reorganizeResult.incomesFixedRegisteredMigrated}</strong> receitas fixas registadas migradas para <code>Receitas_Fixas_Registadas</code><br />
-                  • Folha antiga <code>Receitas</code> eliminada e Sincronizado.
-                </p>
-              </div>
-            )}
-
-            <div className="pt-1">
-              <Button
-                onClick={handleReorganizeIncomes}
-                disabled={isReorganizing || isSyncing}
-                className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white gap-2 text-xs sm:text-sm font-semibold shadow-xs h-10 px-5"
-              >
-                {isReorganizing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> A reorganizar e migrar dados...
-                  </>
-                ) : (
-                  <>
-                    <GitFork className="w-4 h-4" /> Reorganizar Receitas no Google Sheets e Local
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 5: Sync Audit Log Viewer (Phase 4) */}
-        {accessToken && (
-          <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <History className="w-4 h-4 text-primary" />
-                <span>Histórico & Auditoria de Sincronizações</span>
-                <span className="text-[11px] bg-secondary text-secondary-foreground px-2 py-0.2 rounded-full font-mono">
-                  {auditLogs.length}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {auditLogs.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      clearSyncAuditLogs();
-                      refreshAuditLogs();
-                    }}
-                    className="text-xs text-muted-foreground hover:text-rose-600 h-7 px-2"
-                  >
-                    <Trash2 className="w-3 h-3 mr-1" /> Limpar
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowLogs(!showLogs)}
-                  className="text-xs h-7 px-2.5"
-                >
-                  {showLogs ? 'Ocultar' : 'Ver Detalhes'}
-                </Button>
-              </div>
-            </div>
-
-            {showLogs && (
-              <div className="space-y-2 pt-2 border-t border-border/50 max-h-64 overflow-y-auto">
-                {auditLogs.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic py-2 text-center">
-                    Ainda não existem registos de auditoria gravados.
-                  </p>
-                ) : (
-                  auditLogs.map(log => (
-                    <div key={log.id} className="p-2.5 bg-card border border-border rounded-lg text-xs flex items-start justify-between gap-2">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded uppercase ${
-                            log.status === 'success' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
-                            log.status === 'queued' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
-                            'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                          }`}>
-                            {log.status === 'success' ? 'Sucesso' : log.status === 'queued' ? 'Na Fila' : 'Erro'}
-                          </span>
-                          <span className="font-semibold text-foreground capitalize">
-                            {log.action === 'auto_sync' ? 'Auto-Sync' :
-                             log.action === 'export' ? 'Exportação' :
-                             log.action === 'import' ? 'Importação' :
-                             log.action === 'offline_flushed' ? 'Recuperação Offline' : 'Formatação'}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground text-[11px]">{log.details}</p>
-                      </div>
-                      <span className="text-[10px] text-muted-foreground font-mono shrink-0">
-                        {new Date(log.timestamp).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-      </CardContent>
-
-      {/* Confirmation Modal for Clearing Google Drive Records */}
-      <Modal 
-        open={showClearModal} 
-        onClose={() => setShowClearModal(false)} 
-        title="Confirmar Limpeza na Google Drive"
-        maxWidth="md"
+      {/* Clear Modal */}
+      <Modal
+        open={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        title="Limpeza Total de Dados"
       >
         <div className="space-y-4">
-          <div className="flex items-start gap-3 p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 rounded-xl">
-            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
-            <div className="text-xs space-y-1.5">
-              <p className="font-bold text-sm text-foreground">Tem a certeza que deseja esvaziar todos os registos na Google Drive e na Aplicação?</p>
-              <p className="text-muted-foreground leading-relaxed">
-                Esta ação irá <strong className="text-rose-600 dark:text-rose-400">apagar permanentemente</strong> todas as linhas de dados em todas as abas do seu ficheiro no Google Drive (Despesas, Receitas_Pontuais, Receitas_Fixas_Registadas, Despesas_Fixas, Ativos, Veículos, Metas, etc.), esvaziando também a Google Drive e a aplicação para garantir a eliminação definitiva sem ressurreição de dados velhos.
-              </p>
-              <p className="text-muted-foreground font-medium">
-                Esta operação é irreversível.
+          <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-700 rounded-2xl flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-black uppercase">Ação Irreversível</p>
+              <p className="text-xs font-medium leading-relaxed">
+                Esta ação irá eliminar permanentemente todos os dados da sua folha de cálculo Google e da memória local da aplicação. 
+                Deseja mesmo continuar?
               </p>
             </div>
           </div>
-
-          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t border-border">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowClearModal(false)} 
-              className="w-full sm:w-auto"
-            >
-              Cancelar
-            </Button>
-
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              onClick={handleConfirmClearSpreadsheetData}
-              disabled={isSyncing}
-              className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white gap-2 font-semibold"
-            >
-              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              Sim, Apagar Registos na Drive
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowClearModal(false)}>Cancelar</Button>
+            <Button className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold" onClick={handleConfirmClearSpreadsheetData}>
+              Sim, Eliminar Tudo
             </Button>
           </div>
         </div>

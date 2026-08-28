@@ -1,44 +1,82 @@
 import React from 'react';
 import { Card, CardContent } from '../ui/card';
+import { Skeleton } from '../ui/skeleton';
 
 export function DashboardSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <div className="h-8 w-48 bg-muted rounded mb-2"></div>
-          <div className="h-4 w-64 bg-muted rounded"></div>
+    <div className="space-y-8">
+      {/* Header Skeleton */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-64" />
         </div>
-        <div className="h-10 w-32 bg-muted rounded"></div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-10 w-32 hidden sm:block" />
+        </div>
       </div>
 
+      {/* Summary Cards Skeleton */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[...Array(4)].map((_, i) => (
-          <Card key={i}>
+          <Card key={i} className="border-none shadow-sm bg-card/50">
             <CardContent className="p-6">
-              <div className="h-4 w-24 bg-muted rounded mb-4"></div>
-              <div className="h-8 w-32 bg-muted rounded mb-2"></div>
-              <div className="h-3 w-40 bg-muted rounded"></div>
+              <Skeleton className="h-4 w-24 mb-4" />
+              <Skeleton className="h-8 w-32 mb-2" />
+              <Skeleton className="h-3 w-40" />
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
-          <Card>
-            <CardContent className="p-6 h-[300px]"></CardContent>
+      {/* Bento Grid Skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Top Indicators */}
+        {[...Array(4)].map((_, i) => (
+          <Card key={`top-${i}`} className="h-32 border-none shadow-sm bg-card/50">
+            <CardContent className="p-6">
+              <Skeleton className="h-full w-full" />
+            </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-6 h-[250px]"></CardContent>
+        ))}
+
+        {/* Middle Bento Section */}
+        <div className="col-span-1 md:col-span-2 lg:col-span-3">
+          <Card className="h-[350px] border-none shadow-sm bg-card/50">
+            <CardContent className="p-6">
+              <Skeleton className="h-full w-full" />
+            </CardContent>
           </Card>
         </div>
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="p-6 h-[250px]"></CardContent>
+        <div className="col-span-1">
+          <Card className="h-[350px] border-none shadow-sm bg-card/50">
+            <CardContent className="p-6">
+              <Skeleton className="h-full w-full" />
+            </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-6 h-[300px]"></CardContent>
+        </div>
+
+        {/* Third Row */}
+        <div className="col-span-1">
+          <Card className="h-[300px] border-none shadow-sm bg-card/50">
+            <CardContent className="p-6">
+              <Skeleton className="h-full w-full" />
+            </CardContent>
+          </Card>
+        </div>
+        <div className="col-span-1 md:col-span-1 lg:col-span-2">
+          <Card className="h-[300px] border-none shadow-sm bg-card/50">
+            <CardContent className="p-6">
+              <Skeleton className="h-full w-full" />
+            </CardContent>
+          </Card>
+        </div>
+        <div className="col-span-1">
+          <Card className="h-[300px] border-none shadow-sm bg-card/50">
+            <CardContent className="p-6">
+              <Skeleton className="h-full w-full" />
+            </CardContent>
           </Card>
         </div>
       </div>

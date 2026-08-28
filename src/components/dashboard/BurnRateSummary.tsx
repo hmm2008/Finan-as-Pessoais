@@ -41,28 +41,32 @@ export function BurnRateSummary() {
   const alerta = despesasProjetadas > monthIncomes && monthIncomes > 0;
 
   return (
-    <Card className={`bg-card ${alerta ? 'border-destructive/50' : ''}`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Burn Rate (Diário)</CardTitle>
-        <Activity className={`h-4 w-4 ${alerta ? 'text-destructive' : 'text-muted-foreground'}`} />
+    <Card className={`border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-[2.5rem] h-full flex flex-col justify-between overflow-hidden group hover:bg-card/80 transition-all duration-300 ${alerta ? 'border-rose-500/50' : ''}`}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-8">
+        <CardTitle className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
+          Burn Rate (Diário)
+        </CardTitle>
+        <div className={`w-12 h-12 rounded-[1.25rem] bg-foreground/5 flex items-center justify-center ${alerta ? 'text-rose-500' : 'text-foreground'}`}>
+          <Activity className="h-6 w-6" />
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">
-          {maskValue(burnRateDiario, formatter.format)}<span className="text-sm font-normal text-muted-foreground">/dia</span>
+      <CardContent className="flex-1 flex flex-col justify-end p-8 pt-0">
+        <div className="text-4xl font-black text-foreground tracking-tighter">
+          {maskValue(burnRateDiario, formatter.format)}<span className="text-sm font-black text-muted-foreground/60">/dia</span>
         </div>
         
-        <div className="mt-2 flex items-center gap-2">
-          <div className="flex-1">
-            <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">
+        <div className="mt-8 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest mb-1">
               Despesa Projetada
             </p>
-            <p className={`text-sm font-semibold ${alerta ? 'text-destructive' : ''}`}>
+            <p className={`text-xl font-black tracking-tight ${alerta ? 'text-rose-500' : 'text-foreground'}`}>
               {maskValue(despesasProjetadas, formatter.format)}
             </p>
           </div>
           {alerta && (
-            <div className="bg-destructive/10 text-destructive p-2 rounded-md" title="O seu ritmo de consumo atual irá ultrapassar os seus rendimentos.">
-              <AlertTriangle className="h-4 w-4" />
+            <div className="w-12 h-12 rounded-[1.25rem] bg-rose-500/10 text-rose-500 flex items-center justify-center" title="O seu ritmo de consumo atual irá ultrapassar os seus rendimentos.">
+              <AlertTriangle className="h-6 w-6" />
             </div>
           )}
         </div>

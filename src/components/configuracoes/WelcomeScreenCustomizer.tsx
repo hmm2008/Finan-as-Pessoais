@@ -4,12 +4,14 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { usePreferences } from '../../contexts/PreferencesContext';
+import { usePreferences, TextStyle } from '../../contexts/PreferencesContext';
+import { TextStyleEditor } from './TextStyleEditor';
 import { 
   CheckCircle2, Monitor, Type, Layout, Plus, Trash2, 
   TrendingUp, Target, Car, Shield, Wallet, PiggyBank,
-  PieChart, Activity, Lock, Globe, Home
+  PieChart, Activity, Lock, Globe, Home, RotateCcw
 } from 'lucide-react';
+import { DEFAULT_PREFERENCES } from '../../contexts/PreferencesContext';
 
 const ICON_OPTIONS = [
   { value: 'TrendingUp', icon: TrendingUp },
@@ -39,12 +41,47 @@ export function WelcomeScreenCustomizer() {
   const [localSubtitle, setLocalSubtitle] = useState(welcome.subtitle);
   const [localFeatures, setLocalFeatures] = useState([...welcome.features]);
 
+  const [titleStyle, setTitleStyle] = useState<TextStyle>(prefs.customStyles?.welcomeScreen?.title || {});
+  const [subtitleStyle, setSubtitleStyle] = useState<TextStyle>(prefs.customStyles?.welcomeScreen?.subtitle || {});
+  const [featuresStyle, setFeaturesStyle] = useState<TextStyle>(prefs.customStyles?.welcomeScreen?.features || {});
+
+  const handleResetAll = () => {
+    const defaultWelcome = DEFAULT_PREFERENCES.welcomeScreen!;
+    const defaultStyles = DEFAULT_PREFERENCES.customStyles!.welcomeScreen!;
+
+    setLocalTitle(defaultWelcome.title);
+    setLocalSubtitle(defaultWelcome.subtitle);
+    setLocalFeatures([...defaultWelcome.features]);
+    setTitleStyle({...defaultStyles.title});
+    setSubtitleStyle({...defaultStyles.subtitle});
+    setFeaturesStyle({...defaultStyles.features});
+
+    updatePrefs({
+      welcomeScreen: defaultWelcome,
+      customStyles: {
+        ...prefs.customStyles,
+        welcomeScreen: defaultStyles
+      }
+    });
+    
+    setSuccess(true);
+    setTimeout(() => setSuccess(false), 3000);
+  };
+
   const handleSave = () => {
     updatePrefs({
       welcomeScreen: {
         title: localTitle,
         subtitle: localSubtitle,
         features: localFeatures
+      },
+      customStyles: {
+        ...prefs.customStyles,
+        welcomeScreen: {
+          title: titleStyle,
+          subtitle: subtitleStyle,
+          features: featuresStyle
+        }
       }
     });
     setSuccess(true);
@@ -77,20 +114,59 @@ export function WelcomeScreenCustomizer() {
             </CardTitle>
             <CardDescription>Configure os textos e destaques que aparecem antes do login</CardDescription>
           </div>
-          <Button 
-            size="sm" 
-            onClick={handleSave}
-            className="bg-primary hover:bg-primary/90"
-          >
-            {success ? (
-              <><CheckCircle2 className="w-4 h-4 mr-2" /> Guardado</>
-            ) : (
-              'Guardar Alterações'
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleResetAll}
+              className="text-muted-foreground hover:text-foreground text-xs h-9"
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Repor Padrões
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={handleSave}
+              className="bg-primary hover:bg-primary/90 h-9"
+            >
+              {success ? (
+                <><CheckCircle2 className="w-4 h-4 mr-2" /> Guardado</>
+              ) : (
+                'Guardar Alterações'
+              )}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-6 space-y-8">
+        {/* Typography Section */}
+        <div className="space-y-4 pt-2">
+          <h4 className="text-sm font-bold flex items-center gap-2 border-b border-border pb-2">
+            <Type className="w-4 h-4 text-primary" /> Estilo das Letras e Tipografia
+          </h4>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <TextStyleEditor 
+              label="Título de Boas-Vindas" 
+              style={titleStyle} 
+              onChange={setTitleStyle} 
+              onReset={() => setTitleStyle({})}
+            />
+            <TextStyleEditor 
+              label="Subtítulo / Descrição" 
+              style={subtitleStyle} 
+              onChange={setSubtitleStyle} 
+              onReset={() => setSubtitleStyle({})}
+            />
+            <TextStyleEditor 
+              label="Cartões de Funcionalidades" 
+              style={featuresStyle} 
+              onChange={setFeaturesStyle} 
+              onReset={() => setFeaturesStyle({})}
+            />
+          </div>
+        </div>
+
         {/* Main Text */}
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-4">

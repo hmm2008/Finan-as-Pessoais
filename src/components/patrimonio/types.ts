@@ -37,6 +37,8 @@ export interface PropertyExpense {
   category: 'Condomínio' | 'IMI' | 'Seguro Multirriscos' | 'Manutenção' | 'Outro';
   dayOfMonth?: number;
   dueDate?: string;
+  startDate?: string;
+  endDate?: string;
   fixedExpenseId?: string; // Link to FixedExpense
   notes?: string;
 }

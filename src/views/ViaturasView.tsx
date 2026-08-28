@@ -16,14 +16,23 @@ import {
   VehicleReminders, 
   SyncToCalendarModal 
 } from '../components/viaturas';
-import { Plus, Car, Calendar, Wrench, Fuel, Trash2, Edit, Calculator, Receipt, Gauge } from 'lucide-react';
+import { 
+  Plus, 
+  Car, 
+  Calendar, 
+  Wrench, 
+  Fuel, 
+  Trash2, 
+  Edit, 
+  Calculator, 
+  Gauge,
+  Sparkles,
+  ArrowRight
+} from 'lucide-react';
 import { usePrivacy } from '../contexts';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
 import { scheduleSheetsBackgroundSync } from '../lib/googleSheetsDataService';
-
-const INITIAL_VEHICLES: Vehicle[] = [];
-const INITIAL_TASKS: VehicleTask[] = [];
-const INITIAL_FUEL: FuelEntry[] = [];
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function ViaturasView() {
   const { maskValue } = usePrivacy();
@@ -188,12 +197,10 @@ export default function ViaturasView() {
         ? prev.map(item => item.id === t.id ? t : item)
         : [...prev, t];
 
-      // If task is completed and recurring with autoCreateNext, check if next task needs to be generated
       const isRecurring = t.recurring || (t.recurrenceInterval && t.recurrenceInterval !== 'none');
       if (t.status === 'concluída' && isRecurring && t.autoCreateNext !== false) {
         const targetNextDueDate = t.nextDueDate || calculateNextDueDate(t.completedDate || t.dueDate || new Date().toISOString().split('T')[0], t.recurrenceInterval || '12_months');
         
-        // Check if next cycle already exists
         const alreadyExists = updatedList.some(item => 
           item.vehicleId === t.vehicleId && 
           item.taskType === t.taskType && 
@@ -220,7 +227,7 @@ export default function ViaturasView() {
             nextCost: t.nextCost !== undefined ? t.nextCost : t.cost,
             autoCreateNext: true,
             parentTaskId: t.id,
-            notes: `Agendamento automático para o próximo ciclo (${interval === '12_months' ? 'Anual' : interval}).`
+            notes: `Agendamento automático para o próximo ciclo.`
           };
           updatedList = [...updatedList, nextTask];
         }
@@ -296,271 +303,331 @@ export default function ViaturasView() {
 
   const handleAddFuelEntry = (f: FuelEntry) => {
     setFuelEntries(prev => [f, ...prev]);
-    // Also update vehicle kilometers if higher
-    if (selectedVehicle && f.kilometers > selectedVehicle.kilometers) {
+    if (selectedVehicle && f.kilometers > (selectedVehicle.kilometers || 0)) {
       setVehicles(prev => prev.map(v => v.id === f.vehicleId ? { ...v, kilometers: f.kilometers } : v));
     }
   };
 
   const handleDeleteFuelEntry = (id: string) => {
     setFuelEntries(prev => prev.filter(f => f.id !== id));
-    // Check if task associated and delete if specified
     setTasks(prev => prev.filter(t => !(t.isFuelExpense && t.id === id)));
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="relative min-h-screen pb-20">
+      {/* Background Orbs */}
+      <div className="absolute top-0 right-0 -z-10 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[100px]" />
+      <div className="absolute bottom-40 left-0 -z-10 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px]" />
+
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
         <PageHeader 
-          title="Gestão de Viaturas" 
-          subtitle="Manutenções, inspeções, custos de combustível e alertas"
-        />
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={() => setIsSyncModalOpen(true)}>
-            <Calendar className="w-4 h-4 mr-2" /> Google Calendar
-          </Button>
-          <Button onClick={() => { setEditingVehicle(null); setIsVehicleFormOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" /> Nova Viatura
-          </Button>
-        </div>
-      </div>
-
-      {/* Dashboard Reminders Component */}
-      <VehicleReminders vehicles={vehicles} tasks={tasks} />
-
-      {/* Global Fleet Encargos Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-border bg-card shadow-sm rounded-2xl relative overflow-hidden">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Somatório dos Encargos</p>
-              <p className="text-2xl font-bold text-foreground">{maskValue(totalAllFleetCharges, formatter.format)}</p>
-              <p className="text-[11px] text-muted-foreground">
-                {vehicles.length} {vehicles.length === 1 ? 'viatura na frota' : 'viaturas na frota'}
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-              <Calculator className="w-6 h-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card shadow-sm rounded-2xl">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Combustível</p>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{maskValue(totalAllFuelCost, formatter.format)}</p>
-              <p className="text-[11px] text-muted-foreground">
-                {fuelEntries.length} {fuelEntries.length === 1 ? 'abastecimento' : 'abastecimentos'}
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-              <Fuel className="w-6 h-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card shadow-sm rounded-2xl">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Manutenções</p>
-              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{maskValue(totalAllMaintenanceCost, formatter.format)}</p>
-              <p className="text-[11px] text-muted-foreground">
-                {tasks.filter(t => t.status === 'concluída').length} {tasks.filter(t => t.status === 'concluída').length === 1 ? 'serviço concluído' : 'serviços concluídos'}
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
-              <Wrench className="w-6 h-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card shadow-sm rounded-2xl">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quilometragem Acumulada</p>
-              <p className="text-2xl font-bold text-foreground">{totalAllKm.toLocaleString('pt-PT')} km</p>
-              <p className="text-[11px] text-muted-foreground">
-                {vehicles.length > 0 ? `Média: ${Math.round(totalAllKm / vehicles.length).toLocaleString('pt-PT')} km/viatura` : 'Sem viaturas'}
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
-              <Gauge className="w-6 h-6" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Vehicles Cards List / Selector */}
-      {vehicles.length === 0 ? (
-        <Card className="border border-dashed border-border bg-card/50 p-8 text-center rounded-2xl">
-          <div className="flex flex-col items-center justify-center space-y-3">
-            <div className="p-3 bg-primary/10 text-primary rounded-full">
-              <Car className="w-8 h-8" />
-            </div>
-            <h3 className="font-semibold text-lg text-foreground">Nenhuma viatura registada</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Registe os seus veículos para gerir manutenções, inspeções, seguros e custos de combustível.
-            </p>
-            <Button onClick={() => { setEditingVehicle(null); setIsVehicleFormOpen(true); }} className="mt-2">
-              <Plus className="w-4 h-4 mr-2" /> Adicionar Viatura
+          title="Frota Automóvel" 
+          subtitle="Controlo total de manutenções, inspeções e consumos"
+        >
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsSyncModalOpen(true)}
+              className="hidden sm:flex h-11 px-6 rounded-2xl items-center gap-2 font-black uppercase tracking-widest text-[10px] border border-border/40 hover:bg-muted transition-all"
+            >
+              <Calendar className="w-4 h-4" /> Google Calendar
+            </Button>
+            <Button 
+              onClick={() => { setEditingVehicle(null); setIsVehicleFormOpen(true); }}
+              className="h-11 px-6 rounded-2xl items-center gap-2 bg-foreground text-background hover:bg-foreground/90 font-black uppercase tracking-widest text-[10px] shadow-2xl transition-all hover:scale-105 active:scale-95 flex"
+            >
+              <Plus className="w-4 h-4" /> Nova Viatura
             </Button>
           </div>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {vehicles.map(v => {
-            const isSelected = v.id === selectedVehicleId;
-            const vFuel = fuelEntries.filter(f => f.vehicleId === v.id).reduce((acc, c) => acc + (c.totalCost || 0), 0);
-            const vMaint = tasks.filter(t => t.vehicleId === v.id && t.status === 'concluída').reduce((acc, c) => acc + (c.cost || 0), 0);
-            const totalV = vFuel + vMaint;
+        </PageHeader>
+      </motion.div>
 
-            return (
-              <Card 
-                key={v.id} 
-                onClick={() => setSelectedVehicleId(v.id)}
-                className={`cursor-pointer transition-all border-2 ${
-                  isSelected ? 'border-primary ring-2 ring-primary/20 shadow-md' : 'border-border hover:border-primary/40'
-                }`}
-              >
-                <CardContent className="p-4 flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-lg bg-secondary overflow-hidden shrink-0 border border-border">
-                    <img 
-                      src={v.photoUrl || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=60'} 
-                      alt={v.brand} 
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=60';
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-base truncate">{v.brand} {v.model}</h3>
-                    </div>
-                    <p className="text-xs font-mono bg-secondary inline-block px-1.5 py-0.5 rounded font-semibold text-foreground mt-0.5">
-                      {v.plate}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
-                      <span>{(v.kilometers ?? 0).toLocaleString()} km</span>
-                      <span className="font-semibold text-foreground">{maskValue(totalV, formatter.format)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+      {/* Fleet Reminders */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.1 }}
+      >
+        <VehicleReminders vehicles={vehicles} tasks={tasks} />
+      </motion.div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-8">
+        {[
+          { label: 'Encargos Totais', value: totalAllFleetCharges, icon: Calculator, color: 'blue' },
+          { label: 'Total Combustível', value: totalAllFuelCost, icon: Fuel, color: 'amber' },
+          { label: 'Total Manutenções', value: totalAllMaintenanceCost, icon: Wrench, color: 'indigo' },
+          { label: 'KM Acumulados', value: totalAllKm, icon: Gauge, color: 'emerald', suffix: ' km' }
+        ].map((stat, idx) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 + idx * 0.1 }}
+          >
+            <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-3xl overflow-hidden group hover:bg-card/80 transition-all duration-300">
+               <div className={`h-1 w-full ${
+                 stat.color === 'blue' ? 'bg-blue-500' :
+                 stat.color === 'amber' ? 'bg-amber-500' :
+                 stat.color === 'indigo' ? 'bg-indigo-500' :
+                 'bg-emerald-500'
+               } opacity-40 group-hover:opacity-100 transition-opacity`} />
+               <CardContent className="p-6 flex items-center justify-between">
+                 <div className="space-y-1.5">
+                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-70">{stat.label}</p>
+                   <p className="text-2xl font-black text-foreground tracking-tighter">
+                     {stat.suffix ? `${stat.value.toLocaleString('pt-PT')}${stat.suffix}` : maskValue(stat.value, formatter.format)}
+                   </p>
+                 </div>
+                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-6 ${
+                   stat.color === 'blue' ? 'bg-blue-500/10 text-blue-600' :
+                   stat.color === 'amber' ? 'bg-amber-500/10 text-amber-500' :
+                   stat.color === 'indigo' ? 'bg-indigo-500/10 text-indigo-500' :
+                   'bg-emerald-500/10 text-emerald-500'
+                 }`}>
+                   <stat.icon className="w-6 h-6" />
+                 </div>
+               </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Fleet View / Selection */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-2 px-1">
+          <Sparkles className="w-4 h-4 text-amber-500" />
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">Frota Registada</h2>
         </div>
-      )}
 
-      {/* Main Selected Vehicle Details View */}
-      {selectedVehicle && (
-        <Card className="border-border shadow-sm">
-          <CardContent className="p-4 sm:p-6 space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-border pb-4 gap-4">
-              <div>
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                  <Car className="w-6 h-6 text-primary" />
-                  {selectedVehicle.brand} {selectedVehicle.model}
-                  <span className="text-sm font-mono font-semibold bg-secondary px-2.5 py-1 rounded">
-                    {selectedVehicle.plate}
-                  </span>
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {selectedVehicle.year} • {selectedVehicle.fuelType} • {(selectedVehicle.kilometers ?? 0).toLocaleString()} km
-                </p>
+        {vehicles.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="py-20 border-2 border-dashed border-border/40 bg-card/20 rounded-[2.5rem] flex flex-col items-center justify-center text-center px-6"
+          >
+             <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center mb-6 border border-amber-500/20">
+                <Car className="w-10 h-10 text-amber-600" />
+             </div>
+             <h3 className="text-xl font-black text-foreground tracking-tight">Frota Vazia</h3>
+             <p className="text-sm text-muted-foreground mt-2 max-w-sm">Adicione as suas viaturas para gerir custos, alertas de manutenção e consumos.</p>
+             <Button 
+                onClick={() => { setEditingVehicle(null); setIsVehicleFormOpen(true); }}
+                className="mt-8 rounded-2xl h-12 px-8 bg-amber-600 hover:bg-amber-700 font-black uppercase tracking-widest text-[10px]"
+             >
+                Registar Primeira Viatura
+             </Button>
+          </motion.div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <AnimatePresence mode="popLayout">
+              {vehicles.map((v) => {
+                const isSelected = v.id === selectedVehicleId;
+                return (
+                  <motion.div
+                    key={v.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileHover={{ y: -5 }}
+                    onClick={() => setSelectedVehicleId(v.id)}
+                    className="relative"
+                  >
+                    <Card className={`cursor-pointer overflow-hidden transition-all duration-500 rounded-[2rem] border-2 h-full flex flex-col ${
+                      isSelected 
+                        ? 'border-amber-500/50 bg-card/80 shadow-2xl shadow-amber-500/10' 
+                        : 'border-border/40 bg-card/40 hover:border-amber-500/20'
+                    }`}>
+                      <div className="h-28 overflow-hidden relative">
+                         <img 
+                            src={v.photoUrl || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=60'} 
+                            alt={v.brand} 
+                            className={`w-full h-full object-cover transition-transform duration-700 ${isSelected ? 'scale-110' : 'group-hover:scale-105'}`}
+                         />
+                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                         <div className="absolute bottom-3 left-4">
+                            <p className="text-[9px] font-black text-white/70 uppercase tracking-widest mb-1">{v.brand}</p>
+                            <h4 className="text-sm font-black text-white uppercase tracking-tight">{v.model}</h4>
+                         </div>
+                         {isSelected && (
+                           <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
+                              <ArrowRight className="w-3.5 h-3.5 text-white" />
+                           </div>
+                         )}
+                      </div>
+                      <CardContent className="p-5 flex-1 flex flex-col justify-between">
+                         <div className="flex items-center justify-between mb-4">
+                            <span className="text-[10px] font-mono font-bold bg-muted/60 px-2 py-1 rounded-lg border border-border/20">
+                              {v.plate}
+                            </span>
+                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-tighter">
+                              {(v.kilometers || 0).toLocaleString()} km
+                            </span>
+                         </div>
+                         <div className="pt-3 border-t border-border/10 flex items-center justify-between">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Encargos Totais</span>
+                            <span className="text-sm font-black text-foreground tracking-tighter">
+                               {maskValue(
+                                 (fuelEntries.filter(f => f.vehicleId === v.id).reduce((acc, c) => acc + (c.totalCost || 0), 0)) +
+                                 (tasks.filter(t => t.vehicleId === v.id && t.status === 'concluída').reduce((acc, c) => acc + (c.cost || 0), 0)),
+                                 formatter.format
+                               )}
+                            </span>
+                         </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        )}
+      </section>
+
+      {/* Detailed Vehicle Panel */}
+      <AnimatePresence mode="wait">
+        {selectedVehicle && (
+          <motion.div
+            key={selectedVehicle.id}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="mt-12"
+          >
+            <Card className="rounded-[2.5rem] border-border/40 bg-card/60 backdrop-blur-xl shadow-3xl overflow-hidden border">
+              <div className="bg-amber-600/10 p-8 sm:p-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                 <div className="flex items-center gap-6">
+                    <div className="w-20 h-20 rounded-3xl overflow-hidden border-4 border-white shadow-xl rotate-[-3deg] hover:rotate-0 transition-transform duration-500">
+                       <img 
+                          src={selectedVehicle.photoUrl || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=60'} 
+                          alt={selectedVehicle.brand} 
+                          className="w-full h-full object-cover"
+                       />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3 mb-1.5">
+                        <h2 className="text-3xl font-black tracking-tighter text-foreground uppercase">
+                          {selectedVehicle.brand} {selectedVehicle.model}
+                        </h2>
+                        <span className="text-[11px] font-mono font-black bg-foreground text-background px-3 py-1 rounded-xl shadow-sm">
+                          {selectedVehicle.plate}
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em] flex items-center gap-2">
+                        {selectedVehicle.year} <span className="w-1 h-1 rounded-full bg-border" /> 
+                        {selectedVehicle.fuelType} <span className="w-1 h-1 rounded-full bg-border" /> 
+                        {(selectedVehicle.kilometers || 0).toLocaleString()} km
+                      </p>
+                    </div>
+                 </div>
+
+                 <div className="flex gap-2 w-full sm:w-auto">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => { setEditingVehicle(selectedVehicle); setIsVehicleFormOpen(true); }}
+                      className="flex-1 sm:flex-none h-12 px-6 rounded-2xl font-black uppercase tracking-widest text-[10px] border border-border/40 hover:bg-muted"
+                    >
+                      <Edit className="w-4 h-4 mr-2" /> Editar
+                    </Button>
+                    <Button 
+                      variant="ghost"
+                      onClick={() => {
+                        setDeleteTarget({
+                          type: 'vehicle',
+                          id: selectedVehicle.id,
+                          label: `${selectedVehicle.brand} ${selectedVehicle.model} (${selectedVehicle.plate})`,
+                          entityName: 'Veículos',
+                          data: selectedVehicle
+                        });
+                      }}
+                      className="flex-1 sm:flex-none h-12 w-12 rounded-2xl text-rose-500 hover:bg-rose-500/10 border border-rose-500/10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setEditingVehicle(selectedVehicle); setIsVehicleFormOpen(true); }}>
-                  <Edit className="w-4 h-4 mr-1" /> Editar
-                </Button>
-                <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => {
-                  if (selectedVehicle) {
-                    setDeleteTarget({
-                      type: 'vehicle',
-                      id: selectedVehicle.id,
-                      label: `Viatura "${selectedVehicle.brand} ${selectedVehicle.model}" (${selectedVehicle.plate})`,
-                      entityName: 'Veículos',
-                      data: selectedVehicle
-                    });
-                  }
-                }}>
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+              <CardContent className="p-0">
+                <Tabs defaultValue="perfil" className="w-full">
+                  <div className="px-8 sm:px-10 border-b border-border/10">
+                    <TabsList className="h-16 bg-transparent gap-8">
+                      <TabsTrigger value="perfil" className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 data-[state=active]:bg-transparent font-black uppercase tracking-widest text-[10px] text-muted-foreground data-[state=active]:text-foreground transition-all px-0">
+                        Perfil Geral
+                      </TabsTrigger>
+                      <TabsTrigger value="tarefas" className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 data-[state=active]:bg-transparent font-black uppercase tracking-widest text-[10px] text-muted-foreground data-[state=active]:text-foreground transition-all px-0">
+                        Manutenções & Tarefas ({selectedVehicleTasks.length})
+                      </TabsTrigger>
+                      <TabsTrigger value="combustivel" className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 data-[state=active]:bg-transparent font-black uppercase tracking-widest text-[10px] text-muted-foreground data-[state=active]:text-foreground transition-all px-0">
+                        Histórico Combustível ({selectedVehicleFuel.length})
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
 
-            {/* Vehicle Tabs */}
-            <Tabs defaultValue="perfil" className="w-full">
-              <TabsList className="grid grid-cols-3 max-w-md mb-6">
-                <TabsTrigger value="perfil" className="flex items-center gap-1.5">
-                  <Car className="w-4 h-4" /> Perfil
-                </TabsTrigger>
-                <TabsTrigger value="tarefas" className="flex items-center gap-1.5">
-                  <Wrench className="w-4 h-4" /> Tarefas ({selectedVehicleTasks.length})
-                </TabsTrigger>
-                <TabsTrigger value="combustivel" className="flex items-center gap-1.5">
-                  <Fuel className="w-4 h-4" /> Combustível ({selectedVehicleFuel.length})
-                </TabsTrigger>
-              </TabsList>
+                  <div className="p-8 sm:p-10">
+                    <TabsContent value="perfil" className="mt-0">
+                      <VehicleProfile 
+                        vehicle={selectedVehicle}
+                        onEdit={() => { setEditingVehicle(selectedVehicle); setIsVehicleFormOpen(true); }}
+                        totalMaintenanceCost={totalMaintenanceCost}
+                        totalFuelCost={totalFuelCost}
+                        costPerKm={costPerKm}
+                      />
+                    </TabsContent>
 
-              <TabsContent value="perfil">
-                <VehicleProfile 
-                  vehicle={selectedVehicle}
-                  onEdit={() => { setEditingVehicle(selectedVehicle); setIsVehicleFormOpen(true); }}
-                  totalMaintenanceCost={totalMaintenanceCost}
-                  totalFuelCost={totalFuelCost}
-                  costPerKm={costPerKm}
-                />
-              </TabsContent>
+                    <TabsContent value="tarefas" className="mt-0">
+                      <VehicleTasks 
+                        vehicleId={selectedVehicle.id}
+                        tasks={tasks}
+                        onAddTask={() => { setEditingTask(null); setIsTaskFormOpen(true); }}
+                        onEditTask={(task) => { setEditingTask(task); setIsTaskFormOpen(true); }}
+                        onDeleteTask={(taskId) => {
+                          const task = tasks.find(t => t.id === taskId);
+                          if (task) {
+                            setDeleteTarget({
+                              type: 'task',
+                              id: task.id,
+                              label: `Tarefa "${task.title}"`,
+                              entityName: 'Tarefas de Veículo',
+                              data: task
+                            });
+                          }
+                        }}
+                        onToggleStatus={handleToggleTaskStatus}
+                      />
+                    </TabsContent>
 
-              <TabsContent value="tarefas">
-                <VehicleTasks 
-                  vehicleId={selectedVehicle.id}
-                  tasks={tasks}
-                  onAddTask={() => { setEditingTask(null); setIsTaskFormOpen(true); }}
-                  onEditTask={(task) => { setEditingTask(task); setIsTaskFormOpen(true); }}
-                  onDeleteTask={(taskId) => {
-                    const task = tasks.find(t => t.id === taskId);
-                    if (task) {
-                      setDeleteTarget({
-                        type: 'task',
-                        id: task.id,
-                        label: `Tarefa "${task.title}"${task.cost > 0 ? ` (${formatter.format(task.cost)})` : ''}`,
-                        entityName: 'Tarefas de Veículo',
-                        data: task
-                      });
-                    }
-                  }}
-                  onToggleStatus={handleToggleTaskStatus}
-                />
-              </TabsContent>
-
-              <TabsContent value="combustivel">
-                <VehicleFuelHistory 
-                  vehicleId={selectedVehicle.id}
-                  vehicleKm={selectedVehicle.kilometers}
-                  fuelEntries={selectedVehicleFuel}
-                  onAddFuelEntry={handleAddFuelEntry}
-                  onDeleteFuelEntry={(fuelId) => {
-                    const fuel = fuelEntries.find(f => f.id === fuelId);
-                    if (fuel) {
-                      setDeleteTarget({
-                        type: 'fuel',
-                        id: fuel.id,
-                        label: `Abastecimento de ${fuel.liters}L (${formatter.format(fuel.totalCost)}) em ${fuel.date}`,
-                        entityName: 'Abastecimentos',
-                        data: fuel
-                      });
-                    }
-                  }}
-                />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      )}
+                    <TabsContent value="combustivel" className="mt-0">
+                      <VehicleFuelHistory 
+                        vehicleId={selectedVehicle.id}
+                        vehicleKm={selectedVehicle.kilometers}
+                        fuelEntries={selectedVehicleFuel}
+                        onAddFuelEntry={handleAddFuelEntry}
+                        onDeleteFuelEntry={(fuelId) => {
+                          const fuel = fuelEntries.find(f => f.id === fuelId);
+                          if (fuel) {
+                            setDeleteTarget({
+                              type: 'fuel',
+                              id: fuel.id,
+                              label: `Abastecimento de ${fuel.liters}L em ${fuel.date}`,
+                              entityName: 'Abastecimentos',
+                              data: fuel
+                            });
+                          }
+                        }}
+                      />
+                    </TabsContent>
+                  </div>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modals */}
       <VehicleForm 

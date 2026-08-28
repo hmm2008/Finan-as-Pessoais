@@ -1,13 +1,25 @@
 import React, { useState, useMemo } from 'react';
 import { PageHeader } from '../components/layout';
 import { Card, CardContent } from '../components/ui/card';
-import { ExpenseRow, IncomeRow, FinancasCharts, ComparativeAnalysis, ExpenseForm, IncomeForm, CSVImportModal, ExportPDFModal } from '../components/financas';
+import { 
+  ExpenseRow, 
+  IncomeRow, 
+  FinancasCharts, 
+  ComparativeAnalysis, 
+  ExpenseForm, 
+  IncomeForm, 
+  CSVImportModal, 
+  ExportPDFModal, 
+  FinancasSummaryCards,
+  FinancasNavigation,
+  FinancasBulkActions,
+  FinancasTabContent
+} from '../components/financas';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { usePrivacy, useDashboard } from '../contexts';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Search, Info, Plus, Upload, FileText, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Wallet, ArrowDownRight, ArrowUpRight, CheckSquare, Square, Trash2 } from 'lucide-react';
+import { Search, Info, Plus, Upload, FileText, Wallet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useExpenses, useIncomes, useFixedExpenses, useFixedIncomes } from '../hooks/queries';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
@@ -367,14 +379,7 @@ export default function FinancasView() {
   return (
     <div className="space-y-6 pb-12">
       {/* Header & Actions */}
-      <div className="flex flex-col lg:flex-row justify-between items-start gap-4 lg:gap-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">{pageTitle}</h1>
-          {pageSubtitle && (
-            <p className="text-muted-foreground mt-1 text-sm">{pageSubtitle}</p>
-          )}
-        </div>
-        
+      <PageHeader title={pageTitle} subtitle={pageSubtitle}>
         {/* Buttons Stack */}
         <div className="flex flex-col items-start gap-2.5 w-full lg:w-auto">
           {/* Row 1: Primary Action Buttons */}
@@ -397,53 +402,14 @@ export default function FinancasView() {
             </Button>
           </div>
         </div>
-      </div>
+      </PageHeader>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-        <Card className="shadow-sm border-border">
-          <CardContent className="p-3 sm:p-5">
-            <p className="text-[10px] sm:text-sm text-muted-foreground mb-0.5 sm:mb-1">Receitas Fixas</p>
-            <p className="text-lg sm:text-2xl font-bold text-emerald-500 truncate">{maskValue(summary.receitasFixas, formatter.format)}</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm border-border bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/30">
-          <CardContent className="p-3 sm:p-5">
-            <p className="text-[10px] sm:text-sm text-muted-foreground mb-0.5 sm:mb-1">Receitas Pontuais</p>
-            <p className="text-lg sm:text-2xl font-bold text-emerald-500 truncate">{maskValue(summary.receitasPontuais, formatter.format)}</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm border-border">
-          <CardContent className="p-3 sm:p-5">
-            <p className="text-[10px] sm:text-sm text-muted-foreground mb-0.5 sm:mb-1">Total Receitas</p>
-            <p className="text-lg sm:text-2xl font-bold text-emerald-500 truncate">{maskValue(summary.totalReceitas, formatter.format)}</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm border-border">
-          <CardContent className="p-3 sm:p-5">
-            <p className="text-[10px] sm:text-sm text-muted-foreground mb-0.5 sm:mb-1">Despesas registadas</p>
-            <p className="text-lg sm:text-2xl font-bold text-destructive truncate">{maskValue(summary.despesasRegistadas, formatter.format)}</p>
-            <p className="text-[9px] sm:text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
-              <span className="shrink-0">Pontuais:</span>
-              <span className="font-semibold text-rose-600/80 dark:text-rose-400/80 truncate">
-                {maskValue(summary.despesasPontuais, formatter.format)}
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm border-border bg-rose-50/40 dark:bg-rose-950/10 border-rose-100/60 dark:border-rose-900/20">
-          <CardContent className="p-3 sm:p-5">
-            <p className="text-[10px] sm:text-sm text-muted-foreground mb-0.5 sm:mb-1">Total Despesas Fixas</p>
-            <p className="text-lg sm:text-2xl font-bold text-destructive truncate">{maskValue(summary.despesasFixas, formatter.format)}</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm border-border">
-          <CardContent className="p-3 sm:p-5">
-            <p className="text-[10px] sm:text-sm text-muted-foreground mb-0.5 sm:mb-1">Saldo</p>
-            <p className={`text-lg sm:text-2xl font-bold truncate ${summary.saldo >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>{maskValue(summary.saldo, formatter.format)}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <FinancasSummaryCards 
+        summary={summary} 
+        maskValue={maskValue} 
+        formatter={formatter} 
+      />
 
       {/* Tabs */}
       <Tabs 
@@ -463,395 +429,134 @@ export default function FinancasView() {
         </TabsList>
         
         {/* Compact Navigation & Filter Bar */}
-        <Card className="shadow-xs mb-4 border-border bg-card">
-          <CardContent className="p-2.5 sm:p-3 space-y-2.5">
-            {/* Top Row: Period Selector + Month/Year Navigation + Quick Months */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-2">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:gap-2 w-full sm:w-auto">
-                <div className="flex items-center bg-secondary/70 p-0.5 rounded-lg border border-border/40 shrink-0">
-                  <button 
-                    type="button"
-                    onClick={() => setPeriod('Mensal')}
-                    className={`px-2 py-1 text-[10px] sm:text-xs font-semibold rounded-md transition-colors ${period === 'Mensal' ? 'bg-background shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    Mensal
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setPeriod('Anual')}
-                    className={`px-2 py-1 text-[10px] sm:text-xs font-semibold rounded-md transition-colors ${period === 'Anual' ? 'bg-background shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    Anual
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1 bg-secondary/40 px-1.5 py-0.5 rounded-lg border border-border/50 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-5 w-5 sm:h-6 sm:w-6 rounded-full" onClick={prevMonth}>
-                    <ChevronLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  </Button>
-                  <span className="text-[10px] sm:text-sm font-semibold min-w-[80px] sm:min-w-[105px] text-center">
-                    {period === 'Anual' ? year : capitalizedMonthYear}
-                  </span>
-                  <Button variant="ghost" size="icon" className="h-5 w-5 sm:h-6 sm:w-6 rounded-full" onClick={nextMonth}>
-                    <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  </Button>
-                </div>
-
-                {/* Datepicker Dropdown moved here for better mobile flow */}
-                <div className="relative shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setDatePickerOpen(!datePickerOpen)}
-                    className="flex items-center gap-1.5 h-6 sm:h-7 px-2 text-[10px] sm:text-xs bg-secondary/30 rounded-lg hover:bg-secondary/60 transition-colors border border-border"
-                  >
-                    <CalendarIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
-                    <span className="font-medium">{period === 'Anual' ? year.toString() : monthNameYear.toLowerCase()}</span>
-                  </button>
-
-                  {datePickerOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setDatePickerOpen(false)} />
-                      <div className="absolute right-0 sm:left-0 top-full mt-1.5 w-64 rounded-xl border border-border bg-card shadow-lg p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
-                        {/* ... datepicker content ... */}
-                        <div className="flex items-center justify-between mb-2">
-                          <Button 
-                            variant="ghost" size="icon" className="h-7 w-7" 
-                            onClick={() => {
-                              const newDate = new Date(year - 1, month - 1, 1);
-                              setMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
-                            }}
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                          </Button>
-                          <span className="font-bold text-sm">{year}</span>
-                          <Button 
-                            variant="ghost" size="icon" className="h-7 w-7" 
-                            onClick={() => {
-                              const newDate = new Date(year + 1, month - 1, 1);
-                              setMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
-                            }}
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </Button>
-                        </div>
-
-                        {period !== 'Anual' && (
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {Array.from({ length: 12 }).map((_, i) => {
-                              const d = new Date(year, i, 1);
-                              const mStr = d.toLocaleString('pt-PT', { month: 'short' }).replace('.', '');
-                              const mLabel = mStr.charAt(0).toUpperCase() + mStr.slice(1);
-                              const fullVal = `${year}-${String(i + 1).padStart(2, '0')}`;
-                              const isCurrent = current === fullVal;
-
-                              return (
-                                <button
-                                  key={i}
-                                  type="button"
-                                  onClick={() => {
-                                    setMonth(fullVal);
-                                    setDatePickerOpen(false);
-                                  }}
-                                  className={`py-1 text-xs font-medium rounded-md transition-colors ${
-                                    isCurrent ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
-                                  }`}
-                                >
-                                  {mLabel}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {period === 'Anual' && (
-                          <div className="text-center text-xs text-muted-foreground py-2">
-                            Ano: {year}. Use as setas para mudar.
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Month Pills */}
-              <div className="flex items-center gap-1 overflow-x-auto max-w-full py-0.5 scrollbar-none sm:scrollbar-thin justify-start sm:justify-end w-full sm:w-auto px-1 sm:px-0">
-                {dynamicMonths.map(m => {
-                  const isActive = period === 'Anual' 
-                    ? m.value.startsWith(year.toString()) 
-                    : current === m.value;
-                  return (
-                    <button 
-                      key={m.value} 
-                      type="button"
-                      onClick={() => setMonth(m.value)}
-                      className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-xs rounded-md whitespace-nowrap transition-colors font-medium ${
-                        isActive 
-                          ? 'bg-primary text-primary-foreground shadow-xs' 
-                          : 'bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Bottom Row: Search and Category Filter */}
-            <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 border-t border-border/40">
-              <div className="relative flex-1 w-full">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <Input 
-                  placeholder="Pesquisar por descrição, entidade, categoria ou método de pagamento..." 
-                  className="pl-8 h-8 text-xs bg-background shadow-none rounded-lg border-border"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-
-              <select 
-                className="w-full sm:w-56 h-8 px-2.5 rounded-lg border border-border bg-background text-xs outline-none focus:ring-1 focus:ring-primary/30"
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-              >
-                <option value="Todas as categorias">Todas as categorias</option>
-                {availableCategories.map((c: string) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </CardContent>
-        </Card>
+        <FinancasNavigation 
+          period={period}
+          setPeriod={setPeriod}
+          prevMonth={prevMonth}
+          nextMonth={nextMonth}
+          capitalizedMonthYear={capitalizedMonthYear}
+          year={year}
+          current={current}
+          setMonth={setMonth}
+          datePickerOpen={datePickerOpen}
+          setDatePickerOpen={setDatePickerOpen}
+          dynamicMonths={dynamicMonths}
+          search={search}
+          setSearch={setSearch}
+          filterCategory={filterCategory}
+          setFilterCategory={setFilterCategory}
+          availableCategories={availableCategories}
+          monthNameYear={monthNameYear}
+        />
 
         {/* Tab Content: Despesas Registadas */}
-        <TabsContent value="despesas" className="mt-0 outline-none space-y-3">
-          {filteredRegisteredExpenses.length > 0 && (
-            <div className="flex items-center justify-between bg-card p-2.5 px-3 rounded-lg border border-border shadow-xs text-xs">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleSelectAllExpenses}
-                className="h-8 gap-2 font-medium"
-              >
-                {allExpensesSelected ? (
-                  <>
-                    <CheckSquare className="w-4 h-4 text-primary" />
-                    <span>Desseleccionar Todas</span>
-                  </>
-                ) : (
-                  <>
-                    <Square className="w-4 h-4 text-muted-foreground" />
-                    <span>Seleccionar Todas ({filteredRegisteredExpenses.length})</span>
-                  </>
-                )}
-              </Button>
-
-              {selectedExpenseIds.length > 0 && (
-                <div className="flex items-center gap-2 animate-in fade-in duration-150">
-                  <span className="text-muted-foreground font-medium">
-                    {selectedExpenseIds.length} {selectedExpenseIds.length === 1 ? 'seleccionada' : 'seleccionadas'}
-                  </span>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-8 gap-1.5"
-                    onClick={() => {
-                      const items = expenses.filter((e: any) => selectedExpenseIds.includes(e.id));
-                      setBulkToDelete({
-                        type: 'expense',
-                        ids: selectedExpenseIds,
-                        items: items.length > 0 ? items : selectedExpenseIds.map(id => ({ id }))
-                      });
-                    }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Eliminar Selección</span>
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="max-h-[500px] overflow-y-auto pr-1.5 space-y-3">
-            {filteredRegisteredExpenses.length > 0 ? (
-              <ExpenseRow 
-                expenses={filteredRegisteredExpenses} 
-                selectedIds={selectedExpenseIds}
-                onToggleSelect={toggleSelectExpense}
-                onDelete={(id) => {
-                  const expItem = expenses.find((e: any) => e.id === id);
-                  setItemToDelete({ 
-                    id, 
-                    type: 'expense', 
-                    item: expItem || { id } 
-                  });
-                }} 
-                onEdit={(e: any) => {
-                  setEditingExpense(e);
-                  setExpenseModalOpen(true);
-                }}
-              />
-            ) : (
-              <Card className="shadow-sm border-border border-dashed h-40 flex flex-col items-center justify-center text-muted-foreground">
-                <ArrowDownRight className="w-8 h-8 mb-2 opacity-20" />
-                <p className="text-sm">Sem despesas registadas encontradas</p>
-              </Card>
-            )}
-          </div>
+        <TabsContent value="despesas" className="mt-0 outline-none">
+          <FinancasTabContent
+            type="expense"
+            filteredItems={filteredRegisteredExpenses}
+            selectedIds={selectedExpenseIds}
+            onToggleSelectAll={toggleSelectAllExpenses}
+            onDeleteBulk={() => {
+              const items = expenses.filter((e: any) => selectedExpenseIds.includes(e.id));
+              setBulkToDelete({
+                type: 'expense',
+                ids: selectedExpenseIds,
+                items: items.length > 0 ? items : selectedExpenseIds.map(id => ({ id }))
+              });
+            }}
+          >
+            <ExpenseRow 
+              expenses={filteredRegisteredExpenses} 
+              selectedIds={selectedExpenseIds}
+              onToggleSelect={toggleSelectExpense}
+              onDelete={(id) => {
+                const expItem = expenses.find((e: any) => e.id === id);
+                setItemToDelete({ 
+                  id, 
+                  type: 'expense', 
+                  item: expItem || { id } 
+                });
+              }} 
+              onEdit={(e: any) => {
+                setEditingExpense(e);
+                setExpenseModalOpen(true);
+              }}
+            />
+          </FinancasTabContent>
         </TabsContent>
 
         {/* Tab Content: Despesas Fixas */}
-        <TabsContent value="despesas-fixas" className="mt-0 outline-none space-y-3">
-          {filteredFixedExpenses.length > 0 && (
-            <div className="flex items-center justify-between bg-card p-2.5 px-3 rounded-lg border border-border shadow-xs text-xs">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleSelectAllFixedExpenses}
-                className="h-8 gap-2 font-medium"
-              >
-                {allFixedExpensesSelected ? (
-                  <>
-                    <CheckSquare className="w-4 h-4 text-primary" />
-                    <span>Desseleccionar Todas</span>
-                  </>
-                ) : (
-                  <>
-                    <Square className="w-4 h-4 text-muted-foreground" />
-                    <span>Seleccionar Todas ({filteredFixedExpenses.length})</span>
-                  </>
-                )}
-              </Button>
-
-              {selectedFixedExpenseIds.length > 0 && (
-                <div className="flex items-center gap-2 animate-in fade-in duration-150">
-                  <span className="text-muted-foreground font-medium">
-                    {selectedFixedExpenseIds.length} {selectedFixedExpenseIds.length === 1 ? 'seleccionada' : 'seleccionadas'}
-                  </span>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-8 gap-1.5"
-                    onClick={() => {
-                      const items = filteredFixedExpenses.filter((fe: any) => selectedFixedExpenseIds.includes(fe.id));
-                      setBulkToDelete({
-                        type: 'fixed_expense',
-                        ids: selectedFixedExpenseIds,
-                        items: items.length > 0 ? items : selectedFixedExpenseIds.map(id => ({ id }))
-                      });
-                    }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Eliminar Selección</span>
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="max-h-[500px] overflow-y-auto pr-1.5 space-y-3">
-            {filteredFixedExpenses.length > 0 ? (
-              <ExpenseRow 
-                expenses={filteredFixedExpenses} 
-                selectedIds={selectedFixedExpenseIds}
-                onToggleSelect={toggleSelectFixedExpense}
-                onDelete={(id) => {
-                  const expItem = expenses.find((e: any) => e.id === id);
-                  const fixedItem = fixedExpenses.find((fe: any) => fe.id === id);
-                  setItemToDelete({ 
-                    id, 
-                    type: fixedItem ? 'fixed_expense' : 'expense', 
-                    item: fixedItem || expItem || { id } 
-                  });
-                }} 
-                onEdit={(e: any) => {
-                  setEditingExpense(e.originalFixedData || e);
-                  setExpenseModalOpen(true);
-                }}
-              />
-            ) : (
-              <Card className="shadow-sm border-border border-dashed h-40 flex flex-col items-center justify-center text-muted-foreground">
-                <ArrowDownRight className="w-8 h-8 mb-2 opacity-20 text-rose-500" />
-                <p className="text-sm">Sem despesas fixas encontradas</p>
-              </Card>
-            )}
-          </div>
+        <TabsContent value="despesas-fixas" className="mt-0 outline-none">
+          <FinancasTabContent
+            type="fixed_expense"
+            filteredItems={filteredFixedExpenses}
+            selectedIds={selectedFixedExpenseIds}
+            onToggleSelectAll={toggleSelectAllFixedExpenses}
+            onDeleteBulk={() => {
+              const items = filteredFixedExpenses.filter((fe: any) => selectedFixedExpenseIds.includes(fe.id));
+              setBulkToDelete({
+                type: 'fixed_expense',
+                ids: selectedFixedExpenseIds,
+                items: items.length > 0 ? items : selectedFixedExpenseIds.map(id => ({ id }))
+              });
+            }}
+          >
+            <ExpenseRow 
+              expenses={filteredFixedExpenses} 
+              selectedIds={selectedFixedExpenseIds}
+              onToggleSelect={toggleSelectFixedExpense}
+              onDelete={(id) => {
+                const expItem = expenses.find((e: any) => e.id === id);
+                const fixedItem = fixedExpenses.find((fe: any) => fe.id === id);
+                setItemToDelete({ 
+                  id, 
+                  type: fixedItem ? 'fixed_expense' : 'expense', 
+                  item: fixedItem || expItem || { id } 
+                });
+              }} 
+              onEdit={(e: any) => {
+                setEditingExpense(e.originalFixedData || e);
+                setExpenseModalOpen(true);
+              }}
+            />
+          </FinancasTabContent>
         </TabsContent>
 
         {/* Tab Content: Receitas */}
-        <TabsContent value="receitas" className="mt-0 outline-none space-y-3">
-          {filteredIncomes.length > 0 && (
-            <div className="flex items-center justify-between bg-card p-2.5 px-3 rounded-lg border border-border shadow-xs text-xs">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleSelectAllIncomes}
-                className="h-8 gap-2 font-medium"
-              >
-                {allIncomesSelected ? (
-                  <>
-                    <CheckSquare className="w-4 h-4 text-primary" />
-                    <span>Desseleccionar Todas</span>
-                  </>
-                ) : (
-                  <>
-                    <Square className="w-4 h-4 text-muted-foreground" />
-                    <span>Seleccionar Todas ({filteredIncomes.length})</span>
-                  </>
-                )}
-              </Button>
-
-              {selectedIncomeIds.length > 0 && (
-                <div className="flex items-center gap-2 animate-in fade-in duration-150">
-                  <span className="text-muted-foreground font-medium">
-                    {selectedIncomeIds.length} {selectedIncomeIds.length === 1 ? 'seleccionada' : 'seleccionadas'}
-                  </span>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-8 gap-1.5"
-                    onClick={() => {
-                      const items = incomes.filter((i: any) => selectedIncomeIds.includes(i.id));
-                      setBulkToDelete({
-                        type: 'income',
-                        ids: selectedIncomeIds,
-                        items: items.length > 0 ? items : selectedIncomeIds.map(id => ({ id }))
-                      });
-                    }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Eliminar Selección</span>
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="max-h-[500px] overflow-y-auto pr-1.5 space-y-3">
-            {filteredIncomes.length > 0 ? (
-              <IncomeRow 
-                incomes={filteredIncomes} 
-                selectedIds={selectedIncomeIds}
-                onToggleSelect={toggleSelectIncome}
-                onDelete={(id) => {
-                  const incItem = incomes.find((i: any) => i.id === id);
-                  const fixedItem = fixedIncomes.find((fi: any) => fi.id === id);
-                  setItemToDelete({ 
-                    id, 
-                    type: fixedItem ? 'fixed_income' : 'income', 
-                    item: fixedItem || incItem || { id } 
-                  });
-                }}
-                onEdit={(i: any) => { 
-                  setEditingIncome(i.originalFixedData || i); 
-                  setIncomeModalOpen(true); 
-                }}
-              />
-            ) : (
-              <Card className="shadow-sm border-border border-dashed h-40 flex flex-col items-center justify-center text-muted-foreground">
-                <ArrowUpRight className="w-8 h-8 mb-2 opacity-20" />
-                <p className="text-sm">Sem receitas encontradas</p>
-              </Card>
-            )}
-          </div>
+        <TabsContent value="receitas" className="mt-0 outline-none">
+          <FinancasTabContent
+            type="income"
+            filteredItems={filteredIncomes}
+            selectedIds={selectedIncomeIds}
+            onToggleSelectAll={toggleSelectAllIncomes}
+            onDeleteBulk={() => {
+              const items = incomes.filter((i: any) => selectedIncomeIds.includes(i.id));
+              setBulkToDelete({
+                type: 'income',
+                ids: selectedIncomeIds,
+                items: items.length > 0 ? items : selectedIncomeIds.map(id => ({ id }))
+              });
+            }}
+          >
+            <IncomeRow 
+              incomes={filteredIncomes} 
+              selectedIds={selectedIncomeIds}
+              onToggleSelect={toggleSelectIncome}
+              onDelete={(id) => {
+                const incItem = incomes.find((i: any) => i.id === id);
+                const fixedItem = fixedIncomes.find((fi: any) => fi.id === id);
+                setItemToDelete({ 
+                  id, 
+                  type: fixedItem ? 'fixed_income' : 'income', 
+                  item: fixedItem || incItem || { id } 
+                });
+              }}
+              onEdit={(i: any) => { 
+                setEditingIncome(i.originalFixedData || i); 
+                setIncomeModalOpen(true); 
+              }}
+            />
+          </FinancasTabContent>
         </TabsContent>
 
         {/* Tab Content: Gráficos */}

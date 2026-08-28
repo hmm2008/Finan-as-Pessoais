@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Wallet, TrendingUp, Car, Target, Settings, 
@@ -6,7 +7,7 @@ import {
   Lock, Unlock, KeyRound, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useAuth, usePin } from '../../contexts';
-import { usePreferences } from '../../contexts/PreferencesContext';
+import { usePreferences, textStyleToCSS } from '../../contexts/PreferencesContext';
 import { Button } from '../ui/button';
 import { PinUnlockModal } from './PinUnlockModal';
 
@@ -46,19 +47,26 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
     }
   };
 
+  const { backgroundColor: _sidebarBg, ...sidebarTextStyle } = prefs.customStyles?.sidebar || {};
+
   return (
     <>
-      <nav className={`dark flex h-full ${collapsed ? 'w-20' : 'w-64'} flex-col border-r border-border bg-slate-950 py-4 text-slate-50 transition-all duration-300`}>
-        <div className={`px-6 mb-6 flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
-          <div className="flex items-center gap-2 text-primary font-bold text-xl">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground">
+      <motion.nav 
+        initial={{ x: -20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        className={`dark flex h-full ${collapsed ? 'w-20' : 'w-64'} flex-col border-r border-border/40 ${prefs.customStyles?.sidebar?.backgroundColor ? '' : 'bg-background/90 backdrop-blur-2xl'} py-6 text-foreground transition-all duration-300 z-10`}
+        style={{ backgroundColor: prefs.customStyles?.sidebar?.backgroundColor }}
+      >
+        <div className={`px-6 mb-8 flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
+          <div className="flex items-center gap-3 text-foreground font-black text-xl tracking-tighter">
+            <div className="w-9 h-9 bg-foreground rounded-[1.25rem] flex items-center justify-center text-background">
               F
             </div>
             {!collapsed && 'Finanças'}
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+        <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -68,47 +76,47 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                 onClick={onClose}
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) => 
-                  `group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 ${
+                  `group flex items-center ${collapsed ? 'justify-center' : 'gap-3.5'} rounded-2xl px-4 py-3 text-sm font-black uppercase tracking-widest text-[10px] transition-all duration-300 ${
                     isActive 
-                      ? 'bg-primary/15 text-primary shadow-xs font-semibold' 
-                      : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground hover:translate-x-1'
+                      ? 'bg-foreground/5 text-foreground shadow-sm' 
+                      : 'text-muted-foreground/60 hover:bg-foreground/5 hover:text-foreground'
                   }`
                 }
               >
-                <Icon className="h-5 w-5 transition-transform duration-150 group-hover:scale-110" />
-                {!collapsed && <span>{item.label}</span>}
+                <Icon className="h-5 w-5" />
+                {!collapsed && <span style={textStyleToCSS(sidebarTextStyle)}>{item.label}</span>}
               </NavLink>
             );
           })}
         </div>
         
-        <div className="border-t border-border mt-4 px-3 py-4 space-y-2">
+        <div className="border-t border-border/40 mt-4 px-4 py-4 space-y-2">
           <NavLink
             to="/configuracoes"
             onClick={onClose}
             title={collapsed ? (customLabels['/configuracoes'] || 'Configurações') : undefined}
             className={({ isActive }) => 
-              `group flex w-full items-center ${collapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 ${
+              `group flex w-full items-center ${collapsed ? 'justify-center' : 'gap-3.5'} rounded-2xl px-4 py-3 text-sm font-black uppercase tracking-widest text-[10px] transition-all duration-300 ${
                 isActive 
-                  ? 'bg-primary/15 text-primary font-semibold' 
-                  : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground hover:translate-x-1'
+                  ? 'bg-foreground/5 text-foreground' 
+                  : 'text-muted-foreground/60 hover:bg-foreground/5 hover:text-foreground'
               }`
             }
           >
-            <Settings className="h-5 w-5 transition-transform duration-150 group-hover:rotate-45" />
-            {!collapsed && <span>{customLabels['/configuracoes'] || 'Configurações'}</span>}
+            <Settings className="h-5 w-5" />
+            {!collapsed && <span style={textStyleToCSS(sidebarTextStyle)}>{customLabels['/configuracoes'] || 'Configurações'}</span>}
           </NavLink>
           
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="group flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 text-muted-foreground hover:bg-secondary/80 hover:text-foreground mt-2"
+            className="group flex w-full items-center rounded-2xl px-4 py-3 text-sm font-black uppercase tracking-widest text-[10px] text-muted-foreground/60 hover:bg-foreground/5 hover:text-foreground mt-2 transition-all duration-300"
           >
             {collapsed ? (
               <ChevronRight className="h-5 w-5" />
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3.5">
                 <ChevronLeft className="h-5 w-5" />
-                <span>{customLabels['/sidebar-collapse'] || 'Colapsar'}</span>
+                <span style={textStyleToCSS(sidebarTextStyle)}>{customLabels['/sidebar-collapse'] || 'Colapsar'}</span>
               </div>
             )}
           </button>
@@ -116,58 +124,42 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           {hasPin ? (
             <button 
               onClick={handleLockToggle} 
-              className={`group flex w-full items-center ${collapsed ? 'justify-center' : 'justify-between'} rounded-lg px-3 py-2 text-xs font-medium transition-all duration-150 ${
+              className={`group flex w-full items-center ${collapsed ? 'justify-center' : 'justify-between'} rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
                 unlocked
-                  ? 'hover:bg-amber-500/10 text-muted-foreground hover:text-amber-400'
-                  : 'bg-amber-500/15 text-amber-300 font-semibold shadow-xs border border-amber-500/30'
+                  ? 'text-muted-foreground/60 hover:text-foreground'
+                  : 'bg-amber-500/10 text-amber-500'
               }`}
             >
-              <div className={`flex items-center ${collapsed ? '' : 'gap-2.5'}`}>
+              <div className={`flex items-center ${collapsed ? '' : 'gap-3.5'}`}>
                 {unlocked ? (
-                  <Unlock className="h-4 w-4 text-emerald-400 transition-transform group-hover:scale-110" />
+                  <Unlock className="h-5 w-5" />
                 ) : (
-                  <Lock className="h-4 w-4 text-amber-400 transition-transform group-hover:scale-110" />
+                  <Lock className="h-5 w-5" />
                 )}
-                {!collapsed && <span>{unlocked ? 'Bloquear App' : 'Desbloquear App'}</span>}
+                {!collapsed && <span style={textStyleToCSS(sidebarTextStyle)}>{unlocked ? 'Bloquear App' : 'Desbloquear'}</span>}
               </div>
-
-              {!collapsed && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1 ${
-                  unlocked 
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                    : 'bg-amber-500/30 text-amber-300 border border-amber-500/50'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${unlocked ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
-                  {unlocked ? 'Desbloqueada' : 'Bloqueada'}
-                </span>
-              )}
             </button>
           ) : (
             <button 
               onClick={() => { navigate('/configuracoes'); if (onClose) onClose(); }} 
-              className={`group flex w-full items-center ${collapsed ? 'justify-center' : 'justify-between'} rounded-lg px-3 py-2 text-xs font-medium transition-all duration-150 text-muted-foreground hover:bg-secondary/80 hover:text-foreground`}
+              className={`group flex w-full items-center ${collapsed ? 'justify-center' : 'justify-between'} rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-foreground transition-all duration-300`}
             >
-              <div className={`flex items-center ${collapsed ? '' : 'gap-2.5'}`}>
-                <KeyRound className="h-4 w-4 text-muted-foreground group-hover:scale-110 transition-transform" />
-                {!collapsed && <span>{customLabels['/create-pin'] || 'Criar PIN de Acesso'}</span>}
+              <div className={`flex items-center ${collapsed ? '' : 'gap-3.5'}`}>
+                <KeyRound className="h-5 w-5" />
+                {!collapsed && <span style={textStyleToCSS(sidebarTextStyle)}>{customLabels['/create-pin'] || 'PIN de Acesso'}</span>}
               </div>
-              {!collapsed && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-secondary text-muted-foreground">
-                  Sem PIN
-                </span>
-              )}
             </button>
           )}
           
           <button 
             onClick={handleLogout} 
-            className={`group flex w-full items-center ${collapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 hover:bg-destructive/15 hover:text-destructive text-muted-foreground hover:translate-x-1`}
+            className={`group flex w-full items-center ${collapsed ? 'justify-center' : 'gap-3.5'} rounded-2xl px-4 py-3 text-sm font-black uppercase tracking-widest text-[10px] transition-all duration-300 hover:bg-rose-500/10 hover:text-rose-500 text-muted-foreground/60`}
           >
-            <LogOut className="h-5 w-5 transition-transform duration-150 group-hover:-translate-x-0.5" />
-            {!collapsed && <span>Terminar Sessão</span>}
+            <LogOut className="h-5 w-5" />
+            {!collapsed && <span style={textStyleToCSS(sidebarTextStyle)}>Sair</span>}
           </button>
         </div>
-      </nav>
+      </motion.nav>
 
       <PinUnlockModal open={showUnlockModal} onClose={() => setShowUnlockModal(false)} />
     </>

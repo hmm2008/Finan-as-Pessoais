@@ -160,7 +160,7 @@ export function useConnectDrive() {
         }
       }
 
-      await exportAllDataToSheets(token, info.id, () => {});
+      await exportAllDataToSheets(token, info.id, () => {}, true);
 
       setToastMsg({ title: 'Dados Enviados!', desc: 'Dados guardados na Google Drive com sucesso.', type: 'success' });
       setTimeout(() => setToastMsg(null), 3000);

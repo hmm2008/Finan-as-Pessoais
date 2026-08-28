@@ -22,4 +22,4 @@ export const Select = ({ value, onValueChange, children, required, className }: 
 export const SelectTrigger = ({ children, id }: any) => <>{children}</>
 export const SelectValue = ({ placeholder }: any) => <>{placeholder}</>
 export const SelectContent = ({ children }: any) => <>{children}</>
-export const SelectItem = ({ value, children }: any) => <option value={value}>{children}</option>
+export const SelectItem = ({ value, children, style, className }: any) => <option value={value} style={style} className={className}>{children}</option>
