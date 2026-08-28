@@ -79,7 +79,7 @@ export default function OrcamentosView() {
   });
 
   // Filter budgets for selected month
-  const monthBudgets = budgets;
+  const monthBudgets = budgets.filter((b: any) => !b.month || b.month === currentMonth);
 
   // Budgets relevant to currently selected month for KPIs
   const relevantBudgets = budgets.filter((b: any) => !b.month || b.month === currentMonth);
