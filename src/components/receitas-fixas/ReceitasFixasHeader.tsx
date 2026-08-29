@@ -81,7 +81,7 @@ export function ReceitasFixasHeader({ onAdd, incomes = [] }: ReceitasFixasHeader
               {maskValue(monthlyTotal, formatter.format)}
             </p>
             <p className="text-sm text-muted-foreground">
-              {monthlyActive.length} ativas <span className="hidden sm:inline">· /mês</span>
+              {monthlyActive.length} ativas · /mês
             </p>
           </CardContent>
         </Card>
@@ -94,7 +94,7 @@ export function ReceitasFixasHeader({ onAdd, incomes = [] }: ReceitasFixasHeader
               {maskValue(yearlyTotal, formatter.format)}
             </p>
             <p className="text-sm text-muted-foreground">
-              {yearlyActive.length} ativas <span className="hidden sm:inline">· /ano</span>
+              {yearlyActive.length} ativas · /ano
             </p>
           </CardContent>
         </Card>

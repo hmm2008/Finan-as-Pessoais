@@ -93,12 +93,11 @@ export function FixedExpenseList({
               const dueDay = expense.dueDateDay || expense.dueDay;
 
               const subtitles = [
+                expense.category,
                 expense.entity,
                 dueDay ? `Dia ${dueDay}` : null,
                 expense.method
               ].filter(Boolean).join(' · ');
-
-              const displayCategory = expense.category;
 
               const registeredMonths = allExpenses
                 .filter(e => e.fixedExpenseId === expense.id)
@@ -118,34 +117,24 @@ export function FixedExpenseList({
                 : "top-full mt-2 right-0";
 
               return (
-                <div key={expense.id} className={`p-4 flex items-center justify-between gap-4 transition-colors hover:bg-secondary/20 first:rounded-t-2xl last:rounded-b-2xl ${!isActive ? 'opacity-50 grayscale-[0.4]' : ''}`}>
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${colorClass}`}>
-                      {firstLetter}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p 
-                        className="font-bold text-sm sm:text-base text-foreground truncate cursor-pointer hover:underline" 
-                        onClick={() => onEdit && onEdit(expense)}
-                      >
-                        {itemName}
-                      </p>
-                      <p className="text-[11px] sm:text-sm text-muted-foreground truncate mt-0.5">
-                        <span className="hidden sm:inline">{displayCategory}{subtitles ? ' · ' : ''}</span>
-                        {subtitles}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 sm:gap-6 shrink-0">
-                    <div className="text-right shrink-0 min-w-[70px]">
-                      <p className="font-bold text-sm sm:text-base">
-                        {maskValue(expense.amount || 0, formatter.format)}
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 font-medium uppercase tracking-tight">
-                        <span className="sm:hidden text-primary/80 font-bold">{displayCategory || 'S/ Cat'}</span>
-                        <span className="hidden sm:inline">/{expense.frequency === 'Anual' ? 'ano' : 'mês'}</span>
-                      </p>
+                <div 
+                  key={expense.id} 
+                  className={`p-5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-secondary/20 first:rounded-t-2xl last:rounded-b-2xl border-b last:border-b-0 border-border/50 ${!isActive ? 'opacity-50 grayscale-[0.4]' : ''}`}
+                >
+                  {/* Top Row in Mobile / Desktop Right Side (Desktop uses sm:order-2) */}
+                  <div className="flex items-center justify-between w-full sm:w-auto sm:order-2 sm:gap-6">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex sm:hidden items-center justify-center font-bold text-base shrink-0 ${colorClass}`}>
+                        {firstLetter}
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <p className="font-bold text-lg sm:text-base text-foreground">
+                          {maskValue(expense.amount || 0, formatter.format)}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                          /{expense.frequency === 'Anual' ? 'ano' : 'mês'}
+                        </p>
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-1.5 sm:gap-2">
@@ -154,12 +143,13 @@ export function FixedExpenseList({
                           variant="outline" 
                           size="sm" 
                           onClick={() => setRegisterItem(expense)}
-                          className="h-8 gap-1.5 rounded-full border-indigo-200 text-primary hover:bg-indigo-50 dark:border-indigo-900 dark:text-primary/80 dark:hover:bg-indigo-950/50"
+                          className="h-8 px-3 sm:px-4 gap-1.5 rounded-full border-indigo-200 text-primary hover:bg-indigo-50 dark:border-indigo-900 dark:text-primary/80 dark:hover:bg-indigo-950/50 text-xs font-bold"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">Registar</span>
+                          <span className="sm:hidden">OK</span>
                           {uniqueRegisteredMonths.length > 0 && (
-                            <span className="flex items-center justify-center w-4 h-4 ml-0.5 rounded-full bg-primary text-white text-[10px] font-bold">
+                            <span className="flex items-center justify-center min-w-[16px] h-4 ml-0.5 px-1 rounded-full bg-primary text-white text-[10px] font-bold">
                               {uniqueRegisteredMonths.length}
                             </span>
                           )}
@@ -222,6 +212,44 @@ export function FixedExpenseList({
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Row in Mobile / Desktop Left Side (Desktop uses sm:order-1) */}
+                  <div className="flex items-center gap-4 min-w-0 sm:order-1">
+                    <div className={`hidden sm:flex w-12 h-12 rounded-full items-center justify-center font-bold text-lg shrink-0 ${colorClass}`}>
+                      {firstLetter}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {/* Desktop Layout */}
+                      <div className="hidden sm:block">
+                        <p 
+                          className="font-bold text-base text-foreground truncate cursor-pointer hover:underline leading-tight" 
+                          onClick={() => onEdit && onEdit(expense)}
+                        >
+                          {itemName}
+                        </p>
+                        <p className="text-sm text-muted-foreground truncate mt-0.5">
+                          {subtitles}
+                        </p>
+                      </div>
+
+                      {/* Mobile Layout: Name - Category */}
+                      <div className="sm:hidden">
+                        <p 
+                          className="text-sm font-semibold text-foreground leading-snug cursor-pointer"
+                          onClick={() => onEdit && onEdit(expense)}
+                        >
+                          <span className="text-primary font-bold">{itemName}</span>
+                          <span className="mx-2 text-muted-foreground/40 font-normal">—</span>
+                          <span className="text-muted-foreground text-xs font-medium uppercase tracking-tight">{expense.category || 'Geral'}</span>
+                        </p>
+                        {expense.entity && (
+                          <p className="text-[11px] text-muted-foreground/70 mt-0.5 italic">
+                            {expense.entity}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
