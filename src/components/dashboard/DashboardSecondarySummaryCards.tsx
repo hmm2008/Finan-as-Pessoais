@@ -82,27 +82,27 @@ const itemVariants = {
   };
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
       {metrics.map((m) => (
         <motion.div
           key={m.label}
           variants={itemVariants}
-          className="group relative bg-card/40 backdrop-blur-md border border-border/40 rounded-3xl p-4 transition-all hover:bg-card/60 hover:shadow-xl shadow-black/5"
+          className="group relative bg-card/40 backdrop-blur-md border border-border/40 rounded-2xl sm:rounded-3xl p-3 sm:p-4 transition-all hover:bg-card/60 hover:shadow-xl shadow-black/5"
         >
-          <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${
               m.color === 'sky' ? 'bg-sky-500/10 text-sky-600' :
               m.color === 'purple' ? 'bg-purple-500/10 text-purple-600' :
               m.color === 'amber' ? 'bg-amber-500/10 text-amber-600' :
               'bg-pink-500/10 text-pink-600'
             }`}>
-              <m.icon className="w-4.5 h-4.5" />
+              <m.icon className="w-4 sm:w-4.5 h-4 sm:h-4.5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground/70 block leading-none mb-1">
+              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.1em] sm:tracking-[0.15em] text-muted-foreground/70 block leading-none mb-1">
                 {m.label}
               </span>
-              <span className="text-sm font-black text-foreground tracking-tight block truncate">
+              <span className="text-xs sm:text-sm font-black text-foreground tracking-tight block truncate">
                 {m.value}
               </span>
             </div>

@@ -61,7 +61,7 @@ export default function DashboardView() {
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-12"
+        className="mb-6 sm:mb-12"
       >
         <PageHeader 
           title="Visão Geral" 
@@ -105,16 +105,16 @@ export default function DashboardView() {
           initial="hidden"
           animate="visible"
           exit="hidden"
-          className="space-y-12"
+          className="space-y-8 sm:space-y-12"
         >
           {/* Main Highlights Section */}
           <motion.section 
             variants={sectionVariants}
-            className={cn("space-y-6 transition-all duration-500", isEditing && "opacity-20 blur-sm pointer-events-none grayscale")}
+            className={cn("space-y-4 sm:space-y-6 transition-all duration-500", isEditing && "opacity-20 blur-sm pointer-events-none grayscale")}
           >
             <div className="flex items-center gap-2 px-1">
-              <Sparkles className="w-4 h-4 text-blue-500" />
-              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">Principais Métricas</h2>
+              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />
+              <h2 className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-muted-foreground/60">Principais Métricas</h2>
             </div>
             <DashboardSummaryCards />
             <DashboardSecondarySummaryCards />
@@ -123,12 +123,12 @@ export default function DashboardView() {
           {/* Dynamic Reorderable Widget Grid */}
           <motion.section 
             variants={sectionVariants}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
             {!isEditing && (
               <div className="flex items-center gap-2 px-1">
-                <LayoutGrid className="w-4 h-4 text-primary" />
-                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">Ecossistema de Widgets</h2>
+                <LayoutGrid className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                <h2 className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-muted-foreground/60">Ecossistema de Widgets</h2>
               </div>
             )}
             <DashboardWidgetGrid isEditing={isEditing} />

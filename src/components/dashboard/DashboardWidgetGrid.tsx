@@ -134,7 +134,7 @@ export function DashboardWidgetGrid({ isEditing }: { isEditing: boolean }) {
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 auto-rows-fr">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-6 auto-rows-fr">
         <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
           {orderedWidgets.map((widget) => (
             <DraggableWidget 

@@ -36,11 +36,11 @@ export function StatCard({
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
       <Card className={`overflow-hidden border-none shadow-sm hover:shadow-md transition-shadow ${className}`}>
-        <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
-          <div className="space-y-1.5 min-w-0 flex-1">
-            <p className="text-[10px] sm:text-[11px] font-bold uppercase text-muted-foreground tracking-[0.1em] truncate">{title}</p>
+        <CardContent className="p-3 sm:p-5 flex items-center justify-between gap-4">
+          <div className="space-y-1 min-w-0 flex-1">
+            <p className="text-[9px] sm:text-[11px] font-bold uppercase text-muted-foreground tracking-[0.1em] truncate">{title}</p>
             <div className="flex items-center gap-2 min-w-0">
-              <h3 className="text-lg sm:text-2xl font-black text-foreground tracking-tight truncate">
+              <h3 className="text-base sm:text-2xl font-black text-foreground tracking-tight truncate">
                 {renderedValue}
               </h3>
               {privacyMode && isCurrency && (

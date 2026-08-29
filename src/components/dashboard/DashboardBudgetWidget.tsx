@@ -54,8 +54,8 @@ export function DashboardBudgetWidget() {
         <CardTitle className="text-base font-semibold">Orçamentos Ativos ({currentMonth})</CardTitle>
         <Target className="w-4 h-4 text-muted-foreground" />
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col justify-between">
-        <div className="space-y-4 flex-1 max-h-[220px] overflow-y-auto">
+      <CardContent className="flex-1 flex flex-col justify-between p-4 sm:p-6">
+        <div className="space-y-3 sm:space-y-4 flex-1 max-h-[220px] overflow-y-auto">
           {activeList.length > 0 ? (
             activeList.map((budget: any, i: number) => {
               const ratio = budget.limit > 0 ? (budget.spent / budget.limit) * 100 : 0;
@@ -64,19 +64,19 @@ export function DashboardBudgetWidget() {
 
               return (
                 <div key={i}>
-                  <div className="flex justify-between items-center mb-1 text-sm">
-                    <div className="flex items-center gap-2 font-medium">
-                      <span>{budget.icon}</span>
-                      <span>{budget.category}</span>
+                  <div className="flex justify-between items-center mb-1 text-xs sm:text-sm">
+                    <div className="flex items-center gap-1.5 sm:gap-2 font-medium">
+                      <span className="text-base sm:text-lg">{budget.icon}</span>
+                      <span className="truncate max-w-[100px] sm:max-w-none">{budget.category}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className={isOver ? 'text-destructive font-bold' : ''}>
                         {maskValue(budget.spent, formatter.format)}
                       </span>
-                      <span className="text-muted-foreground text-xs">/ {maskValue(budget.limit, formatter.format)}</span>
+                      <span className="text-muted-foreground text-[10px] sm:text-xs">/ {maskValue(budget.limit, formatter.format)}</span>
                     </div>
                   </div>
-                  <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 sm:h-2 bg-secondary rounded-full overflow-hidden">
                     <div 
                       className={`h-full transition-all ${isOver ? 'bg-destructive' : isWarning ? 'bg-amber-500' : 'bg-primary'}`} 
                       style={{ width: `${Math.min(ratio, 100)}%` }}
