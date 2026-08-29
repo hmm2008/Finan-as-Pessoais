@@ -79,13 +79,13 @@ export function IncomeRow({ incomes, onEdit, onDelete, selectedIds = [], onToggl
           >
             <CardContent className="p-0">
               <div 
-                className="flex items-stretch cursor-pointer min-h-[72px]"
+                className="flex flex-col sm:flex-row sm:items-stretch cursor-pointer min-h-[72px]"
                 onClick={() => setExpandedId(isExpanded ? null : income.id)}
               >
-                {/* Selection Checkbox */}
+                {/* Desktop Selection Checkbox */}
                 {onToggleSelect && (
                   <div 
-                    className="flex items-center justify-center px-4 border-r border-border/10 bg-muted/5 group-hover:bg-muted/10 transition-colors"
+                    className="hidden sm:flex items-center justify-center px-4 border-r border-border/10 bg-muted/5 group-hover:bg-muted/10 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleSelect(income.id);
@@ -99,22 +99,75 @@ export function IncomeRow({ incomes, onEdit, onDelete, selectedIds = [], onToggl
                   </div>
                 )}
 
-                {/* Main Content */}
-                <div className="flex-1 flex items-center gap-3 sm:gap-4 p-4 min-w-0">
+                {/* Mobile Header: Checkbox + Amount + Actions */}
+                <div className="sm:hidden flex items-center justify-between p-4 border-b border-border/5 bg-muted/5 group-hover:bg-muted/10 transition-colors">
+                  <div className="flex items-center gap-3">
+                    {onToggleSelect && (
+                      <div 
+                        className="p-1 -ml-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleSelect(income.id);
+                        }}
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-5 h-5 text-emerald-500" />
+                        ) : (
+                          <Square className="w-5 h-5 text-muted-foreground/40" />
+                        )}
+                      </div>
+                    )}
+                    <span className="font-black text-emerald-500 text-lg tabular-nums">
+                      +{maskValue(income.amount, formatter.format)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {onEdit && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-background rounded-md"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          onEdit(income); 
+                        }}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          onDelete(income.id); 
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Main Content (Desktop Layout) */}
+                <div className="hidden sm:flex flex-1 items-center gap-4 p-4 min-w-0">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color} border transition-transform duration-200 group-hover:scale-110 shadow-sm`}>
                     <Icon className="w-5 h-5" />
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-bold text-sm sm:text-base text-foreground truncate tracking-tight">{income.entity}</p>
+                      <p className="font-bold text-base text-foreground truncate tracking-tight">{income.entity}</p>
                       {income.recurring && (
                         <div className="p-0.5 rounded-md bg-emerald-500/10 text-emerald-600" title="Receita Recorrente">
                           <Repeat className="w-3 h-3" />
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] sm:text-xs text-muted-foreground font-medium">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         <span>{new Date(income.date).toLocaleDateString('pt-PT')}</span>
@@ -125,9 +178,32 @@ export function IncomeRow({ incomes, onEdit, onDelete, selectedIds = [], onToggl
                   </div>
                 </div>
 
-                {/* Amount & Actions */}
-                <div className="flex flex-col justify-center items-end px-4 sm:px-6 bg-muted/5 group-hover:bg-muted/10 transition-colors border-l border-border/10 min-w-[120px] sm:min-w-[150px]">
-                  <span className="font-black text-emerald-500 text-base sm:text-lg whitespace-nowrap tabular-nums">
+                {/* Mobile Sub-header: Entity - Category */}
+                <div className="sm:hidden px-4 py-3 flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${color} border`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">
+                      <span className="font-bold">{income.entity}</span>
+                      <span className="mx-2 text-muted-foreground/30">—</span>
+                      <span className="text-muted-foreground text-xs font-medium uppercase tracking-tight">{income.category}</span>
+                    </p>
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                      <span>{new Date(income.date).toLocaleDateString('pt-PT')}</span>
+                      {income.recurring && (
+                        <div className="flex items-center gap-1 px-1 rounded bg-emerald-500/10 text-emerald-600">
+                          <Repeat className="w-2.5 h-2.5" />
+                          <span>Recorrente</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop Amount & Actions */}
+                <div className="hidden sm:flex flex-col justify-center items-end px-6 bg-muted/5 group-hover:bg-muted/10 transition-colors border-l border-border/10 min-w-[150px]">
+                  <span className="font-black text-emerald-500 text-lg whitespace-nowrap tabular-nums">
                     +{maskValue(income.amount, formatter.format)}
                   </span>
                   
@@ -162,6 +238,11 @@ export function IncomeRow({ incomes, onEdit, onDelete, selectedIds = [], onToggl
                       {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </div>
                   </div>
+                </div>
+
+                {/* Mobile Expand Indicator */}
+                <div className="sm:hidden flex items-center justify-center py-1 text-muted-foreground/20">
+                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </div>
               </div>
 

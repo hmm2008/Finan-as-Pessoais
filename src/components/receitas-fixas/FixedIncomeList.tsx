@@ -133,32 +133,24 @@ export function FixedIncomeList({
                 : "top-full mt-2 right-0";
 
               return (
-                <div key={income.id} className={`p-4 flex items-center justify-between gap-4 transition-colors hover:bg-secondary/20 first:rounded-t-2xl last:rounded-b-2xl ${!isActive ? 'opacity-50 grayscale-[0.4]' : ''}`}>
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${colorClass}`}>
-                      {firstLetter}
-                    </div>
-                    <div className="min-w-0">
-                      <p 
-                        className="font-bold text-base text-foreground truncate cursor-pointer hover:underline" 
-                        onClick={() => onEdit && onEdit(income)}
-                      >
-                        {itemName}
-                      </p>
-                      <p className="text-sm text-muted-foreground truncate mt-0.5">
-                        {subtitles}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-6 shrink-0">
-                    <div className="text-right">
-                      <p className="font-bold text-base text-emerald-600 dark:text-emerald-400">
-                        +{maskValue(income.amount || 0, formatter.format)}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        /{income.frequency === 'Anual' ? 'ano' : 'mês'}
-                      </p>
+                <div 
+                  key={income.id} 
+                  className={`p-5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-secondary/20 first:rounded-t-2xl last:rounded-b-2xl border-b last:border-b-0 border-border/50 ${!isActive ? 'opacity-50 grayscale-[0.4]' : ''}`}
+                >
+                  {/* Top Row in Mobile / Desktop Right Side */}
+                  <div className="flex items-center justify-between w-full sm:w-auto sm:order-2 sm:gap-6">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex sm:hidden items-center justify-center font-bold text-base shrink-0 ${colorClass}`}>
+                        {firstLetter}
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <p className="font-bold text-lg sm:text-base text-emerald-600 dark:text-emerald-400">
+                          +{maskValue(income.amount || 0, formatter.format)}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                          /{income.frequency === 'Anual' ? 'ano' : 'mês'}
+                        </p>
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-1.5 sm:gap-2">
@@ -167,12 +159,13 @@ export function FixedIncomeList({
                           variant="outline" 
                           size="sm" 
                           onClick={() => setRegisterItem(income)}
-                          className="h-8 gap-1.5 rounded-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
+                          className="h-8 px-3 sm:px-4 gap-1.5 rounded-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950/50 text-xs font-bold"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">Registar</span>
+                          <span className="sm:hidden">OK</span>
                           {uniqueRegisteredMonths.length > 0 && (
-                            <span className="flex items-center justify-center w-4 h-4 ml-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold">
+                            <span className="flex items-center justify-center min-w-[16px] h-4 ml-0.5 px-1 rounded-full bg-emerald-600 text-white text-[10px] font-bold">
                               {uniqueRegisteredMonths.length}
                             </span>
                           )}
@@ -235,6 +228,44 @@ export function FixedIncomeList({
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Row in Mobile / Desktop Left Side */}
+                  <div className="flex items-center gap-4 min-w-0 sm:order-1">
+                    <div className={`hidden sm:flex w-12 h-12 rounded-full items-center justify-center font-bold text-lg shrink-0 ${colorClass}`}>
+                      {firstLetter}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {/* Desktop Layout */}
+                      <div className="hidden sm:block">
+                        <p 
+                          className="font-bold text-base text-foreground truncate cursor-pointer hover:underline leading-tight" 
+                          onClick={() => onEdit && onEdit(income)}
+                        >
+                          {itemName}
+                        </p>
+                        <p className="text-sm text-muted-foreground truncate mt-0.5">
+                          {subtitles}
+                        </p>
+                      </div>
+
+                      {/* Mobile Layout: Name - Category */}
+                      <div className="sm:hidden">
+                        <p 
+                          className="text-sm font-semibold text-foreground leading-snug cursor-pointer"
+                          onClick={() => onEdit && onEdit(income)}
+                        >
+                          <span className="text-emerald-600 font-bold">{itemName}</span>
+                          <span className="mx-2 text-muted-foreground/40 font-normal">—</span>
+                          <span className="text-muted-foreground text-xs font-medium uppercase tracking-tight">{income.category || 'Geral'}</span>
+                        </p>
+                        {income.entity && (
+                          <p className="text-[11px] text-muted-foreground/70 mt-0.5 italic">
+                            {income.entity}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
