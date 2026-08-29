@@ -64,19 +64,19 @@ export function ExpensesByCategoryReport() {
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader>
-        <CardTitle className="text-base font-semibold">Despesas por Categoria ({currentMonth})</CardTitle>
+      <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-3">
+        <CardTitle className="text-sm sm:text-base font-semibold">Despesas por Categoria ({currentMonth})</CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 min-h-[300px] flex flex-col justify-center">
-        <div className="h-[220px] w-full relative">
+      <CardContent className="flex-1 min-h-[260px] sm:min-h-[300px] flex flex-col justify-center p-4 sm:p-6 pt-0 sm:pt-0">
+        <div className="h-[180px] sm:h-[220px] w-full relative">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={80}
+                innerRadius={window.innerWidth < 640 ? 50 : 60}
+                outerRadius={window.innerWidth < 640 ? 70 : 80}
                 paddingAngle={2}
                 dataKey="value"
                 stroke="none"
@@ -89,17 +89,17 @@ export function ExpensesByCategoryReport() {
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Total</span>
-            <span className="text-lg font-bold">{maskValue(total, formatter.format)}</span>
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-widest font-semibold">Total</span>
+            <span className="text-base sm:text-lg font-bold">{maskValue(total, formatter.format)}</span>
           </div>
         </div>
         {rawData.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 gap-2 text-xs max-h-[100px] overflow-y-auto">
+          <div className="mt-2 sm:mt-4 grid grid-cols-2 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[10px] sm:text-xs max-h-[120px] overflow-y-auto">
             {data.map((item) => (
               <div key={item.name} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }}></div>
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }}></div>
                 <span className="truncate flex-1" title={item.name}>{item.name}</span>
-                <span className="font-medium text-muted-foreground">
+                <span className="font-medium text-muted-foreground tabular-nums">
                   {total > 0 ? Math.round((item.value / total) * 100) : 0}%
                 </span>
               </div>
