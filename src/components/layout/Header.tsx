@@ -127,7 +127,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
         {/* Floating Toast */}
         {toastMsg && (
-          <div className={`fixed top-20 right-6 z-[100] text-white shadow-2xl px-5 py-3.5 rounded-xl flex items-center gap-3 font-medium text-sm border animate-in fade-in slide-in-from-top-5 ${
+          <div className={`fixed top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-auto z-[100] text-white shadow-2xl px-5 py-3.5 rounded-xl flex items-center gap-3 font-medium text-sm border animate-in fade-in slide-in-from-top-5 max-w-[calc(100vw-32px)] ${
             toastMsg.type === 'success' ? 'bg-emerald-600 border-emerald-500/50' : 
             toastMsg.type === 'error' ? 'bg-destructive border-destructive/50' : 
             'bg-blue-600 border-blue-500/50'

@@ -109,11 +109,12 @@ export function FixedIncomeList({
               const dueDay = income.dueDateDay || income.dueDay;
 
               const subtitles = [
-                income.category,
                 income.entity,
                 dueDay ? `Dia ${dueDay}` : null,
                 income.method
               ].filter(Boolean).join(' · ');
+
+              const displayCategory = income.category;
 
               const registeredMonths = allIncomes
                 .filter(i => i.fixedIncomeId === income.id)
@@ -138,26 +139,28 @@ export function FixedIncomeList({
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${colorClass}`}>
                       {firstLetter}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p 
-                        className="font-bold text-base text-foreground truncate cursor-pointer hover:underline" 
+                        className="font-bold text-sm sm:text-base text-foreground truncate cursor-pointer hover:underline" 
                         onClick={() => onEdit && onEdit(income)}
                       >
                         {itemName}
                       </p>
-                      <p className="text-sm text-muted-foreground truncate mt-0.5">
+                      <p className="text-[11px] sm:text-sm text-muted-foreground truncate mt-0.5">
+                        <span className="hidden sm:inline">{displayCategory}{subtitles ? ' · ' : ''}</span>
                         {subtitles}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6 shrink-0">
-                    <div className="text-right">
-                      <p className="font-bold text-base text-emerald-600 dark:text-emerald-400">
+                  <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+                    <div className="text-right shrink-0 min-w-[70px]">
+                      <p className="font-bold text-sm sm:text-base text-emerald-600 dark:text-emerald-400">
                         +{maskValue(income.amount || 0, formatter.format)}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        /{income.frequency === 'Anual' ? 'ano' : 'mês'}
+                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 font-medium uppercase tracking-tight">
+                        <span className="sm:hidden text-emerald-600/80 font-bold">{displayCategory || 'S/ Cat'}</span>
+                        <span className="hidden sm:inline">/{income.frequency === 'Anual' ? 'ano' : 'mês'}</span>
                       </p>
                     </div>
                     

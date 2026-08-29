@@ -133,7 +133,7 @@ export function DespesasFixasHeader({ onAdd, expenses }: DespesasFixasHeaderProp
               {maskValue(monthlyTotal, formatter.format)}
             </p>
             <p className="text-sm text-muted-foreground">
-              {monthlyActive.length} ativas · /mês
+              {monthlyActive.length} ativas <span className="hidden sm:inline">· /mês</span>
             </p>
           </CardContent>
         </Card>
@@ -146,7 +146,7 @@ export function DespesasFixasHeader({ onAdd, expenses }: DespesasFixasHeaderProp
               {maskValue(yearlyTotal, formatter.format)}
             </p>
             <p className="text-sm text-muted-foreground">
-              {yearlyActive.length} ativas · /ano
+              {yearlyActive.length} ativas <span className="hidden sm:inline">· /ano</span>
             </p>
           </CardContent>
         </Card>

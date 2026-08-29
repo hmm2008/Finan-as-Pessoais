@@ -63,7 +63,7 @@ export function NotificationDropdown({ onNavigateToNotifications, onNavigateToLi
 
       {/* Popover Content */}
       {isOpen && (
-        <div className="absolute right-0 mt-2.5 w-80 sm:w-96 rounded-xl border border-border bg-card shadow-lg ring-1 ring-black/5 z-50 overflow-hidden animate-in fade-in duration-100 slide-in-from-top-2">
+        <div className="fixed inset-x-4 top-20 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2.5 w-auto sm:w-96 rounded-xl border border-border bg-card shadow-lg ring-1 ring-black/5 z-50 overflow-hidden animate-in fade-in duration-100 slide-in-from-top-2">
           {/* Header */}
           <div className="p-3.5 border-b border-border flex items-center justify-between bg-secondary/20">
             <div className="flex items-center gap-2">
