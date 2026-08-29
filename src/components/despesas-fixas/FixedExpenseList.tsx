@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
+import { Modal } from '../ui/Modal';
 import { CheckCircle2, Calendar, Edit2, Trash2, Power } from 'lucide-react';
 import { useFixedExpenses, useExpenses } from '../../hooks/queries';
 import { usePrivacy } from '../../contexts/PrivacyContext';
@@ -39,6 +40,7 @@ export function FixedExpenseList({
   const { expenses: allExpenses } = useExpenses();
   const { maskValue } = usePrivacy();
   const [registerItem, setRegisterItem] = React.useState<FixedExpenseItem | null>(null);
+  const [viewRegisteredMonths, setViewRegisteredMonths] = React.useState<{ name: string, months: string[] } | null>(null);
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 
   const expenses: FixedExpenseItem[] = propExpenses || hookExpenses || [];
@@ -149,7 +151,18 @@ export function FixedExpenseList({
                           <span className="hidden sm:inline">Registar</span>
                           <span className="sm:hidden">OK</span>
                           {uniqueRegisteredMonths.length > 0 && (
-                            <span className="flex items-center justify-center min-w-[16px] h-4 ml-0.5 px-1 rounded-full bg-primary text-white text-[10px] font-bold">
+                            <span 
+                              className="flex items-center justify-center min-w-[16px] h-4 ml-0.5 px-1 rounded-full bg-primary text-white text-[10px] font-bold cursor-help sm:cursor-default"
+                              onClick={(e) => {
+                                if (window.innerWidth < 640) {
+                                  e.stopPropagation();
+                                  setViewRegisteredMonths({
+                                    name: itemName,
+                                    months: uniqueRegisteredMonths
+                                  });
+                                }
+                              }}
+                            >
                               {uniqueRegisteredMonths.length}
                             </span>
                           )}
@@ -285,6 +298,39 @@ export function FixedExpenseList({
           item={registerItem}
           type="expense"
         />
+      )}
+
+      {viewRegisteredMonths && (
+        <Modal
+          open={!!viewRegisteredMonths}
+          onClose={() => setViewRegisteredMonths(null)}
+          title="Meses Registados"
+          maxWidth="sm"
+          mobileBehavior="bottom-sheet"
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                {viewRegisteredMonths.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">{viewRegisteredMonths.name}</p>
+                <p className="text-xs text-muted-foreground">{viewRegisteredMonths.months.length} registos encontrados</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {viewRegisteredMonths.months.map((month, idx) => (
+                <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/50">
+                  <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium text-foreground">{month}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
