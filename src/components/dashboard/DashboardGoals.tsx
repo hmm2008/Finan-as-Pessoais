@@ -15,16 +15,16 @@ export function DashboardGoals() {
   const activeGoals = goals.slice(0, 3);
 
   return (
-    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-2xl sm:rounded-[2.5rem] h-full flex flex-col hover:bg-card/80 transition-all duration-300">
-      <CardHeader className="flex flex-row items-center justify-between pb-2 p-4 sm:p-8">
+    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-2xl sm:rounded-3xl h-full flex flex-col hover:bg-card/80 transition-all duration-300">
+      <CardHeader className="flex flex-row items-center justify-between pb-2 p-4 sm:p-6">
         <CardTitle className="text-[8px] sm:text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
           Objetivos (Top 3)
         </CardTitle>
-        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-[1.25rem] bg-foreground/5 text-foreground flex items-center justify-center">
-            <Flag className="w-5 h-5 sm:w-6 sm:h-6" />
+        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-foreground/5 text-foreground flex items-center justify-center">
+            <Flag className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col justify-between p-4 sm:p-8 pt-0 sm:pt-0">
+      <CardContent className="flex-1 flex flex-col justify-between p-4 sm:p-6 pt-0 sm:pt-0">
         <div className="space-y-4 sm:space-y-8 flex-1 max-h-[250px] overflow-y-auto">
           {activeGoals.length > 0 ? (
             activeGoals.map((goal: any, i: number) => {

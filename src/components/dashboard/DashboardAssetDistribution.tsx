@@ -53,26 +53,26 @@ export function DashboardAssetDistribution() {
   const topCategory = [...data].sort((a, b) => b.value - a.value)[0]?.name || 'N/A';
 
   return (
-    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-[2.5rem] h-full flex flex-col hover:bg-card/80 transition-all duration-300">
-      <CardHeader className="flex flex-row items-center justify-between pb-2 p-8">
-        <CardTitle className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
+    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-2xl sm:rounded-3xl h-full flex flex-col hover:bg-card/80 transition-all duration-300">
+      <CardHeader className="flex flex-row items-center justify-between pb-2 p-4 sm:p-6">
+        <CardTitle className="text-[8px] sm:text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
           Distribuição de Património
         </CardTitle>
-        <div className="w-12 h-12 rounded-[1.25rem] bg-foreground/5 text-foreground flex items-center justify-center">
-            <Landmark className="w-6 h-6" />
+        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-foreground/5 text-foreground flex items-center justify-center">
+            <Landmark className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col justify-center p-8 pt-0">
-        <div className="flex items-center gap-6">
-          <div className="w-24 h-24 shrink-0 relative">
+      <CardContent className="flex-1 flex flex-col justify-center p-4 sm:p-6 pt-0 sm:pt-0">
+        <div className="flex items-center gap-4 sm:gap-6">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data}
                   cx="50%"
                   cy="50%"
-                  innerRadius={30}
-                  outerRadius={45}
+                  innerRadius={window.innerWidth < 640 ? 20 : 30}
+                  outerRadius={window.innerWidth < 640 ? 30 : 45}
                   paddingAngle={4}
                   dataKey="value"
                   stroke="none"
@@ -86,11 +86,11 @@ export function DashboardAssetDistribution() {
             </ResponsiveContainer>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-3xl font-black text-foreground tracking-tighter tabular-nums truncate mb-1">
+            <div className="text-lg sm:text-3xl font-black text-foreground tracking-tighter tabular-nums truncate mb-0.5 sm:mb-1">
               {maskValue(total, formatter.format)}
             </div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 truncate">
-              Maior fatia: {topCategory}
+            <div className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 truncate">
+              Top: {topCategory}
             </div>
           </div>
         </div>
