@@ -199,7 +199,7 @@ export default function ConfiguracoesView() {
               <Card className="border-none shadow-sm bg-card/50 rounded-3xl overflow-hidden">
                 <CardHeader className="bg-muted/30 border-b border-border/40 p-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                       <KeyRound className="w-5 h-5" />
                     </div>
                     <div>
@@ -247,7 +247,7 @@ export default function ConfiguracoesView() {
                       />
                     </div>
 
-                    <Button type="submit" className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-500/20">
+                    <Button type="submit" className="w-full h-11 bg-primary hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20">
                       {hasPin ? 'Atualizar PIN de Segurança' : 'Criar PIN de Acesso'}
                     </Button>
                   </form>
@@ -370,7 +370,7 @@ export default function ConfiguracoesView() {
               <CardHeader className="bg-muted/30 border-b border-border/40 p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                       <Palette className="w-5 h-5" />
                     </div>
                     <div>
@@ -394,7 +394,7 @@ export default function ConfiguracoesView() {
                 {/* Global Typography */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Monitor className="w-4 h-4 text-indigo-600" />
+                    <Monitor className="w-4 h-4 text-primary" />
                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Tipografia Global do Sistema</h4>
                   </div>
                   <div className="bg-muted/20 rounded-2xl p-4 border border-border/40">
@@ -421,7 +421,7 @@ export default function ConfiguracoesView() {
                   {/* Tema */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
-                      <Palette className="w-4 h-4 text-indigo-600" />
+                      <Palette className="w-4 h-4 text-primary" />
                       <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Modo de Exibição</h4>
                     </div>
                     <div className="flex gap-2 p-1.5 bg-muted/40 rounded-xl border border-border/40">
@@ -432,7 +432,7 @@ export default function ConfiguracoesView() {
                           size="sm"
                           onClick={() => updatePrefs({ theme: t })}
                           className={`flex-1 capitalize text-[10px] font-black tracking-widest rounded-lg h-9 ${
-                            prefs.theme === t ? 'bg-indigo-600 text-white shadow-sm' : 'text-muted-foreground'
+                            prefs.theme === t ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground'
                           }`}
                         >
                           {t === 'system' ? 'Sistema' : t === 'light' ? 'Claro' : 'Escuro'}
@@ -449,11 +449,12 @@ export default function ConfiguracoesView() {
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {[
-                        { color: '#059669', label: 'Verde' },
-                        { color: '#2563eb', label: 'Azul' },
-                        { color: '#d97706', label: 'Laranja' },
-                        { color: '#e11d48', label: 'Rosa' },
-                        { color: '#7c3aed', label: 'Roxo' }
+                        { color: '#6366f1', label: 'Índigo (Original)' },
+                        { color: '#10b981', label: 'Esmeralda' },
+                        { color: '#0ea5e9', label: 'Safira' },
+                        { color: '#f59e0b', label: 'Dourado' },
+                        { color: '#f43f5e', label: 'Rosa' },
+                        { color: '#64748b', label: 'Ardósia' }
                       ].map((colorObj) => (
                         <motion.button
                           key={colorObj.color}
@@ -488,7 +489,7 @@ export default function ConfiguracoesView() {
                       setSavedMessage('Definições de aparência guardadas com sucesso!');
                       setTimeout(() => setSavedMessage(null), 3000);
                     }}
-                    className="w-full sm:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest rounded-xl px-6 h-10 shadow-lg shadow-indigo-500/20"
+                    className="w-full sm:w-auto gap-2 bg-primary hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest rounded-xl px-6 h-10 shadow-lg shadow-primary/20"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     Guardar Todas as Alterações
@@ -503,7 +504,7 @@ export default function ConfiguracoesView() {
             <Card className="border-none shadow-sm bg-card/50 rounded-3xl overflow-hidden">
               <CardHeader className="bg-muted/30 border-b border-border/40 p-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                     <User className="w-5 h-5" />
                   </div>
                   <div>
@@ -514,7 +515,7 @@ export default function ConfiguracoesView() {
               </CardHeader>
               <CardContent className="p-6 space-y-8">
                 <div className="flex flex-col md:flex-row items-center gap-6 p-6 rounded-3xl bg-white dark:bg-slate-900 border border-border/40 shadow-sm relative overflow-hidden group">
-                  <div className="w-20 h-20 rounded-2xl bg-indigo-600 text-white font-black text-3xl flex items-center justify-center border border-indigo-500/20 shadow-xl shadow-indigo-500/20 relative z-10">
+                  <div className="w-20 h-20 rounded-2xl bg-primary text-white font-black text-3xl flex items-center justify-center border border-primary/20 shadow-xl shadow-primary/20 relative z-10">
                     {(user?.displayName || userName || 'M').charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 text-center md:text-left relative z-10">
@@ -528,7 +529,7 @@ export default function ConfiguracoesView() {
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase tracking-widest">
                         <Shield className="w-3 h-3" /> Conta Verificada
                       </span>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 uppercase tracking-widest">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest">
                         Nível Proprietário
                       </span>
                     </div>
@@ -558,7 +559,7 @@ export default function ConfiguracoesView() {
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-border/40">
-                  <Button size="sm" onClick={handleSavePreferences} className="w-full sm:w-auto h-11 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest rounded-xl px-8 shadow-lg shadow-indigo-500/20">
+                  <Button size="sm" onClick={handleSavePreferences} className="w-full sm:w-auto h-11 bg-primary hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest rounded-xl px-8 shadow-lg shadow-primary/20">
                     Atualizar Perfil
                   </Button>
                 </div>

@@ -57,3 +57,21 @@ export interface Vehicle extends Entity {
   name: string;
   value: number;
 }
+
+export interface Budget extends Entity {
+  category: string;
+  amount: number;
+  period: 'monthly';
+  icon?: string;
+  color?: string;
+}
+
+export interface Notification extends Entity {
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'error' | 'success';
+  date: string;
+  read: boolean;
+  link?: string;
+  category?: string;
+}

@@ -41,3 +41,24 @@ export function getSuggestedCategory(description: string, customRules: Categoriz
 
   return null;
 }
+
+export async function getAISuggestedCategory(description: string, amount?: number, currentCategories?: string[]): Promise<string | null> {
+  if (!description || description.length < 3) return null;
+
+  try {
+    const response = await fetch('/api/ai-categorize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description, amount, currentCategories })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.category;
+    }
+  } catch (error) {
+    console.error('AI categorization failed:', error);
+  }
+
+  return null;
+}

@@ -151,12 +151,12 @@ export function FixedExpenseList({
                           variant="outline" 
                           size="sm" 
                           onClick={() => setRegisterItem(expense)}
-                          className="h-8 gap-1.5 rounded-full border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-400 dark:hover:bg-indigo-950/50"
+                          className="h-8 gap-1.5 rounded-full border-indigo-200 text-primary hover:bg-indigo-50 dark:border-indigo-900 dark:text-primary/80 dark:hover:bg-indigo-950/50"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">Registar</span>
                           {uniqueRegisteredMonths.length > 0 && (
-                            <span className="flex items-center justify-center w-4 h-4 ml-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold">
+                            <span className="flex items-center justify-center w-4 h-4 ml-0.5 rounded-full bg-primary text-white text-[10px] font-bold">
                               {uniqueRegisteredMonths.length}
                             </span>
                           )}
@@ -165,12 +165,12 @@ export function FixedExpenseList({
                         {uniqueRegisteredMonths.length > 0 && (
                           <div className={`pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all absolute ${popoverPosClass} z-[100] bg-white dark:bg-slate-900 shadow-2xl rounded-xl border border-border p-3 w-52 text-left`}>
                             <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase mb-2">
-                              <Calendar className="w-3.5 h-3.5 text-indigo-500" /> MESES REGISTADOS ({uniqueRegisteredMonths.length})
+                              <Calendar className="w-3.5 h-3.5 text-primary" /> MESES REGISTADOS ({uniqueRegisteredMonths.length})
                             </div>
                             <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1">
                               {uniqueRegisteredMonths.map((m, idx) => (
                                 <div key={idx} className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
                                   {m}
                                 </div>
                               ))}

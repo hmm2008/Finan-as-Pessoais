@@ -117,7 +117,7 @@ export function DespesasFixasHeader({ onAdd, expenses }: DespesasFixasHeaderProp
           <span>Google Calendar</span>
         </Button>
 
-        <Button size="sm" onClick={onAdd} className="h-9 gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-600 dark:hover:bg-indigo-700">
+        <Button size="sm" onClick={onAdd} className="h-9 gap-1.5 rounded-xl bg-primary hover:bg-indigo-700 text-white dark:bg-primary dark:hover:bg-indigo-700">
           <Plus className="w-4 h-4" />
           <span>Nova Despesa Fixa</span>
         </Button>
@@ -155,7 +155,7 @@ export function DespesasFixasHeader({ onAdd, expenses }: DespesasFixasHeaderProp
         <Card className="rounded-2xl border-indigo-200 bg-indigo-50/50 shadow-sm dark:bg-indigo-950/20 dark:border-indigo-900/50">
           <CardContent className="p-5 flex flex-col justify-center h-full space-y-2">
             <p className="text-sm font-medium text-muted-foreground">Total Anual</p>
-            <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-400">
+            <p className="text-2xl font-bold text-indigo-700 dark:text-primary/80">
               {maskValue(totalAnualReal, formatter.format)}
             </p>
             <p className="text-sm text-muted-foreground">

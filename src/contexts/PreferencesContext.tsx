@@ -44,17 +44,35 @@ export interface UserPreferences {
     sidebar?: TextStyle;
     global?: TextStyle;
   };
+  dashboardWidgetOrder?: string[];
   updatedAt?: string;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'dark',
   density: 'comfortable',
-  accentColor: '#4f46e5',
+  accentColor: '#6366f1',
   fontFamily: 'sans',
   baseFontSize: 'md',
   privacyMode: false,
   pinHash: null,
+  dashboardWidgetOrder: [
+    'saldo-real',
+    'saldo-projetado',
+    'burn-rate',
+    'asset-distribution',
+    'daily-timeline',
+    'expenses-category',
+    'income-vs-expenses',
+    'category-insights',
+    'recent-transactions',
+    'goals',
+    'budgets',
+    'fixed-expenses',
+    'goal-simulator',
+    'ai-insights',
+    'asset-trends'
+  ],
   navLabels: {
     '/': 'Visão Geral',
     '/financas': 'Finanças',

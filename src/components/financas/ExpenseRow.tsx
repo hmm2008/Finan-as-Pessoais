@@ -53,7 +53,7 @@ export function ExpenseRow({ expenses, onEdit, onDelete, selectedIds = [], onTog
         return { color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Home };
       case 'Transportes':
       case 'Passe':
-        return { color: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20', icon: Bus };
+        return { color: 'bg-primary/10 text-primary border-primary/20', icon: Bus };
       case 'Combustível':
       case 'Viatura':
       case 'Manutenção':

@@ -178,8 +178,8 @@ export default function RelatorioMensalImprimivelView() {
         <div className="border-b-2 border-slate-900 pb-5 mb-6 flex justify-between items-end">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <FileText className="w-6 h-6 text-indigo-600 print:text-black" />
-              <span className="text-xs font-bold uppercase tracking-widest text-indigo-600 print:text-black">Relatório de Gestão</span>
+              <FileText className="w-6 h-6 text-primary print:text-black" />
+              <span className="text-xs font-bold uppercase tracking-widest text-primary print:text-black">Relatório de Gestão</span>
             </div>
             <h1 className="text-3xl font-extrabold font-serif tracking-tight text-slate-900">Finanças Pessoais</h1>
             <p className="text-slate-600 mt-1 text-sm font-medium">Período: <span className="capitalize text-slate-900 font-semibold">{monthName}</span></p>
@@ -193,7 +193,7 @@ export default function RelatorioMensalImprimivelView() {
         {/* 1. Resumo Financeiro */}
         <div className="mb-8">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 mb-3 border-b border-slate-300 pb-1 flex items-center gap-1.5">
-            <CircleDollarSign className="w-4 h-4 text-indigo-600 print:text-black" />
+            <CircleDollarSign className="w-4 h-4 text-primary print:text-black" />
             1. Resumo Financeiro do Mês
           </h2>
           <div className="grid grid-cols-4 gap-4">
@@ -248,7 +248,7 @@ export default function RelatorioMensalImprimivelView() {
                     {/* Native high-contrast print vector bars */}
                     <div className="w-full bg-slate-100 border border-slate-200 h-2.5 rounded-full overflow-hidden">
                       <div 
-                        className="bg-indigo-600 print:bg-slate-700 h-full rounded-full"
+                        className="bg-primary print:bg-slate-700 h-full rounded-full"
                         style={{ width: `${Math.min(100, item.percentage)}%` }}
                       />
                     </div>
@@ -291,7 +291,7 @@ export default function RelatorioMensalImprimivelView() {
         {/* 3. Detalhe dos Movimentos */}
         <div className="mb-8">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 mb-3 border-b border-slate-300 pb-1 flex items-center gap-1.5">
-            <Calendar className="w-4 h-4 text-indigo-600 print:text-black" />
+            <Calendar className="w-4 h-4 text-primary print:text-black" />
             4. Registo Completo de Transações ({monthlyData.allTransactions.length})
           </h2>
           

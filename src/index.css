@@ -85,11 +85,11 @@
     
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 239 84% 67%;
+    --ring: var(--custom-accent-color, hsl(239 84% 67%));
     
     --radius: 1rem; /* rounded-2xl for cards */
     
-    --chart-1: 239 84% 67%; /* Indigo */
+    --chart-1: var(--custom-accent-color, hsl(239 84% 67%));
     --chart-2: 158 64% 52%; /* Emerald */
     --chart-3: 31 97% 55%;  /* Orange */
     --chart-4: 350 89% 60%; /* Rose */
@@ -97,12 +97,12 @@
 
     --sidebar-background: 210 40% 98%;
     --sidebar-foreground: 222.2 47.4% 11.2%;
-    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary: var(--custom-accent-color, hsl(239 84% 67%));
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 40% 96.1%;
     --sidebar-accent-foreground: 222.2 47.4% 11.2%;
     --sidebar-border: 214.3 31.8% 91.4%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-ring: var(--custom-accent-color, hsl(239 84% 67%));
   }
 
   .dark {
@@ -132,9 +132,9 @@
     
     --border: 215 28% 17%; /* slate-800 */
     --input: 215 28% 17%;
-    --ring: 239 84% 67%;
+    --ring: var(--custom-accent-color, hsl(239 84% 67%));
     
-    --chart-1: 239 84% 67%; /* Indigo */
+    --chart-1: var(--custom-accent-color, hsl(239 84% 67%));
     --chart-2: 158 64% 52%; /* Emerald */
     --chart-3: 31 97% 55%;  /* Orange */
     --chart-4: 350 89% 60%; /* Rose */
@@ -142,13 +142,23 @@
 
     --sidebar-background: 222 47% 11%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary: var(--custom-accent-color, hsl(239 84% 67%));
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 215 28% 17%; /* slate-800 */
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 215 28% 17%; /* slate-800 */
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-ring: var(--custom-accent-color, hsl(239 84% 67%));
   }
+}
+
+@layer base {
+  :root {
+    --primary: 239 84% 67%;
+  }
+}
+
+@theme {
+  --color-primary: var(--custom-accent-color, hsl(var(--primary)));
 }
 
 @layer base {

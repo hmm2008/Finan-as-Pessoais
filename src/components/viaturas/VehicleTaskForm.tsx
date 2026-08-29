@@ -314,9 +314,9 @@ export function VehicleTaskForm({ isOpen, vehicleId, onClose, onSave, initialDat
 
             {/* Dedicated Next Cycle Box */}
             {recurrenceInterval !== 'none' && (
-              <div className="space-y-3 p-3.5 border border-indigo-500/30 rounded-xl bg-indigo-500/5 dark:bg-indigo-500/10 transition-all">
+              <div className="space-y-3 p-3.5 border border-primary/30 rounded-xl bg-primary/5 dark:bg-primary/10 transition-all">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold text-xs uppercase tracking-wider">
+                  <div className="flex items-center gap-2 text-primary dark:text-primary/80 font-semibold text-xs uppercase tracking-wider">
                     <RefreshCw className="w-4 h-4" /> Próxima Ocorrência / Ciclo Futuro
                   </div>
                   <span className="text-[11px] text-muted-foreground bg-background/80 px-2 py-0.5 rounded border border-border">

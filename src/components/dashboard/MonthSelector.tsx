@@ -2,6 +2,7 @@ import React from 'react';
 import { useDashboard } from '../../contexts';
 import { Button } from '../ui/button';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export function MonthSelector() {
   const { currentMonth, setMonth } = useDashboard(); // currentMonth is YYYY-MM
@@ -25,15 +26,38 @@ export function MonthSelector() {
   const capitalizedLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
   return (
-    <div className="flex items-center gap-2">
-      <Button variant="outline" size="icon" onClick={prevMonth}>
+    <div className="flex items-center gap-1 bg-background/50 backdrop-blur-md border border-border/40 rounded-2xl p-1">
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        onClick={prevMonth}
+        className="h-9 w-9 rounded-xl hover:bg-foreground/5 transition-all active:scale-90"
+      >
         <ChevronLeft className="w-4 h-4" />
       </Button>
-      <div className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-md text-sm font-semibold min-w-[150px] justify-center">
-        <Calendar className="w-4 h-4 text-muted-foreground" />
-        <span>{capitalizedLabel}</span>
+
+      <div className="flex items-center gap-2 px-3 min-w-[140px] justify-center overflow-hidden">
+        <Calendar className="w-3.5 h-3.5 text-muted-foreground/60" />
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={currentMonth}
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -10, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-[11px] font-black uppercase tracking-widest text-foreground truncate"
+          >
+            {capitalizedLabel}
+          </motion.span>
+        </AnimatePresence>
       </div>
-      <Button variant="outline" size="icon" onClick={nextMonth}>
+
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        onClick={nextMonth}
+        className="h-9 w-9 rounded-xl hover:bg-foreground/5 transition-all active:scale-90"
+      >
         <ChevronRight className="w-4 h-4" />
       </Button>
     </div>

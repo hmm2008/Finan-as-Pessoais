@@ -47,7 +47,7 @@ export function IncomeRow({ incomes, onEdit, onDelete, selectedIds = [], onToggl
         return { color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Banknote };
       case 'Rendimentos Prediais':
       case 'Rendas':
-        return { color: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20', icon: Building2 };
+        return { color: 'bg-primary/10 text-primary border-primary/20', icon: Building2 };
       case 'Reembolso':
       case 'Devolução':
         return { color: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20', icon: ArrowUpRight };

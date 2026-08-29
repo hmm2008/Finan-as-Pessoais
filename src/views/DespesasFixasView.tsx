@@ -31,7 +31,7 @@ export default function DespesasFixasView() {
     <div className="relative min-h-screen pb-20">
       {/* Background Orbs */}
       <div className="absolute top-0 right-0 -z-10 w-[500px] h-[500px] bg-rose-500/5 rounded-full blur-[100px]" />
-      <div className="absolute bottom-20 left-0 -z-10 w-[400px] h-[400px] bg-indigo-500/5 rounded-full blur-[100px]" />
+      <div className="absolute bottom-20 left-0 -z-10 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px]" />
 
       <motion.div
         initial={{ opacity: 0, y: -10 }}

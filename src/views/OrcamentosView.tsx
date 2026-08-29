@@ -172,7 +172,7 @@ export default function OrcamentosView() {
   return (
     <div className="relative min-h-screen pb-20">
       {/* Background Orbs */}
-      <div className="absolute top-0 right-0 -z-10 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[100px]" />
+      <div className="absolute top-0 right-0 -z-10 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[100px]" />
       <div className="absolute bottom-40 left-0 -z-10 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-[100px]" />
 
       <motion.div
@@ -312,7 +312,7 @@ export default function OrcamentosView() {
                    </p>
                  </div>
                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                   stat.color === 'indigo' ? 'bg-indigo-500/10 text-indigo-600' :
+                   stat.color === 'indigo' ? 'bg-primary/10 text-primary' :
                    stat.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-600' :
                    stat.color === 'rose' ? 'bg-rose-500/10 text-rose-600' :
                    'bg-muted text-muted-foreground/40'
@@ -328,7 +328,7 @@ export default function OrcamentosView() {
       {/* Main Content */}
       <section className="space-y-6">
         <div className="flex items-center gap-2 px-1">
-          <Sparkles className="w-4 h-4 text-indigo-500" />
+          <Sparkles className="w-4 h-4 text-primary" />
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">Análise por Categoria</h2>
         </div>
 
@@ -344,14 +344,14 @@ export default function OrcamentosView() {
             animate={{ opacity: 1 }}
             className="py-24 border-2 border-dashed border-border/40 bg-card/20 rounded-[3rem] flex flex-col items-center justify-center text-center px-6"
           >
-             <div className="w-24 h-24 rounded-full bg-indigo-500/10 flex items-center justify-center mb-8 border border-indigo-500/20">
-                <Target className="w-10 h-10 text-indigo-600" />
+             <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-8 border border-primary/20">
+                <Target className="w-10 h-10 text-primary" />
              </div>
              <h3 className="text-2xl font-black text-foreground tracking-tight">Sem Orçamentos</h3>
              <p className="text-sm text-muted-foreground mt-3 max-w-sm">Defina limites mensais para controlar melhor os seus gastos por categoria.</p>
              <Button 
                 onClick={() => { setEditingBudget(null); setIsModalOpen(true); }}
-                className="mt-10 rounded-2xl h-12 px-10 bg-indigo-600 hover:bg-indigo-700 font-black uppercase tracking-widest text-[10px] shadow-xl"
+                className="mt-10 rounded-2xl h-12 px-10 bg-primary hover:bg-indigo-700 font-black uppercase tracking-widest text-[10px] shadow-xl"
              >
                 Criar Primeiro Orçamento
              </Button>
@@ -432,7 +432,7 @@ export default function OrcamentosView() {
                                     animate={{ width: `${Math.min(ratio, 100)}%` }}
                                     transition={{ duration: 1 }}
                                     className={`h-full rounded-full ${
-                                      isOver ? 'bg-rose-500' : isWarning ? 'bg-amber-500' : 'bg-indigo-500'
+                                      isOver ? 'bg-rose-500' : isWarning ? 'bg-amber-500' : 'bg-primary'
                                     }`}
                                   />
                                </div>

@@ -649,7 +649,7 @@ export function GoogleDriveSyncCard() {
             <div key={rev.id} className="p-3 bg-muted/30 border border-border rounded-xl flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-border flex items-center justify-center">
-                  <History className="w-4 h-4 text-indigo-600" />
+                  <History className="w-4 h-4 text-primary" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-foreground">
@@ -662,7 +662,7 @@ export function GoogleDriveSyncCard() {
                 href={spreadsheetInfo?.url + `?rev=${rev.id}`}
                 target="_blank" 
                 rel="noreferrer"
-                className="text-[10px] font-black text-indigo-600 hover:underline"
+                className="text-[10px] font-black text-primary hover:underline"
               >
                 VER VERSÃO
               </a>

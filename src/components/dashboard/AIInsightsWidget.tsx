@@ -37,7 +37,7 @@ export const AIInsightsWidget: React.FC = () => {
         <CardTitle className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
           Insights Inteligentes (IA)
         </CardTitle>
-        <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-[1.25rem] bg-primary/10 text-primary flex items-center justify-center">
             <Brain className="w-6 h-6" />
         </div>
       </CardHeader>

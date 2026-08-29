@@ -192,13 +192,13 @@ export function AssetImovelForm({
           className="relative w-full max-w-2xl bg-card rounded-[2.5rem] shadow-2xl border border-border/50 overflow-hidden"
         >
           {/* Header Accent */}
-          <div className="h-2 w-full bg-indigo-600" />
+          <div className="h-2 w-full bg-primary" />
 
           <div className="p-8 sm:p-10 space-y-8">
             {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center border border-indigo-500/20 shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20 shadow-sm">
                   <Building2 className="w-6 h-6" />
                 </div>
                 <div>
@@ -227,7 +227,7 @@ export function AssetImovelForm({
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-1">
-                      <Info className="w-3.5 h-3.5 text-indigo-500" />
+                      <Info className="w-3.5 h-3.5 text-primary" />
                       <Label htmlFor="propName" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nome do Imóvel</Label>
                     </div>
                     <Input
@@ -242,7 +242,7 @@ export function AssetImovelForm({
 
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-1">
-                      <Euro className="w-3.5 h-3.5 text-indigo-500" />
+                      <Euro className="w-3.5 h-3.5 text-primary" />
                       <Label htmlFor="currentValue" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor Atual Estimado (€)</Label>
                     </div>
                     <Input
@@ -259,7 +259,7 @@ export function AssetImovelForm({
 
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-1">
-                      <Euro className="w-3.5 h-3.5 text-indigo-500" />
+                      <Euro className="w-3.5 h-3.5 text-primary" />
                       <Label htmlFor="purchaseValue" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor de Compra (€)</Label>
                     </div>
                     <Input
@@ -275,7 +275,7 @@ export function AssetImovelForm({
 
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-1">
-                      <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                      <Calendar className="w-3.5 h-3.5 text-primary" />
                       <Label htmlFor="acqDate" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Data de Aquisição</Label>
                     </div>
                     <Input
@@ -292,7 +292,7 @@ export function AssetImovelForm({
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-1">
-                      <Home className="w-3.5 h-3.5 text-indigo-500" />
+                      <Home className="w-3.5 h-3.5 text-primary" />
                       <Label htmlFor="propType" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tipo de Imóvel</Label>
                     </div>
                     <Select value={propertyType} onValueChange={(v) => setPropertyType(v)}>
@@ -325,7 +325,7 @@ export function AssetImovelForm({
 
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-1">
-                      <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                      <MapPin className="w-3.5 h-3.5 text-primary" />
                       <Label htmlFor="street" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Morada</Label>
                     </div>
                     <Input
@@ -377,7 +377,7 @@ export function AssetImovelForm({
               <div className="space-y-6 pt-6 border-t border-border/40">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                       <Euro className="w-4 h-4" />
                     </div>
                     <h3 className="text-sm font-black uppercase tracking-widest text-foreground">Encargos & Custos Fixos</h3>
@@ -386,7 +386,7 @@ export function AssetImovelForm({
                     type="button"
                     variant="ghost"
                     onClick={handleAddExpenseRow}
-                    className="h-9 px-4 rounded-xl bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 text-[10px] font-black uppercase tracking-widest gap-1.5 transition-all"
+                    className="h-9 px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 text-[10px] font-black uppercase tracking-widest gap-1.5 transition-all"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Adicionar Encargo
@@ -520,7 +520,7 @@ export function AssetImovelForm({
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+                  className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-primary hover:bg-indigo-700 text-white shadow-lg shadow-primary/20 transition-all active:scale-95"
                 >
                   {initialData ? 'Guardar Alterações' : 'Registar Imóvel'}
                 </Button>

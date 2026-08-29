@@ -288,7 +288,43 @@ app.post('/api/suggest-savings', async (req, res) => {
 });
 
 // -----------------------------------------
-// 19.4 syncFixedExpensesToCalendar
+// 19.5 aiCategorizeTransaction
+// -----------------------------------------
+app.post('/api/ai-categorize', async (req, res) => {
+  const { description, amount, currentCategories } = req.body;
+  if (!description) {
+    return res.status(400).json({ error: 'description is required' });
+  }
+
+  try {
+    const categoriesList = currentCategories || ['Alimentação', 'Habitação', 'Transportes', 'Combustível', 'Saúde', 'Lazer', 'Salário', 'Investimentos', 'Outros'];
+    
+    const prompt = `Categorize a seguinte transação financeira para um utilizador em Portugal:
+Descrição: "${description}"
+Valor: ${amount ? amount + '€' : 'Desconhecido'}
+
+Categorias Disponíveis: ${categoriesList.join(', ')}
+
+Responda APENAS com o nome da categoria que melhor se adapta. Se não tiver certeza, responda "Outros".`;
+
+    const response = await getAI().models.generateContent({
+      model: 'gemini-3.7-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: "És um assistente financeiro português especialista em organizar extratos bancários."
+      }
+    });
+
+    const category = response.text.trim();
+    res.json({ category });
+  } catch (error: any) {
+    console.error('Error in AI categorization:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// -----------------------------------------
+// 19.6 syncFixedExpensesToCalendar
 // -----------------------------------------
 app.post('/api/sync-calendar', async (req, res) => {
   const { userId } = req.body;

@@ -1,36 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { base44Client, Account } from '@/api/base44Client';
-import { Wallet, Landmark, PiggyBank } from 'lucide-react';
-
-export function AccountsView() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-
-  useEffect(() => {
-    base44Client.getAccounts().then(setAccounts);
-  }, []);
-
-  const total = accounts.reduce((sum, acc) => sum + acc.balance, 0);
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'checking': return <Wallet className="h-5 w-5 text-primary" />;
-      case 'savings': return <PiggyBank className="h-5 w-5 text-emerald-500" />;
-      case 'investment': return <Landmark className="h-5 w-5 text-indigo-500" />;
-      default: return <Wallet className="h-5 w-5" />;
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'checking': return 'À Ordem';
-      case 'savings': return 'Poupança';
-      case 'investment': return 'Investimento';
-      default: return type;
-    }
-  };
-
-import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../components/layout';
 import { Card, CardContent } from '../components/ui/card';
 import { base44Client, Account } from '../api/base44Client';
@@ -51,7 +19,7 @@ export default function AccountsView() {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'checking': return <Wallet className="h-6 w-6 text-indigo-500" />;
+      case 'checking': return <Wallet className="h-6 w-6 text-primary" />;
       case 'savings': return <PiggyBank className="h-6 w-6 text-emerald-500" />;
       case 'investment': return <Landmark className="h-6 w-6 text-amber-500" />;
       default: return <Wallet className="h-6 w-6" />;
@@ -70,7 +38,7 @@ export default function AccountsView() {
   return (
     <div className="relative min-h-screen pb-20">
       {/* Background Orbs */}
-      <div className="absolute top-0 right-0 -z-10 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[100px]" />
+      <div className="absolute top-0 right-0 -z-10 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[100px]" />
       <div className="absolute bottom-20 left-0 -z-10 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-[100px]" />
 
       <motion.div

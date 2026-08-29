@@ -36,8 +36,8 @@ export function PatrimonioHeader({
       label: activeTab === 'imovel' ? 'Património Imobiliário' : 'Ativos Financeiros',
       value: totalCurrent,
       icon: activeTab === 'imovel' ? Home : Wallet,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-500/10',
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
       description: 'Valor atual estimado'
     },
     {
@@ -77,7 +77,7 @@ export function PatrimonioHeader({
             onClick={() => onTabChange('imovel')}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2.5 transition-all duration-300 ${
               activeTab === 'imovel'
-                ? 'bg-background text-indigo-600 shadow-md scale-[1.02]'
+                ? 'bg-background text-primary shadow-md scale-[1.02]'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -90,7 +90,7 @@ export function PatrimonioHeader({
             onClick={() => onTabChange('financeiro')}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2.5 transition-all duration-300 ${
               activeTab === 'financeiro'
-                ? 'bg-background text-indigo-600 shadow-md scale-[1.02]'
+                ? 'bg-background text-primary shadow-md scale-[1.02]'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >

@@ -6,8 +6,8 @@ import { Label } from '../ui/label';
 import { X, Wand2, Plus, Car } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
-import { getSuggestedCategory } from './AutoCategorization';
-import { useExpenses, useVehicles, useVehicleFuel } from '../../hooks/queries';
+import { getSuggestedCategory, getAISuggestedCategory } from './AutoCategorization';
+import { useExpenses, useVehicles, useVehicleFuel, useCategorizationRules } from '../../hooks/queries';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 
 interface ExpenseFormProps {
@@ -16,13 +16,14 @@ interface ExpenseFormProps {
   onClose: () => void;
 }
 
-const DEFAULT_CATEGORIES = ['Alimentação', 'Habitação', 'Transportes', 'Combustível', 'Saúde', 'Lazer'];
+const DEFAULT_CATEGORIES = ['Alimentação', 'Habitação', 'Transportes', 'Combustível', 'Saúde', 'Lazer', 'Luz', 'Água', 'Internet', 'Seguros', 'Educação', 'Investimentos', 'Outros'];
 
 export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) {
 
   const { addExpense, updateExpense } = useExpenses();
   const { vehicles, updateVehicle } = useVehicles();
   const { fuelEntries, addFuelEntry, updateFuelEntry, deleteFuelEntry } = useVehicleFuel();
+  const { categorizationRules, addRule } = useCategorizationRules();
 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [amount, setAmount] = useState('');
@@ -36,6 +37,8 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
   const [kilometers, setKilometers] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
+  const [isAISuggesting, setIsAISuggesting] = useState(false);
+  const [showSaveRulePrompt, setShowSaveRulePrompt] = useState(false);
 
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [isAddingCustom, setIsAddingCustom] = useState(false);
@@ -69,6 +72,8 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
       }
       setIsSubmitting(false);
       setSuggestedCategory(null);
+      setIsAISuggesting(false);
+      setShowSaveRulePrompt(false);
       setIsAddingCustom(false);
       setNewCustomCategory('');
     }
@@ -88,22 +93,54 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
   useEffect(() => {
     const textToAnalyze = `${entity} ${notes}`.trim();
     if (textToAnalyze.length > 2) {
-      const suggestion = getSuggestedCategory(textToAnalyze);
+      const suggestion = getSuggestedCategory(textToAnalyze, categorizationRules);
       if (suggestion && suggestion !== category) {
         setSuggestedCategory(suggestion);
+        setIsAISuggesting(false);
+      } else if (!suggestion && !category && entity.length > 3) {
+        // Debounce AI suggestion
+        const timer = setTimeout(async () => {
+          setIsAISuggesting(true);
+          const aiSuggestion = await getAISuggestedCategory(entity, parseFloat(amount) || 0, allCategories);
+          if (aiSuggestion && aiSuggestion !== 'Outros' && aiSuggestion !== 'Unknown') {
+            setSuggestedCategory(aiSuggestion);
+          }
+          setIsAISuggesting(false);
+        }, 1000);
+        return () => clearTimeout(timer);
       } else {
         setSuggestedCategory(null);
       }
     } else {
       setSuggestedCategory(null);
     }
-  }, [entity, notes, category]);
+  }, [entity, notes, category, categorizationRules]);
 
   const applySuggestion = () => {
     if (suggestedCategory) {
       setCategory(suggestedCategory);
       setSuggestedCategory(null);
       setIsAddingCustom(false);
+      
+      // Check if we should prompt to save this as a rule
+      const hasRule = categorizationRules?.some((r: any) => 
+        entity.toLowerCase().includes(r.keyword.toLowerCase()) || 
+        r.keyword.toLowerCase().includes(entity.toLowerCase())
+      );
+      if (!hasRule) {
+        setShowSaveRulePrompt(true);
+      }
+    }
+  };
+
+  const handleSaveRule = async () => {
+    if (entity && category) {
+      await addRule({
+        keyword: entity,
+        category: category,
+        priority: 1
+      });
+      setShowSaveRulePrompt(false);
     }
   };
 
@@ -292,10 +329,43 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
                 )}
 
                 {suggestedCategory && (
-                  <div className="flex items-center gap-2 mt-2 text-xs text-primary animate-in fade-in slide-in-from-top-1">
-                    <Wand2 className="w-3 h-3" />
-                    <span>Sugestão: <strong>{suggestedCategory}</strong></span>
-                    <button type="button" onClick={applySuggestion} className="underline hover:text-primary/80 font-medium ml-1">Aplicar</button>
+                  <div className="flex flex-col gap-2 mt-2 p-3 rounded-xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-1">
+                    <div className="flex items-center gap-2 text-xs text-primary">
+                      <Wand2 className="w-3 h-3" />
+                      <span>Sugestão: <strong>{suggestedCategory}</strong></span>
+                      <button type="button" onClick={applySuggestion} className="underline hover:text-primary/80 font-bold ml-1 uppercase tracking-tighter">Aplicar</button>
+                    </div>
+                  </div>
+                )}
+
+                {isAISuggesting && (
+                  <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground animate-pulse">
+                    <Wand2 className="w-3 h-3 animate-spin" />
+                    <span>A IA está a analisar o padrão...</span>
+                  </div>
+                )}
+
+                {showSaveRulePrompt && (
+                  <div className="mt-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex flex-col gap-2 animate-in fade-in slide-in-from-top-1">
+                    <p className="text-[10px] font-bold text-emerald-700 leading-tight">
+                      Deseja que o sistema aprenda esta categoria para futuras transações de "<span className="italic">{entity}</span>"?
+                    </p>
+                    <div className="flex gap-2">
+                      <button 
+                        type="button" 
+                        onClick={handleSaveRule}
+                        className="text-[9px] font-black uppercase tracking-widest bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition-colors"
+                      >
+                        Sim, criar regra
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowSaveRulePrompt(false)}
+                        className="text-[9px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Não agora
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

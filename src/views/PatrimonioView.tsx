@@ -215,7 +215,7 @@ export default function PatrimonioView() {
               if (activeTab === 'imovel') setIsImovelModalOpen(true);
               else setIsFinanceiroModalOpen(true);
             }}
-            className="rounded-2xl h-11 px-6 text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+            className="rounded-2xl h-11 px-6 text-[10px] font-black uppercase tracking-widest bg-primary hover:bg-indigo-700 text-white gap-2 shadow-lg shadow-primary/20 transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" />
             {activeTab === 'imovel' ? 'Novo Imóvel' : 'Novo Ativo'}
@@ -248,7 +248,7 @@ export default function PatrimonioView() {
           {/* Assets Section Header */}
           <div className="flex items-center justify-between border-b border-border/40 pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                 <LayoutGrid className="w-4 h-4" />
               </div>
               <h3 className="text-sm font-black uppercase tracking-widest text-foreground">Carteira de {activeTab === 'imovel' ? 'Imóveis' : 'Ativos Financeiros'}</h3>
@@ -274,7 +274,7 @@ export default function PatrimonioView() {
                 <Button 
                   variant="outline" 
                   onClick={() => activeTab === 'imovel' ? setIsImovelModalOpen(true) : setIsFinanceiroModalOpen(true)}
-                  className="mt-6 rounded-xl border-indigo-500/30 text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  className="mt-6 rounded-xl border-primary/30 text-primary hover:bg-indigo-50 transition-colors"
                 >
                   Adicionar Agora
                 </Button>
@@ -317,12 +317,12 @@ export default function PatrimonioView() {
                   <div className="p-8 space-y-8">
                     <div className="flex items-center justify-between border-b border-border/40 pb-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
                           <Building2 className="w-6 h-6" />
                         </div>
                         <div>
                           <h3 className="font-black text-xl tracking-tight text-foreground">
-                            Análise de Custos: <span className="text-indigo-600 dark:text-indigo-400">{selectedProperty.name}</span>
+                            Análise de Custos: <span className="text-primary dark:text-primary/80">{selectedProperty.name}</span>
                           </h3>
                           <div className="flex items-center gap-2 mt-1">
                             <Info className="w-3 h-3 text-muted-foreground" />

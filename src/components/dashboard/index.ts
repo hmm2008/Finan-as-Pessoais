@@ -19,4 +19,5 @@ export * from './GoalSimulator';
 export * from './DashboardSummaryCards';
 export * from './DashboardSecondarySummaryCards';
 export * from './AIInsightsWidget';
-export * from './AdvancedAssetTrends';
+export * from './DashboardWidgetGrid';
+export * from './widgetConfigs';

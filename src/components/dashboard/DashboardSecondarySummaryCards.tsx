@@ -68,14 +68,25 @@ export function DashboardSecondarySummaryCards() {
     { label: 'Próximos', value: maskValue(upcomingAmount, formatCurrency), icon: Calendar, color: 'pink' }
   ];
 
+const itemVariants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: { 
+      opacity: 1, 
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+        damping: 15
+      }
+    }
+  };
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {metrics.map((m, idx) => (
+      {metrics.map((m) => (
         <motion.div
           key={m.label}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4 + idx * 0.05, duration: 0.4 }}
+          variants={itemVariants}
           className="group relative bg-card/40 backdrop-blur-md border border-border/40 rounded-3xl p-4 transition-all hover:bg-card/60 hover:shadow-xl shadow-black/5"
         >
           <div className="flex items-center gap-3">

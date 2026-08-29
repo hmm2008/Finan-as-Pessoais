@@ -5,8 +5,10 @@ import { Header } from './Header';
 import { BottomPageNav } from './BottomPageNav';
 import { PageLoader } from './PageLoader';
 import { usePin, usePreferences } from '../../contexts';
+import { useBudgetAlerts } from '../../hooks/useBudgetAlerts';
 
 export function Layout() {
+  useBudgetAlerts();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const location = useLocation();
   const { lock } = usePin();

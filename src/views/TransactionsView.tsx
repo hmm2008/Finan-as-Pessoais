@@ -3,6 +3,7 @@ import { PageHeader } from '../components/layout';
 import { useExpenses, useIncomes } from '../hooks/queries';
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
 import { 
   ArrowDownLeft, 
   ArrowUpRight, 
@@ -12,10 +13,12 @@ import {
   Calendar,
   Tag,
   Euro,
-  Hash
+  Hash,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePrivacy } from '../contexts';
+import { CSVImportModal } from '../components/transactions/CSVImportModal';
 
 export function TransactionsView() {
   const { maskValue } = usePrivacy();
@@ -23,6 +26,7 @@ export function TransactionsView() {
   const { incomes, isLoading: loadingIncomes } = useIncomes();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 
@@ -62,7 +66,15 @@ export function TransactionsView() {
           subtitle="Histórico detalhado de todos os movimentos financeiros"
         >
           <div className="flex items-center gap-3">
-             <div className="relative group hidden sm:block">
+             <Button 
+               variant="outline" 
+               className="h-11 px-6 rounded-2xl bg-card/60 border-border/40 hover:bg-primary/5 hover:border-primary/40 transition-all font-black uppercase tracking-widest text-[10px] hidden sm:flex items-center gap-2"
+               onClick={() => setIsImportModalOpen(true)}
+             >
+               <Upload className="w-4 h-4" />
+               Importar CSV
+             </Button>
+             <div className="relative group hidden lg:block">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-blue-500 transition-colors" />
                 <Input 
                   placeholder="Pesquisar transações..." 
@@ -89,15 +101,25 @@ export function TransactionsView() {
           </div>
         </PageHeader>
         
-        {/* Mobile Search */}
-        <div className="relative group sm:hidden mt-4">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Pesquisar..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-12 rounded-2xl bg-card/60 border-border/40"
-          />
+        {/* Mobile Search & Actions */}
+        <div className="flex flex-col gap-3 sm:hidden mt-4">
+          <div className="relative group">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input 
+              placeholder="Pesquisar..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 h-12 rounded-2xl bg-card/60 border-border/40"
+            />
+          </div>
+          <Button 
+            variant="outline" 
+            className="h-12 rounded-2xl bg-card/60 border-border/40 font-black uppercase tracking-widest text-[10px] flex items-center gap-2 justify-center"
+            onClick={() => setIsImportModalOpen(true)}
+          >
+            <Upload className="w-4 h-4" />
+            Importar CSV Bancário
+          </Button>
         </div>
       </motion.div>
 
@@ -192,6 +214,11 @@ export function TransactionsView() {
           </div>
         )}
       </div>
+
+      <CSVImportModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+      />
     </div>
   );
 }

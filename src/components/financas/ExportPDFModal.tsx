@@ -372,8 +372,8 @@ export function ExportPDFModal({ isOpen, onClose, defaultMonth }: ExportPDFModal
             <div className="border-b-2 border-slate-900 pb-5 mb-6 flex justify-between items-end">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <FileText className="w-5 h-5 text-indigo-600 print:text-black" />
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-indigo-600 print:text-black">
+                  <FileText className="w-5 h-5 text-primary print:text-black" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-primary print:text-black">
                     Relatório Financeiro
                   </span>
                 </div>
@@ -396,7 +396,7 @@ export function ExportPDFModal({ isOpen, onClose, defaultMonth }: ExportPDFModal
             {/* 2. Resumo Executivo / KPIs */}
             <div className="mb-7">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 border-b border-slate-300 pb-1 flex items-center gap-1.5">
-                <CircleDollarSign className="w-4 h-4 text-indigo-600 print:text-black" />
+                <CircleDollarSign className="w-4 h-4 text-primary print:text-black" />
                 1. Resumo Executivo do Mês
               </h2>
               
@@ -477,7 +477,7 @@ export function ExportPDFModal({ isOpen, onClose, defaultMonth }: ExportPDFModal
                         </div>
                         <div className="w-full bg-slate-100 border border-slate-200 h-1.5 rounded-full overflow-hidden">
                           <div 
-                            className="bg-indigo-600 print:bg-slate-700 h-full rounded-full"
+                            className="bg-primary print:bg-slate-700 h-full rounded-full"
                             style={{ width: `${Math.min(100, item.percentage)}%` }}
                           />
                         </div>
@@ -518,7 +518,7 @@ export function ExportPDFModal({ isOpen, onClose, defaultMonth }: ExportPDFModal
             {/* 4. Lista Completa de Transações do Mês */}
             <div className="mb-7">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 border-b border-slate-300 pb-1 flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-indigo-600 print:text-black" />
+                <Calendar className="w-4 h-4 text-primary print:text-black" />
                 4. Registo Completo de Transações ({reportData.allTransactions.length})
               </h2>
               

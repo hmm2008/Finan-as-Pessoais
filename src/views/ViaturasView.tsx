@@ -373,7 +373,7 @@ export default function ViaturasView() {
                <div className={`h-1 w-full ${
                  stat.color === 'blue' ? 'bg-blue-500' :
                  stat.color === 'amber' ? 'bg-amber-500' :
-                 stat.color === 'indigo' ? 'bg-indigo-500' :
+                 stat.color === 'indigo' ? 'bg-primary' :
                  'bg-emerald-500'
                } opacity-40 group-hover:opacity-100 transition-opacity`} />
                <CardContent className="p-6 flex items-center justify-between">
@@ -386,7 +386,7 @@ export default function ViaturasView() {
                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-6 ${
                    stat.color === 'blue' ? 'bg-blue-500/10 text-blue-600' :
                    stat.color === 'amber' ? 'bg-amber-500/10 text-amber-500' :
-                   stat.color === 'indigo' ? 'bg-indigo-500/10 text-indigo-500' :
+                   stat.color === 'indigo' ? 'bg-primary/10 text-primary' :
                    'bg-emerald-500/10 text-emerald-500'
                  }`}>
                    <stat.icon className="w-6 h-6" />

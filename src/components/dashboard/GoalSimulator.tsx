@@ -23,7 +23,7 @@ export function GoalSimulator() {
         <CardTitle className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
           Simulador de Objetivos (E se?)
         </CardTitle>
-        <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-[1.25rem] bg-primary/10 text-primary flex items-center justify-center">
             <Calculator className="w-6 h-6" />
         </div>
       </CardHeader>
@@ -49,7 +49,7 @@ export function GoalSimulator() {
             <div className="space-y-2">
               <div className="flex justify-between items-end">
                 <label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Poupança Atual</label>
-                <span className="text-xl font-black text-indigo-500 tabular-nums">{maskValue(monthlySavings, formatter.format)}</span>
+                <span className="text-xl font-black text-primary tabular-nums">{maskValue(monthlySavings, formatter.format)}</span>
               </div>
               <input
                 type="range"
@@ -89,7 +89,7 @@ export function GoalSimulator() {
                 <div className="text-sm font-bold text-muted-foreground mb-4">
                   {monthsNeeded === 1 ? 'mês' : 'meses'}
                 </div>
-                <div className="text-xs font-black uppercase tracking-widest text-indigo-500">
+                <div className="text-xs font-black uppercase tracking-widest text-primary">
                   {format(targetDate, "MMMM 'de' yyyy", { locale: pt })}
                 </div>
               </>

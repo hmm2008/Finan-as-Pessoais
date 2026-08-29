@@ -137,7 +137,7 @@ export function VehicleTasks({
                         {task.taskType}
                       </span>
                       {recurrenceLabel && (
-                        <span className="text-xs px-2 py-0.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-md font-medium flex items-center gap-1">
+                        <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary dark:text-primary/80 border border-primary/20 rounded-md font-medium flex items-center gap-1">
                           <RefreshCw className="w-3 h-3" /> {recurrenceLabel}
                         </span>
                       )}
@@ -153,7 +153,7 @@ export function VehicleTasks({
                         </span>
                       )}
                       {task.nextDueDate && recurrenceLabel && (
-                        <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1">
+                        <span className="text-xs text-primary dark:text-primary/80 font-medium flex items-center gap-1">
                           <RefreshCw className="w-3 h-3" /> Próx. Ciclo: <strong>{new Date(task.nextDueDate).toLocaleDateString('pt-PT')}</strong>
                         </span>
                       )}

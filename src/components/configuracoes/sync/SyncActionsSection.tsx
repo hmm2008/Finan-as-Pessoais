@@ -53,7 +53,7 @@ export function SyncActionsSection({
         <Button 
           onClick={onExport} 
           disabled={isSyncing}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-bold h-10 rounded-xl"
+          className="bg-primary hover:bg-indigo-700 text-white gap-2 text-xs font-bold h-10 rounded-xl"
         >
           {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
           Exportar para Sheets

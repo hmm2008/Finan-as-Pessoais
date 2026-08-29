@@ -37,12 +37,12 @@ export const CookieConsent: React.FC = () => {
         >
           <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-center gap-6">
             <div className="bg-indigo-50 dark:bg-indigo-950/30 p-3 rounded-full hidden md:block">
-              <ShieldCheck className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+              <ShieldCheck className="w-8 h-8 text-primary dark:text-primary/80" />
             </div>
             
             <div className="flex-1 space-y-2">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-indigo-600 md:hidden" />
+                <ShieldCheck className="w-5 h-5 text-primary md:hidden" />
                 Privacidade e Cookies
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -62,7 +62,7 @@ export const CookieConsent: React.FC = () => {
               </Button>
               <Button 
                 onClick={handleAccept}
-                className="flex-1 text-xs h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6"
+                className="flex-1 text-xs h-10 bg-primary hover:bg-indigo-700 text-white font-bold px-6"
               >
                 Aceitar Tudo
               </Button>

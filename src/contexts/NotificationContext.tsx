@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { scheduleSheetsBackgroundSync } from '../lib/googleSheetsDataService';
 
 export interface NotificationItem {
   id: string;
@@ -47,10 +48,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setNotifications(prev =>
       prev.map(n => (n.id === id ? { ...n, read: true } : n))
     );
+    scheduleSheetsBackgroundSync();
   };
 
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    scheduleSheetsBackgroundSync();
   };
 
   const addNotification = (title: string, message: string, type: 'info' | 'warning' | 'success' | 'error', link?: string) => {
@@ -64,10 +67,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       link
     };
     setNotifications(prev => [newNotif, ...prev]);
+    scheduleSheetsBackgroundSync();
   };
 
   const clearAll = () => {
     setNotifications([]);
+    scheduleSheetsBackgroundSync();
   };
 
   return (

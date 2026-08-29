@@ -4,6 +4,7 @@ import { Wallet, ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
 import { useExpenses, useIncomes, useAssets, useVehicles } from '../../hooks/queries';
 import { Expense, Income, Asset, Vehicle } from '../../types';
 import { motion } from 'motion/react';
+import { cn } from '../../lib/utils';
 
 export function DashboardSummaryCards() {
   const { maskValue } = usePrivacy();
@@ -107,31 +108,43 @@ export function DashboardSummaryCards() {
     }
   ];
 
+const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+        damping: 15
+      }
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {cards.map((card, idx) => (
+      {cards.map((card) => (
         <motion.div
           key={card.title}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: idx * 0.1, duration: 0.5, ease: "easeOut" }}
+          variants={cardVariants}
           whileHover={{ y: -5 }}
           className="relative group"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 rounded-[2.5rem] -m-0.5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           <div className="relative bg-card/60 backdrop-blur-2xl border border-border/40 rounded-[2.5rem] p-8 overflow-hidden shadow-2xl shadow-black/5 h-full flex flex-col justify-between hover:bg-card/80 transition-all duration-300">
             {/* Background pattern */}
-            <div className="absolute -right-4 -top-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
                <card.icon className="w-32 h-32" />
             </div>
 
             <div className="flex items-center justify-between mb-8">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-500 group-hover:rotate-6 ${
+              <div className={cn(
+                "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-500 group-hover:rotate-6",
                 card.color === 'blue' ? 'bg-blue-500/10 text-blue-600' :
                 card.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-600' :
                 card.color === 'rose' ? 'bg-rose-500/10 text-rose-600' :
-                'bg-indigo-500/10 text-indigo-600'
-              }`}>
+                'bg-primary/10 text-primary'
+              )}>
                 <card.icon className="w-7 h-7" />
               </div>
 

@@ -180,7 +180,7 @@ export default function WelcomeView() {
     <div className="min-h-screen bg-background relative flex flex-col items-center justify-center py-12 px-6 overflow-hidden">
       {/* Background Orbs */}
       <div className="absolute top-0 right-0 -z-10 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]" />
-      <div className="absolute bottom-0 left-0 -z-10 w-[400px] h-[400px] bg-indigo-500/5 rounded-full blur-[100px]" />
+      <div className="absolute bottom-0 left-0 -z-10 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px]" />
 
       <motion.div 
         initial={{ opacity: 0, y: 20 }}

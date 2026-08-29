@@ -282,7 +282,7 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
 
         {/* Modal Header */}
         <div className="flex items-center gap-3.5 mb-5">
-          <div className="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-xs">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-primary dark:text-primary/80 flex items-center justify-center shrink-0 shadow-xs">
             <CalendarPlus className="w-5 h-5" />
           </div>
           <div>
@@ -299,7 +299,7 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
         <div className="flex items-center justify-center gap-6 my-2">
           <button 
             onClick={handlePrevYear}
-            className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             title="Ano anterior"
           >
             <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
@@ -309,7 +309,7 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
           </span>
           <button 
             onClick={handleNextYear}
-            className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             title="Ano seguinte"
           >
             <ChevronRight className="w-4 h-4 stroke-[2.5]" />
@@ -331,7 +331,7 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
                   key={monthKey}
                   type="button"
                   onClick={() => toggleMonth(monthKey)}
-                  className="py-2.5 px-1 bg-indigo-600 text-white rounded-xl text-sm font-semibold shadow-xs transition-transform active:scale-95 border border-indigo-600 flex items-center justify-center cursor-pointer"
+                  className="py-2.5 px-1 bg-primary text-white rounded-xl text-sm font-semibold shadow-xs transition-transform active:scale-95 border border-indigo-600 flex items-center justify-center cursor-pointer"
                 >
                   {monthName}
                 </button>
@@ -405,7 +405,7 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
             type="button"
             onClick={handlePrepare}
             disabled={selectedMonths.length === 0 || isProcessing}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-11 text-sm font-semibold shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+            className="bg-primary hover:bg-indigo-700 text-white rounded-xl h-11 text-sm font-semibold shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50"
           >
             {isProcessing ? (
               <>

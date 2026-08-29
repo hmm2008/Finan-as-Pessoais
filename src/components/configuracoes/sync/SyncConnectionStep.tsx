@@ -25,7 +25,7 @@ export function SyncConnectionStep({
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
             accessToken 
               ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shadow-sm' 
-              : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'
+              : 'bg-primary/10 text-primary border border-primary/20'
           }`}>
             <ShieldCheck className="w-5 h-5" />
           </div>
@@ -59,7 +59,7 @@ export function SyncConnectionStep({
           <Button 
             onClick={onConnect} 
             disabled={isLoading}
-            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-bold h-10 px-6 rounded-xl shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full sm:w-auto bg-primary hover:bg-indigo-700 text-white gap-2 text-xs font-bold h-10 px-6 rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <HardDrive className="w-4 h-4" />}
             Conectar Conta Google Drive

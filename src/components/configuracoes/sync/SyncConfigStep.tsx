@@ -21,10 +21,10 @@ export function SyncConfigStep({
   onAutoSyncToggle
 }: SyncConfigStepProps) {
   return (
-    <div className="p-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/[0.03] space-y-5 relative overflow-hidden group">
+    <div className="p-5 rounded-2xl border border-primary/20 bg-primary/[0.03] space-y-5 relative overflow-hidden group">
       <div className="flex items-center justify-between relative z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
             <SlidersHorizontal className="w-5 h-5" />
           </div>
           <div>
@@ -46,15 +46,15 @@ export function SyncConfigStep({
           onClick={() => onStorageModeChange('hybrid')}
           className={`p-4 rounded-2xl border cursor-pointer transition-all duration-300 flex flex-col justify-between group/card ${
             storageMode === 'hybrid'
-              ? 'bg-white dark:bg-indigo-950/40 border-indigo-500 shadow-lg shadow-indigo-500/10'
-              : 'bg-muted/30 border-border/50 hover:border-indigo-500/30'
+              ? 'bg-white dark:bg-indigo-950/40 border-primary shadow-lg shadow-primary/10'
+              : 'bg-muted/30 border-border/50 hover:border-primary/30'
           }`}
         >
           <div className="flex items-center justify-between mb-2">
             <div className={`p-1.5 rounded-lg ${storageMode === 'hybrid' ? 'bg-amber-500/10 text-amber-500' : 'bg-muted text-muted-foreground'}`}>
               <Zap className={`w-4 h-4 ${storageMode === 'hybrid' ? 'fill-amber-500' : ''}`} />
             </div>
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${storageMode === 'hybrid' ? 'border-indigo-500 bg-indigo-500' : 'border-muted-foreground/30'}`}>
+            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${storageMode === 'hybrid' ? 'border-primary bg-primary' : 'border-muted-foreground/30'}`}>
               {storageMode === 'hybrid' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
             </div>
           </div>
@@ -99,7 +99,7 @@ export function SyncConfigStep({
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-indigo-500/10 rounded-2xl p-4 flex items-center justify-between gap-4 relative z-10"
+          className="bg-card border border-primary/10 rounded-2xl p-4 flex items-center justify-between gap-4 relative z-10"
         >
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
@@ -112,7 +112,7 @@ export function SyncConfigStep({
           </div>
           <button 
             onClick={onAutoSyncToggle}
-            className={`transition-colors duration-300 ${autoSync ? 'text-indigo-600' : 'text-muted-foreground opacity-40'}`}
+            className={`transition-colors duration-300 ${autoSync ? 'text-primary' : 'text-muted-foreground opacity-40'}`}
           >
             {autoSync ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
           </button>

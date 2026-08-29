@@ -71,7 +71,7 @@ export function PatrimonioDistributionChart({ assets, activeTab }: PatrimonioDis
         <Card className="rounded-3xl border-none shadow-sm bg-card/50 overflow-hidden h-full">
           <CardHeader className="p-6 bg-muted/20 border-b border-border/40">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                 <PieIcon className="w-4 h-4" />
               </div>
               <CardTitle className="text-sm font-black uppercase tracking-tight">Distribuição por Categoria</CardTitle>
