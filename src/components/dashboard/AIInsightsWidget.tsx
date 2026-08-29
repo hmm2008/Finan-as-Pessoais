@@ -32,16 +32,16 @@ export const AIInsightsWidget: React.FC = () => {
   }, [expenses]);
 
   return (
-    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-[2.5rem] h-full flex flex-col hover:bg-card/80 transition-all duration-300">
-      <CardHeader className="flex flex-row items-center justify-between pb-2 p-8">
-        <CardTitle className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
+    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-2xl sm:rounded-[2.5rem] h-full flex flex-col hover:bg-card/80 transition-all duration-300">
+      <CardHeader className="flex flex-row items-center justify-between pb-2 p-4 sm:p-8">
+        <CardTitle className="text-[8px] sm:text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
           Insights Inteligentes (IA)
         </CardTitle>
-        <div className="w-12 h-12 rounded-[1.25rem] bg-primary/10 text-primary flex items-center justify-center">
-            <Brain className="w-6 h-6" />
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-[1.25rem] bg-primary/10 text-primary flex items-center justify-center">
+            <Brain className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
       </CardHeader>
-      <CardContent className="flex-1 p-8 pt-0">
+      <CardContent className="flex-1 p-4 sm:p-8 pt-0 sm:pt-0">
         {isLoading ? (
           <div className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">A analisar os teus dados...</div>
         ) : insights ? (

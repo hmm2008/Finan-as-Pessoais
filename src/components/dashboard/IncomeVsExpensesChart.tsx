@@ -39,10 +39,10 @@ export function IncomeVsExpensesChart() {
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader>
-        <CardTitle className="text-base font-semibold">Receitas vs Despesas (Últimos 6 meses)</CardTitle>
+      <CardHeader className="p-4 sm:p-6 pb-2">
+        <CardTitle className="text-sm sm:text-base font-semibold">Receitas vs Despesas (6 meses)</CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 min-h-[300px]">
+      <CardContent className="flex-1 min-h-[220px] sm:min-h-[300px] p-2 sm:p-6 pt-0 sm:pt-0">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />

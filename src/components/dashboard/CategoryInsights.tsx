@@ -90,20 +90,20 @@ export function CategoryInsights() {
 
   return (
     <Card className="h-full flex flex-col bg-primary/5 border-primary/20">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-base font-semibold text-primary">Insights Automáticos</CardTitle>
-        <Lightbulb className="w-4 h-4 text-primary" />
+      <CardHeader className="flex flex-row items-center justify-between pb-2 p-4 sm:p-6">
+        <CardTitle className="text-sm sm:text-base font-semibold text-primary">Insights Automáticos</CardTitle>
+        <Lightbulb className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col justify-center">
-        <div className="space-y-4 max-h-[220px] overflow-y-auto">
+      <CardContent className="flex-1 flex flex-col justify-center p-4 sm:p-6 pt-0 sm:pt-0">
+        <div className="space-y-3 sm:space-y-4 max-h-[220px] overflow-y-auto">
           {insights.slice(0, 4).map((insight, i) => (
-            <div key={i} className="flex gap-3 items-start">
+            <div key={i} className="flex gap-2 sm:gap-3 items-start">
               <div className="mt-0.5 shrink-0">
-                {insight.type === 'warning' && <TrendingUp className="w-4 h-4 text-amber-500" />}
-                {insight.type === 'success' && <TrendingDown className="w-4 h-4 text-emerald-500" />}
-                {insight.type === 'alert' && <div className="w-2.5 h-2.5 mt-1 rounded-full bg-destructive animate-pulse" />}
+                {insight.type === 'warning' && <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />}
+                {insight.type === 'success' && <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />}
+                {insight.type === 'alert' && <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 mt-1 rounded-full bg-destructive animate-pulse" />}
               </div>
-              <p className="text-sm leading-tight text-muted-foreground">
+              <p className="text-xs sm:text-sm leading-tight text-muted-foreground">
                 <span className="font-semibold text-foreground">{insight.category}: </span>
                 {insight.message}
               </p>

@@ -225,48 +225,40 @@ export function DailyBalanceTimeline() {
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="pb-3 border-b border-border/40">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-base font-semibold">Projeção Diária de Saldo</CardTitle>
-              <span className="text-xs px-2 py-0.5 rounded-md bg-secondary font-medium text-muted-foreground capitalize">
-                {format(monthStartDate, 'MMMM yyyy', { locale: pt })}
+      <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3 border-b border-border/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <CardTitle className="text-sm sm:text-base font-semibold truncate">Projeção Diária</CardTitle>
+              <span className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded bg-secondary font-medium text-muted-foreground capitalize shrink-0">
+                {format(monthStartDate, 'MMM yy', { locale: pt })}
               </span>
             </div>
-            <CardDescription className="text-xs mt-0.5">
-              Evolução dia a dia baseada em transações reais, contas bancárias e compromissos fixos agendados.
+            <CardDescription className="text-[10px] sm:text-xs mt-0.5 truncate hidden sm:block">
+              Evolução baseada em transações reais e compromissos fixos.
             </CardDescription>
           </div>
-
+ 
           {/* Quick Metrics Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="bg-secondary/60 border border-border px-2.5 py-1 rounded-lg text-xs">
-              <span className="text-muted-foreground block text-[10px] uppercase font-bold">Saldo Inicial</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <div className="bg-secondary/60 border border-border px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-[10px] sm:text-xs">
+              <span className="text-muted-foreground block text-[8px] sm:text-[10px] uppercase font-bold">Início</span>
               <span className="font-bold text-foreground">
                 {maskValue(initialStartingBalance, formatter.format)}
               </span>
             </div>
-
-            <div className="bg-secondary/60 border border-border px-2.5 py-1 rounded-lg text-xs">
-              <span className="text-muted-foreground block text-[10px] uppercase font-bold">Fim do Mês</span>
+ 
+            <div className="bg-secondary/60 border border-border px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-[10px] sm:text-xs">
+              <span className="text-muted-foreground block text-[8px] sm:text-[10px] uppercase font-bold">Fim</span>
               <span className={`font-bold ${finalProjectedBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
                 {maskValue(finalProjectedBalance, formatter.format)}
-              </span>
-            </div>
-
-            <div className="bg-secondary/60 border border-border px-2.5 py-1 rounded-lg text-xs hidden md:block">
-              <span className="text-muted-foreground block text-[10px] uppercase font-bold">Variação</span>
-              <span className={`font-bold flex items-center ${netMonthlyChange >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
-                {netMonthlyChange >= 0 ? <TrendingUp className="w-3 h-3 mr-0.5 inline" /> : <TrendingDown className="w-3 h-3 mr-0.5 inline" />}
-                {maskValue(netMonthlyChange, formatter.format)}
               </span>
             </div>
           </div>
         </div>
       </CardHeader>
-
-      <CardContent className="flex-1 min-h-[300px] pt-4 flex flex-col justify-between">
+ 
+      <CardContent className="flex-1 min-h-[240px] sm:min-h-[300px] p-2 sm:p-6 pt-2 sm:pt-4 flex flex-col justify-between">
         {!hasAnyTransactionsOrCommitments && initialStartingBalance === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground space-y-2">
             <div className="p-3 bg-secondary/80 rounded-full text-primary">
