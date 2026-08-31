@@ -17,7 +17,8 @@ const defaultRules: CategorizationRule[] = [
   { keyword: 'farmácia', category: 'Saúde', priority: 10 },
   { keyword: 'hospital', category: 'Saúde', priority: 10 },
   { keyword: 'cuf', category: 'Saúde', priority: 10 },
-  { keyword: 'luz', category: 'Saúde', priority: 5 }, // Might conflict with "Conta da Luz" (electricity), handle priority
+  { keyword: 'luz', category: 'Habitação', priority: 5 }, // Corrected from Saúde to Habitação
+  { keyword: 'eletricidade', category: 'Habitação', priority: 10 },
   { keyword: 'edp', category: 'Habitação', priority: 10 },
   { keyword: 'meo', category: 'Habitação', priority: 10 },
   { keyword: 'nos', category: 'Habitação', priority: 10 },
@@ -53,8 +54,11 @@ export async function getAISuggestedCategory(description: string, amount?: numbe
     });
 
     if (response.ok) {
-      const data = await response.json();
-      return data.category;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        return data.category;
+      }
     }
   } catch (error) {
     console.error('AI categorization failed:', error);

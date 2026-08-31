@@ -280,10 +280,13 @@ app.post('/api/suggest-savings', async (req, res) => {
       }
     });
 
-    res.json({ suggestions: response.text });
+    res.json({ suggestions: response.text || "Não foi possível gerar sugestões neste momento." });
   } catch (error: any) {
     console.error('Error generating savings suggestions:', error);
-    res.status(500).json({ error: error.message });
+    res.json({ 
+      suggestions: "O serviço de IA está temporariamente indisponível. Por favor, tente novamente mais tarde.",
+      error: error.message 
+    });
   }
 });
 
@@ -307,19 +310,41 @@ Categorias Disponíveis: ${categoriesList.join(', ')}
 
 Responda APENAS com o nome da categoria que melhor se adapta. Se não tiver certeza, responda "Outros".`;
 
-    const response = await getAI().models.generateContent({
-      model: 'gemini-3.7-flash',
-      contents: prompt,
-      config: {
-        systemInstruction: "És um assistente financeiro português especialista em organizar extratos bancários."
-      }
-    });
+    let attempts = 0;
+    const maxAttempts = 2;
+    let category = 'Outros';
+    let lastError = null;
 
-    const category = response.text.trim();
+    while (attempts < maxAttempts) {
+      try {
+        const response = await getAI().models.generateContent({
+          model: 'gemini-3.7-flash',
+          contents: prompt,
+          config: {
+            systemInstruction: "És um assistente financeiro português especialista em organizar extratos bancários. Responda APENAS com a palavra da categoria."
+          }
+        });
+        
+        const result = response.text?.trim();
+        if (result) {
+          // Verify result is in categoriesList or at least not empty
+          category = result;
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+        attempts++;
+        if (attempts < maxAttempts) {
+          await new Promise(r => setTimeout(r, 1000 * attempts));
+        }
+      }
+    }
+
     res.json({ category });
   } catch (error: any) {
     console.error('Error in AI categorization:', error);
-    res.status(500).json({ error: error.message });
+    // Crucial: Always return a valid JSON response even on error
+    res.json({ category: 'Outros', error: error.message });
   }
 });
 

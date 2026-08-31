@@ -87,7 +87,8 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
     }
   }, []);
 
-  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories];
+  // Ensure categories are unique to avoid duplicate keys in Select
+  const allCategories = Array.from(new Set([...DEFAULT_CATEGORIES, ...customCategories]));
 
   // Auto-categorization effect
   useEffect(() => {
