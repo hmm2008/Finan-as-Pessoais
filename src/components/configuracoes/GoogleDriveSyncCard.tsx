@@ -263,6 +263,30 @@ export function GoogleDriveSyncCard() {
     }
   };
 
+  const handleRepairMissingSheets = async () => {
+    if (!accessToken || !spreadsheetInfo?.id) return;
+    setIsRecreating(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const activeTitles = await forceRecreateMissingSheets(accessToken, spreadsheetInfo.id);
+      addSyncAuditLog({
+        action: 'format',
+        status: 'success',
+        details: `Estrutura reparada. Abas ativas: ${activeTitles.join(', ')}`
+      });
+      refreshAuditLogs();
+      await handleFindOrCreateSpreadsheet(accessToken);
+      setSuccessMsg('Estrutura de abas reparada e verificada com sucesso!');
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg('Erro ao reparar abas: ' + err.message);
+    } finally {
+      setIsRecreating(false);
+    }
+  };
+
   const handleFormatSpreadsheet = async () => {
     if (!accessToken || !spreadsheetInfo?.id) return;
     setIsFormatting(true);
@@ -586,9 +610,11 @@ export function GoogleDriveSyncCard() {
             isLoading={isLoading}
             isTesting={isTesting}
             isFormatting={isFormatting}
+            isRecreating={isRecreating}
             onFindOrCreate={() => handleFindOrCreateSpreadsheet()}
             onTest={handleTestConnection}
             onFormat={handleFormatSpreadsheet}
+            onRepair={handleRepairMissingSheets}
           />
         </div>
 

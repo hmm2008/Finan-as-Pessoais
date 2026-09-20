@@ -295,6 +295,8 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     'Receitas_Fixas',
     'Contas',
     'Patrimonio',
+    'Patrimonio_Despesas',
+    'Patrimonio_Rendimentos',
     'Veiculos',
     'Veiculos_Abastecimentos',
     'Veiculos_Tarefas',
@@ -311,10 +313,12 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     'Despesas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo"],
     'Receitas_Pontuais': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas"],
     'Receitas_Fixas_Registadas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas", "ID Fixo"],
-    'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Próximo Vencimento"],
+    'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Observações", "Próximo Vencimento"],
     'Receitas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Ativo", "Notas"],
     'Contas': ["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"],
-    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Custos Fixos Detalhados (JSON)"],
+    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Gastos Mensais Est. (€)", "Gastos Anuais Est. (€)", "Rendimentos Mensais Est. (€)", "Rendimentos Anuais Est. (€)", "Lucro Mensal Est. (€)", "Lucro Anual Est. (€)", "Rentabilidade Bruta (%)", "Rentabilidade Líquida (%)", "Encargos JSON", "Rendimentos JSON"],
+    'Patrimonio_Despesas': ["ID", "AssetID", "Título", "Valor (€)", "Frequência", "Categoria", "Dia Previsto", "Data Vencimento", "Data Início", "Data Fim", "Observações", "Método", "Notas"],
+    'Patrimonio_Rendimentos': ["ID", "AssetID", "Título", "Valor (€)", "Frequência", "Categoria", "Dia Previsto", "Data Vencimento", "Data Início", "Data Fim", "Observações", "Método", "Notas"],
     'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
     'Veiculos_Abastecimentos': ["ID", "ID Viatura", "Data", "Litros", "Valor Total (€)", "Preço/L (€)", "Quilometragem (km)", "Posto / Local", "Notas"],
     'Veiculos_Tarefas': ["ID", "ID Viatura", "Título", "Tipo", "Custo (€)", "Estado", "Data Limite", "Data Conclusão", "Periodicidade", "Próx. Data Vencimento", "Próx. Custo (€)", "Documento", "Notas"],
@@ -521,11 +525,13 @@ export async function exportAllDataToSheets(
   });
   let patrimonio = Array.from(patMap.values());
   let propertyExpenses = getLocalData('fin_property_expenses');
+  let propertyIncomes = getLocalData('fin_property_incomes');
   
-  // Attach property expenses to patrimonio items for export
+  // Attach property expenses and incomes to patrimonio items for export
   patrimonio = patrimonio.map((p: any) => ({
     ...p,
-    expenses: propertyExpenses.filter((pe: any) => pe.assetId === p.id)
+    expenses: propertyExpenses.filter((pe: any) => pe.assetId === p.id),
+    incomes: propertyIncomes.filter((pi: any) => pi.assetId === p.id)
   }));
 
   let vehicles = getLocalData('fin_vehicles');
@@ -665,7 +671,7 @@ export async function exportAllDataToSheets(
   ];
 
   const fixExpRows = [
-    ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Próximo Vencimento"],
+    ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Observações", "Próximo Vencimento"],
     ...fixedExpenses.map((fe: any) => [
       fe.id || '',
       fe.name || fe.entity || '',
@@ -673,12 +679,14 @@ export async function exportAllDataToSheets(
       fe.category || '',
       Number(fe.amount || 0),
       fe.dueDay || fe.day || 1,
+      fe.frequency || 'Mensal',
       fe.method || '',
       fe.active !== false ? 'Sim' : 'Não',
       fe.vehicle ? 'Sim' : 'Não',
       fe.notes || '',
       fe.startDate || '',
       fe.endDate || '',
+      fe.observations || '',
       fe.dueDate || ''
     ])
   ];
@@ -716,19 +724,110 @@ export async function exportAllDataToSheets(
   };
 
   const patRows = [
-    ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Custos Fixos Detalhados (JSON)"],
-    ...patrimonio.map((p: any) => [
-      p.id || '',
-      p.name || '',
-      p.subType || p.category || '',
-      safeNum(p.currentValue || p.value || p.amount || 0),
-      safeNum(p.purchaseValue || 0),
-      p.acquisitionDate || '',
-      p.street || '',
-      p.zipCode || '',
-      p.city || '',
-      p.notes || '',
-      JSON.stringify(p.expenses || [])
+    ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Gastos Mensais Est. (€)", "Gastos Anuais Est. (€)", "Rendimentos Mensais Est. (€)", "Rendimentos Anuais Est. (€)", "Lucro Mensal Est. (€)", "Lucro Anual Est. (€)", "Rentabilidade Bruta (%)", "Rentabilidade Líquida (%)", "Encargos JSON", "Rendimentos JSON"],
+    ...patrimonio.map((p: any) => {
+      const pExpenses = propertyExpenses.filter((e: any) => e.assetId === p.id);
+      const pIncomes = propertyIncomes.filter((i: any) => i.assetId === p.id);
+      
+      const mExpenses = pExpenses.reduce((sum: number, e: any) => {
+        if (e.frequency === 'pontual') return sum;
+        return sum + (e.frequency === 'mensal' ? e.amount : e.frequency === 'trimestral' ? e.amount / 3 : e.frequency === 'semestral' ? e.amount / 6 : e.amount / 12);
+      }, 0);
+      
+      const mIncomes = pIncomes.reduce((sum: number, i: any) => {
+        if (i.frequency === 'pontual') return sum;
+        return sum + (i.frequency === 'mensal' ? i.amount : i.frequency === 'trimestral' ? i.amount / 3 : i.frequency === 'semestral' ? i.amount / 6 : i.amount / 12);
+      }, 0);
+
+      const aExpenses = pExpenses.reduce((sum: number, e: any) => {
+        const amount = e.amount || 0;
+        if (e.frequency === 'pontual') return sum + amount;
+        return sum + (
+          e.frequency === 'mensal' ? amount * 12 : 
+          e.frequency === 'trimestral' ? amount * 4 : 
+          e.frequency === 'semestral' ? amount * 2 : 
+          amount
+        );
+      }, 0);
+      
+      const aIncomes = pIncomes.reduce((sum: number, i: any) => {
+        const amount = i.amount || 0;
+        if (i.frequency === 'pontual') return sum + amount;
+        return sum + (
+          i.frequency === 'mensal' ? amount * 12 : 
+          i.frequency === 'trimestral' ? amount * 4 : 
+          i.frequency === 'semestral' ? amount * 2 : 
+          amount
+        );
+      }, 0);
+
+      const mProfit = mIncomes - mExpenses;
+      const aProfit = aIncomes - aExpenses;
+
+      const pValue = p.purchaseValue || p.currentValue || 0;
+      const grossYield = pValue > 0 ? (aIncomes / pValue) * 100 : 0;
+      const netYield = pValue > 0 ? (aProfit / pValue) * 100 : 0;
+
+      return [
+        p.id || '',
+        p.name || '',
+        p.subType || p.category || '',
+        safeNum(p.currentValue || p.value || p.amount || 0),
+        safeNum(p.purchaseValue || 0),
+        p.acquisitionDate || '',
+        p.street || '',
+        p.zipCode || '',
+        p.city || '',
+        p.notes || '',
+        safeNum(mExpenses),
+        safeNum(aExpenses),
+        safeNum(mIncomes),
+        safeNum(aIncomes),
+        safeNum(mProfit),
+        safeNum(aProfit),
+        safeNum(grossYield),
+        safeNum(netYield),
+        JSON.stringify(pExpenses),
+        JSON.stringify(pIncomes)
+      ];
+    })
+  ];
+
+  const patExpRows = [
+    ["ID", "AssetID", "Título", "Valor (€)", "Frequência", "Categoria", "Dia Previsto", "Data Vencimento", "Data Início", "Data Fim", "Observações", "Método", "Notas"],
+    ...propertyExpenses.map((e: any) => [
+      e.id || '',
+      e.assetId || '',
+      e.title || '',
+      safeNum(e.amount),
+      e.frequency || '',
+      e.category || '',
+      e.dayOfMonth || '',
+      e.dueDate || '',
+      e.startDate || '',
+      e.endDate || '',
+      e.observations || '',
+      e.paymentMethod || '',
+      e.notes || ''
+    ])
+  ];
+
+  const patIncRows = [
+    ["ID", "AssetID", "Título", "Valor (€)", "Frequência", "Categoria", "Dia Previsto", "Data Vencimento", "Data Início", "Data Fim", "Observações", "Método", "Notas"],
+    ...propertyIncomes.map((i: any) => [
+      i.id || '',
+      i.assetId || '',
+      i.title || '',
+      safeNum(i.amount),
+      i.frequency || '',
+      i.category || '',
+      i.dayOfMonth || '',
+      i.dueDate || '',
+      i.startDate || '',
+      i.endDate || '',
+      i.observations || '',
+      i.paymentMethod || '',
+      i.notes || ''
     ])
   ];
 
@@ -823,7 +922,8 @@ export async function exportAllDataToSheets(
   const prefsRows = [
     ["Chave", "Dados JSON", "Atualizado Em"],
     ["Preferencias", JSON.stringify(userPrefs || {}), userPrefs.updatedAt || ''],
-    ["CustomCategories", localStorage.getItem('expense_custom_categories') || '[]', new Date().toISOString()]
+    ["CustomCategories", localStorage.getItem('expense_custom_categories') || '[]', new Date().toISOString()],
+    ["PropertyExpenseCustomCategories", localStorage.getItem('property_expense_custom_categories') || '[]', new Date().toISOString()]
   ];
 
   const catRulesRows = [
@@ -887,6 +987,8 @@ export async function exportAllDataToSheets(
   checkAndPush('Receitas_Fixas', fixIncRows);
   checkAndPush('Contas', accRows);
   checkAndPush('Patrimonio', patRows);
+  checkAndPush('Patrimonio_Despesas', patExpRows);
+  checkAndPush('Patrimonio_Rendimentos', patIncRows);
   checkAndPush('Veiculos', vehRows);
   checkAndPush('Veiculos_Abastecimentos', vehFuelRows);
   checkAndPush('Veiculos_Tarefas', vehTaskRows);
@@ -1112,6 +1214,8 @@ export async function fetchAndParseRemoteSheets(
     { key: 'Receitas_Fixas', canonical: 'Receitas_Fixas', range: 'A1:Z' },
     { key: 'Contas', canonical: 'Contas', range: 'A1:Z' },
     { key: 'Patrimonio', canonical: 'Patrimonio', range: 'A1:Z' },
+    { key: 'Patrimonio_Despesas', canonical: 'Patrimonio_Despesas', range: 'A1:Z' },
+    { key: 'Patrimonio_Rendimentos', canonical: 'Patrimonio_Rendimentos', range: 'A1:Z' },
     { key: 'Veiculos', canonical: 'Veiculos', range: 'A1:Z' },
     { key: 'Veiculos_Abastecimentos', canonical: 'Veiculos_Abastecimentos', range: 'A1:Z' },
     { key: 'Veiculos_Tarefas', canonical: 'Veiculos_Tarefas', range: 'A1:Z' },
@@ -1233,13 +1337,14 @@ export async function fetchAndParseRemoteSheets(
     category: row[3] || 'Outros',
     amount: parseNum(row[4]),
     dueDay: parseNum(row[5]) || 1,
-    method: row[6] || 'Débito Direto',
-    active: parseBool(row[7]),
-    vehicle: parseBool(row[8]),
-    notes: row[9] || '',
-    startDate: row[10] || undefined,
-    endDate: row[11] || undefined,
-    dueDate: row[12] || undefined
+    frequency: row[6] || 'Mensal',
+    method: row[7] || 'Débito Direto',
+    active: parseBool(row[8]),
+    vehicle: parseBool(row[9]),
+    notes: row[10] || '',
+    startDate: row[11] || undefined,
+    endDate: row[12] || undefined,
+    dueDate: row[13] || undefined
   })).filter((e: any) => e.amount > 0 || (e.name !== 'Despesa Fixa' && e.name));
 
   // Parse Fixed Incomes
@@ -1271,12 +1376,34 @@ export async function fetchAndParseRemoteSheets(
   const patRows = getRowsByKey('Patrimonio');
   const parsedPatrimonio = patRows.map((row: any[], i: number) => {
     let detailedExpenses = [];
+    let detailedIncomes = [];
     try {
-      if (row[10]) {
-        detailedExpenses = JSON.parse(row[10]);
+      // Check indices 18 and 19 for JSON (new format with rentabilidade), 16 and 17 (prev format), 14 and 15 (mid format), or 10 and 11 (old format)
+      let jsonExpenses = '';
+      let jsonIncomes = '';
+      
+      if (row.length > 18) {
+        jsonExpenses = row[18];
+        jsonIncomes = row[19];
+      } else if (row.length > 16) {
+        jsonExpenses = row[16];
+        jsonIncomes = row[17];
+      } else if (row.length > 14) {
+        jsonExpenses = row[14];
+        jsonIncomes = row[15];
+      } else {
+        jsonExpenses = row[10];
+        jsonIncomes = row[11];
+      }
+
+      if (jsonExpenses) {
+        detailedExpenses = JSON.parse(jsonExpenses);
+      }
+      if (jsonIncomes) {
+        detailedIncomes = JSON.parse(jsonIncomes);
       }
     } catch (e) {
-      console.warn('Erro ao processar custos detalhados do imóvel:', e);
+      console.warn('Erro ao processar dados detalhados do imóvel:', e);
     }
 
     return {
@@ -1291,9 +1418,46 @@ export async function fetchAndParseRemoteSheets(
       zipCode: row[7] || '',
       city: row[8] || '',
       notes: row[9] || (row.length === 5 ? row[4] : '') || '',
-      expenses: detailedExpenses
+      expenses: detailedExpenses,
+      incomes: detailedIncomes
     };
   }).filter((p: any) => p.name !== 'Ativo' || p.currentValue > 0);
+
+  // Parse Patrimonio Expenses
+  const patExpRows = getRowsByKey('Patrimonio_Despesas');
+  const parsedPropertyExpenses = patExpRows.map((row: any[], i: number) => ({
+    id: row[0] || `pe_${i}`,
+    assetId: row[1] || '',
+    title: row[2] || '',
+    amount: parseNum(row[3]),
+    frequency: row[4] || 'mensal',
+    category: row[5] || '',
+    dayOfMonth: parseNum(row[6]) || undefined,
+    dueDate: row[7] || '',
+    startDate: row[8] || '',
+    endDate: row[9] || '',
+    observations: row[10] || '',
+    paymentMethod: row[11] || '',
+    notes: row[12] || ''
+  })).filter((e: any) => e.assetId && e.amount > 0);
+
+  // Parse Patrimonio Incomes
+  const patIncRows = getRowsByKey('Patrimonio_Rendimentos');
+  const parsedPropertyIncomes = patIncRows.map((row: any[], i: number) => ({
+    id: row[0] || `pi_${i}`,
+    assetId: row[1] || '',
+    title: row[2] || '',
+    amount: parseNum(row[3]),
+    frequency: row[4] || 'mensal',
+    category: row[5] || '',
+    dayOfMonth: parseNum(row[6]) || undefined,
+    dueDate: row[7] || '',
+    startDate: row[8] || '',
+    endDate: row[9] || '',
+    observations: row[10] || '',
+    paymentMethod: row[11] || '',
+    notes: row[12] || ''
+  })).filter((i: any) => i.assetId && i.amount > 0);
 
   // Parse Vehicles
   const vehRows = getRowsByKey('Veiculos');
@@ -1395,6 +1559,12 @@ export async function fetchAndParseRemoteSheets(
       } catch (e) {
         console.warn('Erro ao parsear categorias personalizadas', e);
       }
+    } else if (key === 'PropertyExpenseCustomCategories' && json) {
+      try {
+        localStorage.setItem('property_expense_custom_categories', json);
+      } catch (e) {
+        console.warn('Erro ao guardar categorias personalizadas de património', e);
+      }
     }
   });
 
@@ -1441,6 +1611,8 @@ export async function fetchAndParseRemoteSheets(
     parsedFixedIncomes,
     parsedAccounts,
     parsedPatrimonio,
+    parsedPropertyExpenses,
+    parsedPropertyIncomes,
     parsedVehicles,
     parsedVehicleFuel,
     parsedVehicleTasks,
@@ -1514,22 +1686,31 @@ export async function importAllDataFromSheets(
   setLocalData('fin_bank_accounts', remote.parsedAccounts);
   if (!selectedSheets || selectedSheets.includes('Patrimonio')) {
     const remotePatrimonio = remote.parsedPatrimonio || [];
-    const allPropertyExpenses: any[] = [];
+    let allPropertyExpenses = remote.parsedPropertyExpenses || [];
+    let allPropertyIncomes = remote.parsedPropertyIncomes || [];
     
-    const assetsWithoutExpenses = remotePatrimonio.map((p: any) => {
-      if (Array.isArray(p.expenses)) {
+    const assetsWithoutDetails = remotePatrimonio.map((p: any) => {
+      // If separate sheets are empty, try to get from JSON
+      if (allPropertyExpenses.length === 0 && Array.isArray(p.expenses)) {
         p.expenses.forEach((pe: any) => {
           if (!pe.assetId) pe.assetId = p.id;
           allPropertyExpenses.push(pe);
         });
       }
-      const { expenses, ...rest } = p;
+      if (allPropertyIncomes.length === 0 && Array.isArray(p.incomes)) {
+        p.incomes.forEach((pi: any) => {
+          if (!pi.assetId) pi.assetId = p.id;
+          allPropertyIncomes.push(pi);
+        });
+      }
+      const { expenses, incomes, ...rest } = p;
       return rest;
     });
 
-    setLocalData('fin_assets', assetsWithoutExpenses);
-    setLocalData('fin_patrimonio', assetsWithoutExpenses);
+    setLocalData('fin_assets', assetsWithoutDetails);
+    setLocalData('fin_patrimonio', assetsWithoutDetails);
     setLocalData('fin_property_expenses', allPropertyExpenses);
+    setLocalData('fin_property_incomes', allPropertyIncomes);
   }
   if (!selectedSheets || selectedSheets.includes('Veiculos')) { setLocalData('fin_vehicles', remote.parsedVehicles); }
   if (!selectedSheets || selectedSheets.includes('Veiculos_Abastecimentos')) { setLocalData('fin_vehicle_fuel', remote.parsedVehicleFuel); }
@@ -2164,10 +2345,12 @@ export async function clearAllSpreadsheetData(
     'Despesas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo"],
     'Receitas_Pontuais': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas"],
     'Receitas_Fixas_Registadas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas", "ID Fixo"],
-    'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Próximo Vencimento"],
+    'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Observações", "Próximo Vencimento"],
     'Receitas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Ativo", "Notas"],
     'Contas': ["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"],
-    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Custos Fixos Detalhados (JSON)"],
+    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Gastos Mensais Est. (€)", "Gastos Anuais Est. (€)", "Rendimentos Mensais Est. (€)", "Rendimentos Anuais Est. (€)", "Lucro Mensal Est. (€)", "Lucro Anual Est. (€)", "Rentabilidade Bruta (%)", "Rentabilidade Líquida (%)", "Encargos JSON", "Rendimentos JSON"],
+    'Patrimonio_Despesas': ["ID", "AssetID", "Título", "Valor (€)", "Frequência", "Categoria", "Dia Previsto", "Data Vencimento", "Data Início", "Data Fim", "Observações", "Método", "Notas"],
+    'Patrimonio_Rendimentos': ["ID", "AssetID", "Título", "Valor (€)", "Frequência", "Categoria", "Dia Previsto", "Data Vencimento", "Data Início", "Data Fim", "Observações", "Método", "Notas"],
     'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
     'Orcamentos': ["ID", "Categoria", "Limite (€)", "Mês", "Ano"],
     'Metas': ["ID", "Nome", "Valor Alvo (€)", "Valor Atual (€)", "Data Limite"],

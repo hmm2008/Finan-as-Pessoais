@@ -5,3 +5,5 @@ export * from './AssetCard';
 export * from './AssetImovelForm';
 export * from './AssetFinanceiroForm';
 export * from './PropertyExpensesSection';
+export * from './PropertyIncomesSection';
+export * from './PropertyFinancialSummary';

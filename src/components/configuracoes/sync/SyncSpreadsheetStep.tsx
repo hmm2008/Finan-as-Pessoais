@@ -13,9 +13,11 @@ interface SyncSpreadsheetStepProps {
   isLoading: boolean;
   isTesting: boolean;
   isFormatting: boolean;
+  isRecreating: boolean;
   onFindOrCreate: () => void;
   onTest: () => void;
   onFormat: () => void;
+  onRepair: () => void;
 }
 
 export function SyncSpreadsheetStep({
@@ -23,9 +25,11 @@ export function SyncSpreadsheetStep({
   isLoading,
   isTesting,
   isFormatting,
+  isRecreating,
   onFindOrCreate,
   onTest,
-  onFormat
+  onFormat,
+  onRepair
 }: SyncSpreadsheetStepProps) {
   return (
     <div className="p-5 rounded-2xl border border-border bg-card/40 space-y-4 relative overflow-hidden group">
@@ -142,6 +146,17 @@ export function SyncSpreadsheetStep({
             >
               {isFormatting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Calculator className="w-3 h-3" />}
               Otimizar Formatação & Dashboard
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onRepair}
+              disabled={isRecreating}
+              className="h-8 text-[10px] font-bold uppercase tracking-wider rounded-lg gap-1.5 border-amber-500/20 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+            >
+              {isRecreating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Reparar Abas
             </Button>
           </div>
         </div>

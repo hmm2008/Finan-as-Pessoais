@@ -33,12 +33,33 @@ export interface PropertyExpense {
   assetId: string;
   title: string;
   amount: number;
-  frequency: 'mensal' | 'anual';
-  category: 'Condomínio' | 'IMI' | 'Seguro Multirriscos' | 'Manutenção' | 'Outro';
+  frequency: 'mensal' | 'trimestral' | 'semestral' | 'anual' | 'pontual';
+  category: string;
   dayOfMonth?: number;
   dueDate?: string;
   startDate?: string;
   endDate?: string;
   fixedExpenseId?: string; // Link to FixedExpense
+  transactionId?: string; // Link to a pontual transaction (Despesas)
+  paymentMethod?: string;
   notes?: string;
+  observations?: string;
+}
+
+export interface PropertyIncome {
+  id: string;
+  assetId: string;
+  title: string;
+  amount: number;
+  frequency: 'mensal' | 'trimestral' | 'semestral' | 'anual' | 'pontual';
+  category: string;
+  dayOfMonth?: number;
+  dueDate?: string;
+  startDate?: string;
+  endDate?: string;
+  fixedIncomeId?: string; // Link to FixedIncome
+  transactionId?: string; // Link to a pontual transaction (Receitas)
+  paymentMethod?: string;
+  notes?: string;
+  observations?: string;
 }

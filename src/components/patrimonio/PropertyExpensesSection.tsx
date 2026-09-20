@@ -8,22 +8,25 @@ import { Switch } from '../ui/switch';
 import { PropertyExpense, Asset } from './types';
 import { 
   Plus, Trash2, Home, Shield, AlertCircle, CheckCircle2, 
-  DollarSign, ArrowUpRight, Calendar, Clock, Receipt,
-  X
+  Euro, ArrowUpRight, Calendar, Clock, Receipt,
+  X, Pencil
 } from 'lucide-react';
 import { usePrivacy } from '../../contexts';
 import { format, isBefore, addDays, parseISO } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { PaymentMethodSelector } from '../financas/PaymentMethodSelector';
+
 interface PropertyExpensesSectionProps {
   asset: Asset;
   expenses: PropertyExpense[];
   onAddExpense: (expense: PropertyExpense) => void;
+  onUpdateExpense: (expense: PropertyExpense) => void;
   onDeleteExpense: (expense: PropertyExpense) => void;
 }
 
-const EXPENSE_CATEGORIES: PropertyExpense['category'][] = [
+const DEFAULT_EXPENSE_CATEGORIES = [
   'Condomínio',
   'IMI',
   'Seguro Multirriscos',
@@ -35,26 +38,88 @@ export function PropertyExpensesSection({
   asset,
   expenses,
   onAddExpense,
+  onUpdateExpense,
   onDeleteExpense
 }: PropertyExpensesSectionProps) {
   const { maskValue } = usePrivacy();
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 
   const [isAdding, setIsAdding] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<PropertyExpense | null>(null);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [frequency, setFrequency] = useState<'mensal' | 'anual'>('mensal');
-  const [category, setCategory] = useState<PropertyExpense['category']>('Condomínio');
+  const [frequency, setFrequency] = useState<PropertyExpense['frequency']>('mensal');
+  const [category, setCategory] = useState<string>('Condomínio');
+  const [dayOfMonth, setDayOfMonth] = useState<string>('1');
   const [dueDate, setDueDate] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [linkToFixedExpense, setLinkToFixedExpense] = useState(true);
   const [notes, setNotes] = useState('');
+  const [observations, setObservations] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Débito Direto');
+
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+  const [newCustomCategory, setNewCustomCategory] = useState('');
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem('property_expense_custom_categories');
+    if (saved) {
+      try {
+        setCustomCategories(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse custom property expense categories', e);
+      }
+    }
+  }, []);
+
+  const allCategories = Array.from(new Set([...DEFAULT_EXPENSE_CATEGORIES, ...customCategories]));
+
+  const handleAddCustomCategory = () => {
+    if (!newCustomCategory.trim()) return;
+    const cat = newCustomCategory.trim();
+    if (!customCategories.includes(cat)) {
+      const updated = [...customCategories, cat];
+      setCustomCategories(updated);
+      localStorage.setItem('property_expense_custom_categories', JSON.stringify(updated));
+    }
+    setCategory(cat);
+    setNewCustomCategory('');
+    setIsAddingCustom(false);
+  };
+
+  const handleCategoryChange = (val: string) => {
+    if (val === 'new_custom') {
+      setIsAddingCustom(true);
+      setCategory('');
+    } else {
+      setIsAddingCustom(false);
+      setCategory(val);
+    }
+  };
 
   const propertyExpenses = expenses.filter(e => e.assetId === asset.id);
 
   const monthlyTotal = propertyExpenses.reduce((sum, e) => {
-    return sum + (e.frequency === 'mensal' ? e.amount : e.amount / 12);
+    if (e.frequency === 'pontual') return sum;
+    return sum + (
+      e.frequency === 'mensal' ? e.amount : 
+      e.frequency === 'trimestral' ? e.amount / 3 :
+      e.frequency === 'semestral' ? e.amount / 6 :
+      e.amount / 12
+    );
+  }, 0);
+
+  const annualTotal = propertyExpenses.reduce((sum, e) => {
+    const amount = e.amount;
+    if (e.frequency === 'pontual') return sum + amount;
+    return sum + (
+      e.frequency === 'mensal' ? amount * 12 : 
+      e.frequency === 'trimestral' ? amount * 4 :
+      e.frequency === 'semestral' ? amount * 2 :
+      amount
+    );
   }, 0);
 
   const handleCreate = (e: React.FormEvent) => {
@@ -62,29 +127,78 @@ export function PropertyExpensesSection({
     if (!title.trim() || !amount) return;
 
     const val = parseFloat(amount) || 0;
-    const newExp: PropertyExpense = {
-      id: Date.now().toString(),
-      assetId: asset.id,
-      title: title.trim(),
-      amount: val,
-      frequency,
-      category,
-      dueDate: dueDate || undefined,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-      fixedExpenseId: linkToFixedExpense ? `fx_${Date.now()}` : undefined,
-      notes: notes.trim() || undefined
-    };
+    const dayVal = parseInt(dayOfMonth) || 1;
+    
+    if (editingExpense) {
+      const updatedExp: PropertyExpense = {
+        ...editingExpense,
+        title: title.trim(),
+        amount: val,
+        frequency,
+        category,
+        dayOfMonth: frequency !== 'pontual' ? dayVal : undefined,
+        dueDate: frequency === 'pontual' ? (dueDate || undefined) : undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        notes: notes.trim() || undefined,
+        observations: observations.trim() || undefined,
+        paymentMethod
+      };
+      onUpdateExpense(updatedExp);
+    } else {
+      const newExp: PropertyExpense = {
+        id: Date.now().toString(),
+        assetId: asset.id,
+        title: title.trim(),
+        amount: val,
+        frequency,
+        category,
+        dayOfMonth: frequency !== 'pontual' ? dayVal : undefined,
+        dueDate: frequency === 'pontual' ? (dueDate || undefined) : undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        fixedExpenseId: (linkToFixedExpense && frequency !== 'pontual') ? `fx_${Date.now()}` : undefined,
+        notes: notes.trim() || undefined,
+        observations: observations.trim() || undefined,
+        paymentMethod
+      };
+      onAddExpense(newExp);
+    }
 
-    onAddExpense(newExp);
+    handleCancel();
+  };
+
+  const handleEditClick = (exp: PropertyExpense) => {
+    setEditingExpense(exp);
+    setTitle(exp.title);
+    setAmount(exp.amount.toString());
+    setFrequency(exp.frequency);
+    setCategory(exp.category);
+    setDayOfMonth(exp.dayOfMonth?.toString() || '1');
+    setDueDate(exp.dueDate || '');
+    setStartDate(exp.startDate || '');
+    setEndDate(exp.endDate || '');
+    setNotes(exp.notes || '');
+    setObservations(exp.observations || '');
+    setPaymentMethod(exp.paymentMethod || 'Débito Direto');
+    setLinkToFixedExpense(!!exp.fixedExpenseId);
+    setIsAdding(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancel = () => {
     setTitle('');
     setAmount('');
     setFrequency('mensal');
     setCategory('Condomínio');
+    setDayOfMonth('1');
     setDueDate('');
     setStartDate('');
     setEndDate('');
     setNotes('');
+    setObservations('');
+    setPaymentMethod('Débito Direto');
+    setEditingExpense(null);
     setIsAdding(false);
   };
 
@@ -110,16 +224,16 @@ export function PropertyExpensesSection({
   return (
     <div className="space-y-8">
       {/* Header & Stats Display */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="col-span-1 lg:col-span-2">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
               <Receipt className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-black uppercase tracking-tight">Custo Operacional do Imóvel</h3>
+              <h3 className="text-lg font-black uppercase tracking-tight">Encargos e Custos Operacionais</h3>
               <p className="text-xs font-medium text-muted-foreground">
-                Gestão detalhada de obrigações fixas e manutenção para <span className="text-foreground font-bold">{asset.name}</span>
+                Gestão detalhada de obrigações fixas, encargos e manutenção para <span className="text-foreground font-bold">{asset.name}</span>
               </p>
             </div>
           </div>
@@ -128,7 +242,7 @@ export function PropertyExpensesSection({
         <Card className="rounded-2xl border-none shadow-sm bg-rose-500/5 dark:bg-rose-500/10 p-4 border border-rose-500/20">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase tracking-widest text-rose-600 opacity-80">Total Mensal Estimado</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-rose-600 opacity-80">Gasto Mensal Estimado</span>
               <p className="text-2xl font-black text-rose-600 tracking-tight">
                 {maskValue(monthlyTotal, formatter.format)}
               </p>
@@ -138,17 +252,34 @@ export function PropertyExpensesSection({
             </div>
           </div>
         </Card>
+
+        <Card className="rounded-2xl border-none shadow-sm bg-rose-500/5 dark:bg-rose-500/10 p-4 border border-rose-500/20">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-rose-600 opacity-80">Gasto Anual Estimado</span>
+              <p className="text-2xl font-black text-rose-600 tracking-tight">
+                {maskValue(annualTotal, formatter.format)}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-600 flex items-center justify-center shadow-lg shadow-rose-500/5">
+              <Calendar className="w-5 h-5" />
+            </div>
+          </div>
+        </Card>
       </div>
 
       <div className="flex justify-between items-center">
-        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Obrigações e Contratos</h4>
+        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Obrigações, Encargos e Contratos</h4>
         <Button 
-          onClick={() => setIsAdding(!isAdding)} 
+          onClick={() => {
+            if (isAdding) handleCancel();
+            else setIsAdding(true);
+          }} 
           size="sm"
           className="h-9 px-4 rounded-xl bg-primary hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 gap-2"
         >
           {isAdding ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-          {isAdding ? 'Cancelar' : 'Nova Despesa'}
+          {isAdding ? 'Cancelar' : 'Novo Encargo'}
         </Button>
       </div>
 
@@ -165,9 +296,9 @@ export function PropertyExpensesSection({
                 <form onSubmit={handleCreate} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Descrição da Despesa</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Descrição do Encargo</Label>
                       <Input 
-                        placeholder="Ex: Condomínio"
+                        placeholder="Ex: Condomínio, IMI, Pintura..."
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold"
@@ -178,7 +309,7 @@ export function PropertyExpensesSection({
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor</Label>
                       <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input 
                           type="number"
                           step="0.01"
@@ -193,59 +324,126 @@ export function PropertyExpensesSection({
 
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria</Label>
-                      <Select value={category} onValueChange={(v) => setCategory(v as PropertyExpense['category'])}>
-                        <SelectTrigger className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border-border/40">
-                          {EXPENSE_CATEGORIES.map(cat => (
-                            <SelectItem key={cat} value={cat} className="text-xs font-bold rounded-lg">{cat}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {!isAddingCustom ? (
+                        <Select value={category} onValueChange={handleCategoryChange}>
+                          <SelectTrigger className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border-border/40">
+                            {allCategories.map(cat => (
+                              <SelectItem key={cat} value={cat} className="text-xs font-bold rounded-lg">{cat}</SelectItem>
+                            ))}
+                            <SelectItem value="new_custom" className="text-xs font-black text-primary uppercase tracking-widest">+ Personalizar</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="Nova categoria" 
+                            value={newCustomCategory}
+                            onChange={(e) => setNewCustomCategory(e.target.value)}
+                            autoFocus
+                            className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold"
+                          />
+                          <Button 
+                            type="button" 
+                            onClick={handleAddCustomCategory} 
+                            size="icon" 
+                            className="h-11 w-11 shrink-0 rounded-xl bg-primary/20 text-primary hover:bg-primary/30"
+                            disabled={!newCustomCategory.trim()}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => setIsAddingCustom(false)}
+                            className="h-11 w-11 shrink-0 rounded-xl"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Periodicidade</Label>
-                      <Select value={frequency} onValueChange={(v) => setFrequency(v as 'mensal' | 'anual')}>
+                      <Select value={frequency} onValueChange={(v) => setFrequency(v as 'mensal' | 'anual' | 'pontual')}>
                         <SelectTrigger className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl border-border/40">
                           <SelectItem value="mensal" className="text-xs font-bold rounded-lg">Mensal</SelectItem>
+                          <SelectItem value="trimestral" className="text-xs font-bold rounded-lg">Trimestral</SelectItem>
+                          <SelectItem value="semestral" className="text-xs font-bold rounded-lg">Semestral</SelectItem>
                           <SelectItem value="anual" className="text-xs font-bold rounded-lg">Anual</SelectItem>
+                          <SelectItem value="pontual" className="text-xs font-bold rounded-lg">Pontual</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Data de Vencimento</Label>
-                      <Input 
-                        type="date"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                        className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold"
-                      />
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Método de Pagamento</Label>
+                      <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} className="h-11 rounded-xl" />
                     </div>
 
-                    <div className="space-y-2 flex flex-col justify-end">
-                      <div className="flex items-center justify-between p-3 h-11 bg-primary/5 rounded-xl border border-primary/20">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Vincular a Custos Fixos</Label>
-                        <Switch 
-                          checked={linkToFixedExpense} 
-                          onCheckedChange={setLinkToFixedExpense} 
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        {frequency === 'pontual' ? 'Data de Vencimento' : 'Dia Previsto do Mês'}
+                      </Label>
+                      {frequency === 'pontual' ? (
+                        <Input 
+                          type="date"
+                          value={dueDate}
+                          onChange={(e) => setDueDate(e.target.value)}
+                          className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold"
                         />
-                      </div>
+                      ) : (
+                        <Select value={dayOfMonth} onValueChange={setDayOfMonth}>
+                          <SelectTrigger className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold">
+                            <SelectValue placeholder="Selecione o dia" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border-border/40">
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                              <SelectItem key={day} value={day.toString()} className="text-xs font-bold rounded-lg">
+                                Dia {day}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
+
+                    {frequency !== 'pontual' && (
+                      <div className="space-y-2 flex flex-col justify-end">
+                        <div className="flex items-center justify-between p-3 h-11 bg-primary/5 rounded-xl border border-primary/20">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Vincular a Custos Fixos</Label>
+                          <Switch 
+                            checked={linkToFixedExpense} 
+                            onCheckedChange={setLinkToFixedExpense} 
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-6">
-                    <div className="flex-1 space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Notas Adicionais</Label>
+                    <div className="flex-[2] space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observações</Label>
                       <Input 
-                        placeholder="Ex: Próxima revisão em Outubro..."
+                        placeholder="Observações específicas para o encargo..."
+                        value={observations}
+                        onChange={(e) => setObservations(e.target.value)}
+                        className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 text-xs font-medium"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Notas do Sistema</Label>
+                      <Input 
+                        placeholder="Notas adicionais..."
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 text-xs"
@@ -253,7 +451,7 @@ export function PropertyExpensesSection({
                     </div>
                     <div className="flex items-end gap-3">
                       <Button type="submit" className="h-11 px-8 bg-primary hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20">
-                        Registar Despesa
+                        {editingExpense ? 'Atualizar Encargo' : 'Registar Encargo'}
                       </Button>
                     </div>
                   </div>
@@ -306,8 +504,8 @@ export function PropertyExpensesSection({
             <div className="w-16 h-16 rounded-2xl bg-muted/40 text-muted-foreground flex items-center justify-center mx-auto mb-4">
               <Home className="w-8 h-8 opacity-20" />
             </div>
-            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Sem despesas registadas</p>
-            <p className="text-xs text-muted-foreground mt-1">Utilize o botão acima para registar condomínios ou seguros.</p>
+            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Sem encargos registados</p>
+            <p className="text-xs text-muted-foreground mt-1">Utilize o botão acima para registar condomínios, IMI ou manutenções pontuais.</p>
           </div>
         ) : (
           propertyExpenses.map((exp) => {
@@ -335,7 +533,7 @@ export function PropertyExpensesSection({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                          {exp.category} • {exp.frequency}
+                          {exp.category} • {exp.frequency === 'pontual' ? 'PONTUAL' : exp.frequency}
                         </span>
                         <div className="flex items-center gap-1.5">
                           {alert && (
@@ -343,14 +541,24 @@ export function PropertyExpensesSection({
                               alert.status === 'expired' ? 'bg-rose-500' : 'bg-amber-500'
                             }`} />
                           )}
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => onDeleteExpense(exp)}
-                            className="h-8 w-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleEditClick(exp)}
+                              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => onDeleteExpense(exp)}
+                              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                       
@@ -361,11 +569,32 @@ export function PropertyExpensesSection({
                         </span>
                       </div>
 
+                      {exp.observations && (
+                        <p className="text-[11px] text-muted-foreground font-medium mt-1 mb-2 line-clamp-1 italic">
+                          "{exp.observations}"
+                        </p>
+                      )}
+
                       <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3">
-                        {exp.dueDate && (
+                        {exp.frequency === 'pontual' ? (
+                          <div className="flex items-center gap-1.5 text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-md">
+                            Custo Único
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-500/10 px-2 py-0.5 rounded-md">
+                            Recorrente • Dia {exp.dayOfMonth}
+                          </div>
+                        )}
+                        {exp.dueDate && exp.frequency === 'pontual' && (
                           <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground">
                             <Calendar className="w-3 h-3" />
                             VENCE: {format(parseISO(exp.dueDate), 'dd MMM yyyy', { locale: pt })}
+                          </div>
+                        )}
+                        {exp.paymentMethod && (
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground bg-muted/40 px-2 py-0.5 rounded-md">
+                            <Receipt className="w-3 h-3" />
+                            {exp.paymentMethod}
                           </div>
                         )}
                         {exp.fixedExpenseId && (

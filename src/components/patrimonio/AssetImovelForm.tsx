@@ -17,15 +17,16 @@ interface AssetImovelFormProps {
 
 export interface LocalPropertyExpenseItem {
   id: string;
-  category: 'Condomínio' | 'IMI' | 'Seguro Multirriscos' | 'Manutenção' | 'Outro';
+  category: string;
   amount: string;
-  frequency: 'mensal' | 'anual' | 'semestral' | 'trimestral';
+  frequency: 'mensal' | 'trimestral' | 'semestral' | 'anual' | 'pontual';
   dueDate: string;
   startDate: string;
   endDate: string;
+  observations: string;
 }
 
-const EXPENSE_CATEGORIES: LocalPropertyExpenseItem['category'][] = [
+const DEFAULT_EXPENSE_CATEGORIES = [
   'Condomínio',
   'IMI',
   'Seguro Multirriscos',
@@ -51,6 +52,22 @@ export function AssetImovelForm({
   const [city, setCity] = useState('');
   const [notes, setNotes] = useState('');
   const [expenseItems, setExpenseItems] = useState<LocalPropertyExpenseItem[]>([]);
+  
+  const [customExpenseCategories, setCustomExpenseCategories] = useState<string[]>([]);
+  const [isAddingCustomCategory, setIsAddingCustomCategory] = useState(false);
+  const [newCustomCategory, setNewCustomCategory] = useState('');
+  const [activeRowForCustom, setActiveRowForCustom] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('property_expense_custom_categories');
+    if (saved) {
+      try {
+        setCustomExpenseCategories(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse custom property expense categories', e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (initialData && initialData.category === 'imovel') {
@@ -83,7 +100,8 @@ export function AssetImovelForm({
             frequency: e.frequency || 'mensal',
             dueDate: e.dueDate || '',
             startDate: e.startDate || '',
-            endDate: e.endDate || ''
+            endDate: e.endDate || '',
+            observations: e.observations || ''
           }))
         );
       } else {
@@ -116,7 +134,8 @@ export function AssetImovelForm({
         frequency: 'mensal',
         dueDate: '',
         startDate: '',
-        endDate: ''
+        endDate: '',
+        observations: ''
       }
     ]);
   };
@@ -125,7 +144,30 @@ export function AssetImovelForm({
     setExpenseItems(prev => prev.filter(item => item.id !== id));
   };
 
+  const allCategories = Array.from(new Set([...DEFAULT_EXPENSE_CATEGORIES, ...customExpenseCategories]));
+
+  const handleAddCustomCategory = () => {
+    if (!newCustomCategory.trim()) return;
+    const cat = newCustomCategory.trim();
+    if (!customExpenseCategories.includes(cat)) {
+      const updated = [...customExpenseCategories, cat];
+      setCustomExpenseCategories(updated);
+      localStorage.setItem('property_expense_custom_categories', JSON.stringify(updated));
+    }
+    if (activeRowForCustom) {
+      handleUpdateExpenseRow(activeRowForCustom, 'category', cat);
+    }
+    setNewCustomCategory('');
+    setIsAddingCustomCategory(false);
+    setActiveRowForCustom(null);
+  };
+
   const handleUpdateExpenseRow = (id: string, field: keyof LocalPropertyExpenseItem, value: any) => {
+    if (field === 'category' && value === 'new_custom') {
+      setIsAddingCustomCategory(true);
+      setActiveRowForCustom(id);
+      return;
+    }
     setExpenseItems(prev =>
       prev.map(item => (item.id === id ? { ...item, [field]: value } : item))
     );
@@ -162,11 +204,12 @@ export function AssetImovelForm({
         assetId: assetId,
         title: `${exp.category} - ${assetObj.name}`,
         amount: parseFloat(exp.amount) || 0,
-        frequency: exp.frequency as 'mensal' | 'anual',
+        frequency: exp.frequency as PropertyExpense['frequency'],
         category: exp.category,
         dueDate: exp.dueDate || undefined,
         startDate: exp.startDate || undefined,
         endDate: exp.endDate || undefined,
+        observations: exp.observations?.trim() || undefined,
         fixedExpenseId: `fe_prop_${exp.id}`
       }));
 
@@ -416,19 +459,53 @@ export function AssetImovelForm({
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
                               <div className="space-y-1.5">
                                 <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria</Label>
-                                <Select
-                                  value={item.category}
-                                  onValueChange={(v) => handleUpdateExpenseRow(item.id, 'category', v)}
-                                >
-                                  <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/40 text-xs font-bold">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent className="rounded-xl">
-                                    {EXPENSE_CATEGORIES.map((cat) => (
-                                      <SelectItem key={cat} value={cat} className="text-xs font-medium">{cat}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                {(isAddingCustomCategory && activeRowForCustom === item.id) ? (
+                                  <div className="flex gap-2">
+                                    <Input 
+                                      placeholder="Nova categoria" 
+                                      value={newCustomCategory}
+                                      onChange={(e) => setNewCustomCategory(e.target.value)}
+                                      autoFocus
+                                      className="h-10 rounded-xl bg-background/50 border-border/40 text-xs font-bold"
+                                    />
+                                    <Button 
+                                      type="button" 
+                                      onClick={handleAddCustomCategory} 
+                                      size="icon" 
+                                      className="h-10 w-10 shrink-0 rounded-xl bg-primary/20 text-primary hover:bg-primary/30"
+                                      disabled={!newCustomCategory.trim()}
+                                    >
+                                      <Plus className="w-4 h-4" />
+                                    </Button>
+                                    <Button 
+                                      type="button" 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      onClick={() => {
+                                        setIsAddingCustomCategory(false);
+                                        setActiveRowForCustom(null);
+                                      }}
+                                      className="h-10 w-10 shrink-0 rounded-xl"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Select
+                                    value={item.category}
+                                    onValueChange={(v) => handleUpdateExpenseRow(item.id, 'category', v)}
+                                  >
+                                    <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/40 text-xs font-bold">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                      {allCategories.map((cat) => (
+                                        <SelectItem key={cat} value={cat} className="text-xs font-medium">{cat}</SelectItem>
+                                      ))}
+                                      <SelectItem value="new_custom" className="text-xs font-black text-primary uppercase tracking-widest">+ Personalizar</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                )}
                               </div>
 
                               <div className="space-y-1.5">
@@ -454,9 +531,10 @@ export function AssetImovelForm({
                                   </SelectTrigger>
                                   <SelectContent className="rounded-xl">
                                     <SelectItem value="mensal" className="text-xs font-medium">Mensal</SelectItem>
-                                    <SelectItem value="anual" className="text-xs font-medium">Anual</SelectItem>
-                                    <SelectItem value="semestral" className="text-xs font-medium">Semestral</SelectItem>
                                     <SelectItem value="trimestral" className="text-xs font-medium">Trimestral</SelectItem>
+                                    <SelectItem value="semestral" className="text-xs font-medium">Semestral</SelectItem>
+                                    <SelectItem value="anual" className="text-xs font-medium">Anual</SelectItem>
+                                    <SelectItem value="pontual" className="text-xs font-medium">Pontual</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -500,6 +578,16 @@ export function AssetImovelForm({
                                 className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
                               />
                             </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observações</Label>
+                            <Input
+                              placeholder="Observações do encargo..."
+                              value={item.observations}
+                              onChange={(e) => handleUpdateExpenseRow(item.id, 'observations', e.target.value)}
+                              className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
+                            />
                           </div>
                         </motion.div>
                       ))

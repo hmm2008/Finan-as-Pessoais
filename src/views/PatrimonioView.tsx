@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Asset, PropertyExpense } from '../components/patrimonio/types';
+import { Asset, PropertyExpense, PropertyIncome } from '../components/patrimonio/types';
 import { PageHeader } from '../components/layout';
 import { 
   PatrimonioHeader, 
@@ -7,7 +7,9 @@ import {
   AssetCard, 
   AssetImovelForm, 
   AssetFinanceiroForm, 
-  PropertyExpensesSection 
+  PropertyExpensesSection,
+  PropertyIncomesSection,
+  PropertyFinancialSummary 
 } from '../components/patrimonio';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -49,6 +51,21 @@ export default function PatrimonioView() {
     return [];
   });
 
+  const [propertyIncomes, setPropertyIncomes] = useState<PropertyIncome[]>(() => {
+    try {
+      const saved = localStorage.getItem('fin_property_incomes');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao carregar rendimentos de imóveis:', e);
+    }
+    return [];
+  });
+
   const [activeTab, setActiveTab] = useState<'imovel' | 'financeiro'>('imovel');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
@@ -60,6 +77,7 @@ export default function PatrimonioView() {
   // Deletion modals state
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<PropertyExpense | null>(null);
+  const [incomeToDelete, setIncomeToDelete] = useState<PropertyIncome | null>(null);
 
   // Sync to localStorage and trigger background Google Sheets sync
   useEffect(() => {
@@ -84,6 +102,15 @@ export default function PatrimonioView() {
     }
   }, [propertyExpenses]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('fin_property_incomes', JSON.stringify(propertyIncomes));
+      scheduleSheetsBackgroundSync();
+    } catch (e) {
+      console.error('Erro ao guardar rendimentos de imóvel:', e);
+    }
+  }, [propertyIncomes]);
+
   const selectedProperty = assets.find(a => a.id === selectedPropertyId && a.category === 'imovel');
 
   // Handlers for Save / Delete
@@ -102,36 +129,14 @@ export default function PatrimonioView() {
         return [...otherExpenses, ...newExpenses];
       });
 
-      try {
-        const savedFixed = localStorage.getItem('fin_fixed_expenses');
-        let currentFixed = savedFixed ? JSON.parse(savedFixed) : [];
-        if (!Array.isArray(currentFixed)) currentFixed = [];
-
-        const filteredFixed = currentFixed.filter((fe: any) => fe.assetId !== asset.id);
-        const newFixedToAdd = newExpenses.map(pe => ({
-          id: pe.fixedExpenseId || `fe_prop_${pe.id}`,
-          name: `${pe.category} - ${asset.name}`,
-          entity: asset.name,
-          category: pe.category === 'Condomínio' ? 'Habitação' : pe.category === 'IMI' ? 'Impostos' : pe.category === 'Seguro Multirriscos' ? 'Seguros' : 'Outros',
-          amount: pe.amount,
-          dueDateDay: pe.dueDate ? new Date(pe.dueDate).getDate() : 1,
-          dueDay: pe.dueDate ? new Date(pe.dueDate).getDate() : 1,
-          startDate: pe.startDate,
-          endDate: pe.endDate,
-          dueDate: pe.dueDate,
-          paymentMethod: 'Transferência Bancária',
-          active: true,
-          assetId: asset.id,
-          notes: `Custo Fixo do Imóvel: ${asset.name}. ${pe.notes || ''}`
-        }));
-
-        localStorage.setItem('fin_fixed_expenses', JSON.stringify([...filteredFixed, ...newFixedToAdd]));
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('storage'));
+      // Sync fixed expenses from AssetImovelForm
+      newExpenses.forEach(pe => {
+        if (pe.frequency !== 'pontual') {
+          syncPropertyExpenseToFixed(pe);
+        } else {
+          syncPropertyExpenseToPontual(pe);
         }
-      } catch (e) {
-        console.error('Erro ao guardar custos fixos:', e);
-      }
+      });
     }
 
     setEditingAsset(null);
@@ -140,6 +145,7 @@ export default function PatrimonioView() {
   const handleDeleteAssetPermanent = (id: string) => {
     setAssets(prev => prev.filter(a => a.id !== id));
     setPropertyExpenses(prev => prev.filter(pe => pe.assetId !== id));
+    setPropertyIncomes(prev => prev.filter(pi => pi.assetId !== id));
     if (selectedPropertyId === id) {
       setSelectedPropertyId(null);
     }
@@ -148,45 +154,210 @@ export default function PatrimonioView() {
   const handleAddPropertyExpense = (expense: PropertyExpense) => {
     setPropertyExpenses(prev => [...prev, expense]);
     
-    // Also sync to global fixed expenses if needed
-    if (expense.fixedExpenseId) {
-      try {
-        const savedFixed = localStorage.getItem('fin_fixed_expenses');
-        let currentFixed = savedFixed ? JSON.parse(savedFixed) : [];
-        if (!Array.isArray(currentFixed)) currentFixed = [];
-        
-        const asset = assets.find(a => a.id === expense.assetId);
-        const assetName = asset?.name || 'Imóvel';
+    if (expense.frequency !== 'pontual') {
+      syncPropertyExpenseToFixed(expense);
+    } else {
+      syncPropertyExpenseToPontual(expense);
+    }
+  };
 
-        const newFixed = {
-          id: expense.fixedExpenseId,
-          name: `${expense.category} - ${assetName}`,
-          entity: assetName,
-          category: expense.category === 'Condomínio' ? 'Habitação' : expense.category === 'IMI' ? 'Impostos' : expense.category === 'Seguro Multirriscos' ? 'Seguros' : 'Outros',
-          amount: expense.amount,
-          dueDateDay: expense.dueDate ? new Date(expense.dueDate).getDate() : 1,
-          dueDay: expense.dueDate ? new Date(expense.dueDate).getDate() : 1,
-          startDate: expense.startDate,
-          endDate: expense.endDate,
-          dueDate: expense.dueDate,
-          paymentMethod: 'Transferência Bancária',
-          active: true,
-          assetId: expense.assetId,
-          notes: `Custo Fixo do Imóvel: ${assetName}. ${expense.notes || ''}`
-        };
+  const handleUpdatePropertyExpense = (expense: PropertyExpense) => {
+    setPropertyExpenses(prev => prev.map(pe => pe.id === expense.id ? expense : pe));
+    
+    if (expense.frequency !== 'pontual') {
+      syncPropertyExpenseToFixed(expense);
+    } else {
+      syncPropertyExpenseToPontual(expense);
+    }
+  };
 
-        localStorage.setItem('fin_fixed_expenses', JSON.stringify([...currentFixed, newFixed]));
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('storage'));
-        }
-      } catch (e) {
-        console.error('Erro ao adicionar custo fixo global:', e);
+  const syncPropertyExpenseToFixed = (expense: PropertyExpense) => {
+    try {
+      const savedFixed = localStorage.getItem('fin_fixed_expenses');
+      let currentFixed = savedFixed ? JSON.parse(savedFixed) : [];
+      if (!Array.isArray(currentFixed)) currentFixed = [];
+      
+      const asset = assets.find(a => a.id === expense.assetId);
+      const assetName = asset?.name || 'Imóvel';
+
+      const fixedExpData = {
+        id: expense.fixedExpenseId || `fe_prop_${expense.id}`,
+        name: `${expense.category} - ${assetName}`,
+        entity: assetName,
+        category: expense.category === 'Condomínio' ? 'Habitação' : expense.category === 'IMI' ? 'Impostos' : expense.category === 'Seguro Multirriscos' ? 'Seguros' : 'Outros',
+        amount: expense.amount,
+        frequency: expense.frequency.charAt(0).toUpperCase() + expense.frequency.slice(1),
+        dueDateDay: expense.dayOfMonth || (expense.dueDate ? new Date(expense.dueDate).getDate() : 1),
+        dueDay: expense.dayOfMonth || (expense.dueDate ? new Date(expense.dueDate).getDate() : 1),
+        startDate: expense.startDate,
+        endDate: expense.endDate,
+        dueDate: expense.dueDate,
+        paymentMethod: 'Transferência Bancária',
+        active: true,
+        assetId: expense.assetId,
+        observations: expense.observations,
+        notes: `Custo Fixo do Imóvel: ${assetName}. ${expense.notes || ''}`
+      };
+
+      const existsIndex = currentFixed.findIndex((fe: any) => fe.id === fixedExpData.id);
+      let updatedFixed;
+      if (existsIndex >= 0) {
+        updatedFixed = currentFixed.map((fe: any) => fe.id === fixedExpData.id ? fixedExpData : fe);
+      } else {
+        updatedFixed = [...currentFixed, fixedExpData];
       }
+
+      localStorage.setItem('fin_fixed_expenses', JSON.stringify(updatedFixed));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('storage'));
+      }
+    } catch (e) {
+      console.error('Erro ao sincronizar custo fixo global:', e);
+    }
+  };
+
+  const syncPropertyExpenseToPontual = (expense: PropertyExpense) => {
+    try {
+      const saved = localStorage.getItem('fin_expenses');
+      let current = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(current)) current = [];
+      
+      const asset = assets.find(a => a.id === expense.assetId);
+      const assetName = asset?.name || 'Imóvel';
+
+      const transData = {
+        id: expense.transactionId || `tr_prop_exp_${expense.id}`,
+        description: `${expense.title} - ${assetName}`,
+        entity: assetName,
+        category: expense.category,
+        amount: expense.amount,
+        date: expense.dueDate || new Date().toISOString().split('T')[0],
+        paymentMethod: 'Transferência Bancária',
+        notes: `Despesa Pontual do Imóvel: ${assetName}. ${expense.observations || ''}`,
+        assetId: expense.assetId
+      };
+
+      const existsIndex = current.findIndex((t: any) => t.id === transData.id);
+      let updated;
+      if (existsIndex >= 0) {
+        updated = current.map((t: any) => t.id === transData.id ? transData : t);
+      } else {
+        updated = [transData, ...current];
+      }
+
+      localStorage.setItem('fin_expenses', JSON.stringify(updated));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('storage'));
+      }
+    } catch (e) {
+      console.error('Erro ao sincronizar despesa pontual:', e);
+    }
+  };
+
+  const handleAddPropertyIncome = (income: PropertyIncome) => {
+    setPropertyIncomes(prev => [...prev, income]);
+    
+    if (income.frequency !== 'pontual') {
+      syncPropertyIncomeToFixed(income);
+    } else {
+      syncPropertyIncomeToPontual(income);
+    }
+  };
+
+  const handleUpdatePropertyIncome = (income: PropertyIncome) => {
+    setPropertyIncomes(prev => prev.map(pi => pi.id === income.id ? income : pi));
+    
+    if (income.frequency !== 'pontual') {
+      syncPropertyIncomeToFixed(income);
+    } else {
+      syncPropertyIncomeToPontual(income);
+    }
+  };
+
+  const syncPropertyIncomeToFixed = (income: PropertyIncome) => {
+    try {
+      const savedFixed = localStorage.getItem('fin_fixed_incomes');
+      let currentFixed = savedFixed ? JSON.parse(savedFixed) : [];
+      if (!Array.isArray(currentFixed)) currentFixed = [];
+      
+      const asset = assets.find(a => a.id === income.assetId);
+      const assetName = asset?.name || 'Imóvel';
+
+      const fixedIncData = {
+        id: income.fixedIncomeId || `fi_prop_${income.id}`,
+        name: `${income.category} - ${assetName}`,
+        entity: assetName,
+        category: income.category === 'Renda Mensal' ? 'Rendas' : income.category === 'Venda de Imóvel' ? 'Vendas' : 'Outros',
+        amount: income.amount,
+        frequency: income.frequency.charAt(0).toUpperCase() + income.frequency.slice(1),
+        dueDateDay: income.dayOfMonth || (income.dueDate ? new Date(income.dueDate).getDate() : 1),
+        active: true,
+        assetId: income.assetId,
+        observations: income.observations,
+        notes: `Rendimento Fixo do Imóvel: ${assetName}. ${income.notes || ''}`
+      };
+
+      const existsIndex = currentFixed.findIndex((fi: any) => fi.id === fixedIncData.id);
+      let updatedFixed;
+      if (existsIndex >= 0) {
+        updatedFixed = currentFixed.map((fi: any) => fi.id === fixedIncData.id ? fixedIncData : fi);
+      } else {
+        updatedFixed = [...currentFixed, fixedIncData];
+      }
+
+      localStorage.setItem('fin_fixed_incomes', JSON.stringify(updatedFixed));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('storage'));
+      }
+    } catch (e) {
+      console.error('Erro ao sincronizar rendimento fixo global:', e);
+    }
+  };
+
+  const syncPropertyIncomeToPontual = (income: PropertyIncome) => {
+    try {
+      const saved = localStorage.getItem('fin_incomes');
+      let current = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(current)) current = [];
+      
+      const asset = assets.find(a => a.id === income.assetId);
+      const assetName = asset?.name || 'Imóvel';
+
+      const transData = {
+        id: income.transactionId || `tr_prop_inc_${income.id}`,
+        description: `${income.title} - ${assetName}`,
+        entity: assetName,
+        category: income.category,
+        amount: income.amount,
+        date: income.dueDate || new Date().toISOString().split('T')[0],
+        paymentMethod: 'Transferência Bancária',
+        notes: `Rendimento Pontual do Imóvel: ${assetName}. ${income.observations || ''}`,
+        assetId: income.assetId
+      };
+
+      const existsIndex = current.findIndex((t: any) => t.id === transData.id);
+      let updated;
+      if (existsIndex >= 0) {
+        updated = current.map((t: any) => t.id === transData.id ? transData : t);
+      } else {
+        updated = [transData, ...current];
+      }
+
+      localStorage.setItem('fin_incomes', JSON.stringify(updated));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('storage'));
+      }
+    } catch (e) {
+      console.error('Erro ao sincronizar rendimento pontual:', e);
     }
   };
 
   const handleDeletePropertyExpensePermanent = (id: string) => {
     setPropertyExpenses(prev => prev.filter(pe => pe.id !== id));
+  };
+
+  const handleDeletePropertyIncomePermanent = (id: string) => {
+    setPropertyIncomes(prev => prev.filter(pi => pi.id !== id));
   };
 
   const handleEditAssetClick = (asset: Asset) => {
@@ -341,12 +512,29 @@ export default function PatrimonioView() {
                       </Button>
                     </div>
 
-                    <PropertyExpensesSection 
+                    <PropertyFinancialSummary 
                       asset={selectedProperty}
                       expenses={propertyExpenses}
-                      onAddExpense={handleAddPropertyExpense}
-                      onDeleteExpense={(exp) => setExpenseToDelete(exp)}
+                      incomes={propertyIncomes}
                     />
+
+                      <PropertyExpensesSection 
+                        asset={selectedProperty}
+                        expenses={propertyExpenses}
+                        onAddExpense={handleAddPropertyExpense}
+                        onUpdateExpense={handleUpdatePropertyExpense}
+                        onDeleteExpense={(exp) => setExpenseToDelete(exp)}
+                      />
+
+                      <div className="pt-8 border-t border-border/40">
+                        <PropertyIncomesSection 
+                          asset={selectedProperty}
+                          incomes={propertyIncomes}
+                          onAddIncome={handleAddPropertyIncome}
+                          onUpdateIncome={handleUpdatePropertyIncome}
+                          onDeleteIncome={(inc) => setIncomeToDelete(inc)}
+                        />
+                      </div>
                   </div>
                 </Card>
               </motion.div>
@@ -419,6 +607,32 @@ export default function PatrimonioView() {
           if (expenseToDelete) {
             handleDeletePropertyExpensePermanent(expenseToDelete.id);
             setExpenseToDelete(null);
+          }
+        }}
+      />
+
+      {/* Confirm & Delete Modal for Property Incomes */}
+      <ConfirmDeleteModal
+        open={!!incomeToDelete}
+        onClose={() => setIncomeToDelete(null)}
+        onConfirmPermanent={() => {
+          if (incomeToDelete) {
+            handleDeletePropertyIncomePermanent(incomeToDelete.id);
+            setIncomeToDelete(null);
+          }
+        }}
+        entityLabel={
+          incomeToDelete?.title
+            ? `Rendimento de Imóvel "${incomeToDelete.title}" (${formatter.format(incomeToDelete.amount || 0)})`
+            : 'Rendimento'
+        }
+        entityName="Património"
+        entityId={incomeToDelete?.id || ''}
+        entityData={incomeToDelete}
+        onMoveToTrashSuccess={() => {
+          if (incomeToDelete) {
+            handleDeletePropertyIncomePermanent(incomeToDelete.id);
+            setIncomeToDelete(null);
           }
         }}
       />
