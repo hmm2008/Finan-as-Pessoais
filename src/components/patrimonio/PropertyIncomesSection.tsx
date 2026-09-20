@@ -26,11 +26,19 @@ interface PropertyIncomesSectionProps {
   onDeleteIncome: (income: PropertyIncome) => void;
 }
 
-const DEFAULT_INCOME_CATEGORIES = [
+const DEFAULT_PROPERTY_CATEGORIES = [
   'Renda Mensal',
   'Alojamento Local',
   'Venda de Imóvel',
   'Subvenção / Apoio',
+  'Outro'
+];
+
+const DEFAULT_FINANCIAL_CATEGORIES = [
+  'Dividendos',
+  'Juros / Cupons',
+  'Mais-valias',
+  'Prémio de Opções',
   'Outro'
 ];
 
@@ -64,17 +72,20 @@ export function PropertyIncomesSection({
   const [newCustomCategory, setNewCustomCategory] = useState('');
 
   React.useEffect(() => {
-    const saved = localStorage.getItem('property_income_custom_categories');
+    const storageKey = asset.category === 'imovel' ? 'property_income_custom_categories' : 'financial_income_custom_categories';
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       try {
         setCustomCategories(JSON.parse(saved));
       } catch (e) {
-        console.error('Failed to parse custom property income categories', e);
+        console.error('Failed to parse custom income categories', e);
       }
     }
-  }, []);
+  }, [asset.category]);
 
-  const allCategories = Array.from(new Set([...DEFAULT_INCOME_CATEGORIES, ...customCategories]));
+  const isProperty = asset.category === 'imovel';
+  const defaultCategories = isProperty ? DEFAULT_PROPERTY_CATEGORIES : DEFAULT_FINANCIAL_CATEGORIES;
+  const allCategories = Array.from(new Set([...defaultCategories, ...customCategories]));
 
   const handleAddCustomCategory = () => {
     if (!newCustomCategory.trim()) return;
@@ -82,7 +93,8 @@ export function PropertyIncomesSection({
     if (!customCategories.includes(cat)) {
       const updated = [...customCategories, cat];
       setCustomCategories(updated);
-      localStorage.setItem('property_income_custom_categories', JSON.stringify(updated));
+      const storageKey = isProperty ? 'property_income_custom_categories' : 'financial_income_custom_categories';
+      localStorage.setItem(storageKey, JSON.stringify(updated));
     }
     setCategory(cat);
     setNewCustomCategory('');
@@ -213,9 +225,14 @@ export function PropertyIncomesSection({
               <TrendingUp className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-black uppercase tracking-tight text-foreground">Rendimentos e Receitas do Imóvel</h3>
+              <h3 className="text-lg font-black uppercase tracking-tight text-foreground">
+                {isProperty ? 'Rendimentos e Receitas do Imóvel' : 'Dividendos e Proventos de Investimento'}
+              </h3>
               <p className="text-xs font-medium text-muted-foreground">
-                Gestão de rendas, vendas e outros proveitos financeiros de <span className="text-foreground font-bold">{asset.name}</span>
+                {isProperty 
+                  ? `Gestão de rendas, vendas e outros proveitos financeiros de `
+                  : `Gestão de dividendos, juros e mais-valias de `}
+                <span className="text-foreground font-bold">{asset.name}</span>
               </p>
             </div>
           </div>
@@ -251,11 +268,16 @@ export function PropertyIncomesSection({
       </div>
 
       <div className="flex justify-between items-center">
-        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Rendas, Vendas e Proveitos</h4>
+        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+          {isProperty ? 'Rendas, Vendas e Proveitos' : 'Dividendos e Mais-valias'}
+        </h4>
         <Button 
           onClick={() => {
             if (isAdding) handleCancel();
-            else setIsAdding(true);
+            else {
+              setIsAdding(true);
+              setCategory(defaultCategories[0]);
+            }
           }} 
           size="sm"
           className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-600/20 gap-2"

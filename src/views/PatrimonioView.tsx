@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Asset, PropertyExpense, PropertyIncome } from '../components/patrimonio/types';
 import { PageHeader } from '../components/layout';
 import { 
@@ -14,7 +14,7 @@ import {
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
-import { Building2, X, Plus, LayoutGrid, Info } from 'lucide-react';
+import { Building2, X, Plus, LayoutGrid, Info, TrendingUp } from 'lucide-react';
 import { scheduleSheetsBackgroundSync } from '../lib/googleSheetsDataService';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -76,10 +76,19 @@ export default function PatrimonioView() {
 
   // Deletion modals state
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
+  const detailsRef = useRef<HTMLDivElement>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<PropertyExpense | null>(null);
   const [incomeToDelete, setIncomeToDelete] = useState<PropertyIncome | null>(null);
 
   // Sync to localStorage and trigger background Google Sheets sync
+  useEffect(() => {
+    if (selectedPropertyId && detailsRef.current) {
+      setTimeout(() => {
+        detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [selectedPropertyId]);
+
   useEffect(() => {
     try {
       localStorage.setItem('fin_assets', JSON.stringify(assets));
@@ -111,7 +120,7 @@ export default function PatrimonioView() {
     }
   }, [propertyIncomes]);
 
-  const selectedProperty = assets.find(a => a.id === selectedPropertyId && a.category === 'imovel');
+  const selectedAsset = assets.find(a => a.id === selectedPropertyId);
 
   // Handlers for Save / Delete
   const handleSaveAsset = (asset: Asset, newExpenses?: PropertyExpense[]) => {
@@ -129,7 +138,7 @@ export default function PatrimonioView() {
         return [...otherExpenses, ...newExpenses];
       });
 
-      // Sync fixed expenses from AssetImovelForm
+      // Sync fixed expenses from AssetImovelForm or AssetFinanceiroForm
       newExpenses.forEach(pe => {
         if (pe.frequency !== 'pontual') {
           syncPropertyExpenseToFixed(pe);
@@ -178,13 +187,16 @@ export default function PatrimonioView() {
       if (!Array.isArray(currentFixed)) currentFixed = [];
       
       const asset = assets.find(a => a.id === expense.assetId);
-      const assetName = asset?.name || 'Imóvel';
+      const assetName = asset?.name || 'Ativo';
+      const isProperty = asset?.category === 'imovel';
 
       const fixedExpData = {
         id: expense.fixedExpenseId || `fe_prop_${expense.id}`,
         name: `${expense.category} - ${assetName}`,
         entity: assetName,
-        category: expense.category === 'Condomínio' ? 'Habitação' : expense.category === 'IMI' ? 'Impostos' : expense.category === 'Seguro Multirriscos' ? 'Seguros' : 'Outros',
+        category: isProperty 
+          ? (expense.category === 'Condomínio' ? 'Habitação' : expense.category === 'IMI' ? 'Impostos' : expense.category === 'Seguro Multirriscos' ? 'Seguros' : 'Outros')
+          : (expense.category === 'Comissões' ? 'Investimentos' : 'Outros'),
         amount: expense.amount,
         frequency: expense.frequency.charAt(0).toUpperCase() + expense.frequency.slice(1),
         dueDateDay: expense.dayOfMonth || (expense.dueDate ? new Date(expense.dueDate).getDate() : 1),
@@ -196,7 +208,7 @@ export default function PatrimonioView() {
         active: true,
         assetId: expense.assetId,
         observations: expense.observations,
-        notes: `Custo Fixo do Imóvel: ${assetName}. ${expense.notes || ''}`
+        notes: `Custo Fixo do ${isProperty ? 'Imóvel' : 'Ativo'}: ${assetName}. ${expense.notes || ''}`
       };
 
       const existsIndex = currentFixed.findIndex((fe: any) => fe.id === fixedExpData.id);
@@ -475,29 +487,38 @@ export default function PatrimonioView() {
             )}
           </div>
 
-          {/* Property Expenses Panel */}
-          <AnimatePresence>
-            {activeTab === 'imovel' && selectedProperty && (
+          {/* Property / Financial Asset Expenses Panel */}
+          <div ref={detailsRef}>
+            <AnimatePresence>
+              {selectedAsset && (
               <motion.div 
                 initial={{ opacity: 0, height: 0, y: 30 }}
                 animate={{ opacity: 1, height: 'auto', y: 0 }}
                 exit={{ opacity: 0, height: 0, y: 30 }}
                 className="overflow-hidden"
               >
-                <Card className="border-none shadow-xl bg-card/60 backdrop-blur-xl rounded-[2.5rem] overflow-hidden">
+                <Card className={`border-none shadow-xl backdrop-blur-xl rounded-[2.5rem] overflow-hidden ${
+                  selectedAsset.category === 'imovel' ? 'bg-card/60' : 'bg-emerald-500/5 dark:bg-emerald-500/10'
+                }`}>
                   <div className="p-8 space-y-8">
                     <div className="flex items-center justify-between border-b border-border/40 pb-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
-                          <Building2 className="w-6 h-6" />
+                        <div className={`w-12 h-12 rounded-2xl text-white flex items-center justify-center shadow-lg ${
+                          selectedAsset.category === 'imovel' ? 'bg-primary shadow-primary/20' : 'bg-emerald-600 shadow-emerald-600/20'
+                        }`}>
+                          {selectedAsset.category === 'imovel' ? <Building2 className="w-6 h-6" /> : <TrendingUp className="w-6 h-6" />}
                         </div>
                         <div>
                           <h3 className="font-black text-xl tracking-tight text-foreground">
-                            Análise de Custos: <span className="text-primary dark:text-primary/80">{selectedProperty.name}</span>
+                            Análise de {selectedAsset.category === 'imovel' ? 'Custos' : 'Performance'}: <span className={selectedAsset.category === 'imovel' ? 'text-primary dark:text-primary/80' : 'text-emerald-600 dark:text-emerald-400'}>{selectedAsset.name}</span>
                           </h3>
                           <div className="flex items-center gap-2 mt-1">
                             <Info className="w-3 h-3 text-muted-foreground" />
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Controlo de Seguros, IMI e Manutenção</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                              {selectedAsset.category === 'imovel' 
+                                ? 'Controlo de Seguros, IMI e Manutenção' 
+                                : 'Controlo de Dividendos, Taxas e Rendimentos'}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -511,36 +532,41 @@ export default function PatrimonioView() {
                         <X className="w-5 h-5" />
                       </Button>
                     </div>
-
-                    <PropertyFinancialSummary 
-                      asset={selectedProperty}
-                      expenses={propertyExpenses}
-                      incomes={propertyIncomes}
-                    />
-
-                      <PropertyExpensesSection 
-                        asset={selectedProperty}
-                        expenses={propertyExpenses}
-                        onAddExpense={handleAddPropertyExpense}
-                        onUpdateExpense={handleUpdatePropertyExpense}
-                        onDeleteExpense={(exp) => setExpenseToDelete(exp)}
-                      />
-
-                      <div className="pt-8 border-t border-border/40">
-                        <PropertyIncomesSection 
-                          asset={selectedProperty}
+                    
+                    {selectedAsset && (
+                      <>
+                        <PropertyFinancialSummary 
+                          asset={selectedAsset}
+                          expenses={propertyExpenses}
                           incomes={propertyIncomes}
-                          onAddIncome={handleAddPropertyIncome}
-                          onUpdateIncome={handleUpdatePropertyIncome}
-                          onDeleteIncome={(inc) => setIncomeToDelete(inc)}
                         />
-                      </div>
+
+                        <PropertyExpensesSection 
+                          asset={selectedAsset}
+                          expenses={propertyExpenses}
+                          onAddExpense={handleAddPropertyExpense}
+                          onUpdateExpense={handleUpdatePropertyExpense}
+                          onDeleteExpense={(exp) => setExpenseToDelete(exp)}
+                        />
+
+                        <div className="pt-8 border-t border-border/40">
+                          <PropertyIncomesSection 
+                            asset={selectedAsset}
+                            incomes={propertyIncomes}
+                            onAddIncome={handleAddPropertyIncome}
+                            onUpdateIncome={handleUpdatePropertyIncome}
+                            onDeleteIncome={(inc) => setIncomeToDelete(inc)}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </Card>
               </motion.div>
             )}
           </AnimatePresence>
-        </motion.div>
+        </div>
+      </motion.div>
       </AnimatePresence>
 
       {/* Modals */}

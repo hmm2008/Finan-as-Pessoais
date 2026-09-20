@@ -26,11 +26,19 @@ interface PropertyExpensesSectionProps {
   onDeleteExpense: (expense: PropertyExpense) => void;
 }
 
-const DEFAULT_EXPENSE_CATEGORIES = [
+const DEFAULT_PROPERTY_CATEGORIES = [
   'Condomínio',
   'IMI',
   'Seguro Multirriscos',
   'Manutenção',
+  'Outro'
+];
+
+const DEFAULT_FINANCIAL_CATEGORIES = [
+  'Comissões',
+  'Taxas de Custódia',
+  'Impostos',
+  'Subscrição',
   'Outro'
 ];
 
@@ -64,17 +72,20 @@ export function PropertyExpensesSection({
   const [newCustomCategory, setNewCustomCategory] = useState('');
 
   React.useEffect(() => {
-    const saved = localStorage.getItem('property_expense_custom_categories');
+    const storageKey = asset.category === 'imovel' ? 'property_expense_custom_categories' : 'financial_expense_custom_categories';
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       try {
         setCustomCategories(JSON.parse(saved));
       } catch (e) {
-        console.error('Failed to parse custom property expense categories', e);
+        console.error('Failed to parse custom expense categories', e);
       }
     }
-  }, []);
+  }, [asset.category]);
 
-  const allCategories = Array.from(new Set([...DEFAULT_EXPENSE_CATEGORIES, ...customCategories]));
+  const isProperty = asset.category === 'imovel';
+  const defaultCategories = isProperty ? DEFAULT_PROPERTY_CATEGORIES : DEFAULT_FINANCIAL_CATEGORIES;
+  const allCategories = Array.from(new Set([...defaultCategories, ...customCategories]));
 
   const handleAddCustomCategory = () => {
     if (!newCustomCategory.trim()) return;
@@ -82,7 +93,8 @@ export function PropertyExpensesSection({
     if (!customCategories.includes(cat)) {
       const updated = [...customCategories, cat];
       setCustomCategories(updated);
-      localStorage.setItem('property_expense_custom_categories', JSON.stringify(updated));
+      const storageKey = isProperty ? 'property_expense_custom_categories' : 'financial_expense_custom_categories';
+      localStorage.setItem(storageKey, JSON.stringify(updated));
     }
     setCategory(cat);
     setNewCustomCategory('');
@@ -231,9 +243,14 @@ export function PropertyExpensesSection({
               <Receipt className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-black uppercase tracking-tight">Encargos e Custos Operacionais</h3>
+              <h3 className="text-lg font-black uppercase tracking-tight">
+                {isProperty ? 'Encargos e Custos Operacionais' : 'Custos e Comissões de Investimento'}
+              </h3>
               <p className="text-xs font-medium text-muted-foreground">
-                Gestão detalhada de obrigações fixas, encargos e manutenção para <span className="text-foreground font-bold">{asset.name}</span>
+                {isProperty 
+                  ? `Gestão detalhada de obrigações fixas, encargos e manutenção para `
+                  : `Gestão de taxas, comissões e outros encargos financeiros de `}
+                <span className="text-foreground font-bold">{asset.name}</span>
               </p>
             </div>
           </div>
@@ -269,11 +286,16 @@ export function PropertyExpensesSection({
       </div>
 
       <div className="flex justify-between items-center">
-        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Obrigações, Encargos e Contratos</h4>
+        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+          {isProperty ? 'Obrigações, Encargos e Contratos' : 'Histórico de Custos e Taxas'}
+        </h4>
         <Button 
           onClick={() => {
             if (isAdding) handleCancel();
-            else setIsAdding(true);
+            else {
+              setIsAdding(true);
+              setCategory(defaultCategories[0]);
+            }
           }} 
           size="sm"
           className="h-9 px-4 rounded-xl bg-primary hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 gap-2"

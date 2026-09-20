@@ -220,15 +220,31 @@ export function AssetCard({
                 </div>
               )}
               
-              {asset.category === 'imovel' && (
+              {(asset.category === 'imovel' || asset.category === 'financeiro') && (
                 <div className="pt-3 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-[11px] text-blue-600 dark:text-blue-400 font-black uppercase tracking-widest transition-all group-hover:gap-2.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`h-auto p-0 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest transition-all hover:bg-transparent group-hover:gap-2.5 ${
+                      asset.category === 'imovel' 
+                        ? 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300' 
+                        : 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectProperty) onSelectProperty(asset);
+                    }}
+                  >
                     Gerir Ativo
                     <ChevronRight className="w-3.5 h-3.5" />
-                  </div>
+                  </Button>
                   {asset.expenses && asset.expenses.length > 0 && (
-                    <span className="bg-blue-500/10 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight border border-blue-500/10 shadow-sm">
-                      {asset.expenses.length} encargos
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight border shadow-sm ${
+                      asset.category === 'imovel'
+                        ? 'bg-blue-500/10 text-blue-600 border-blue-500/10'
+                        : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/10'
+                    }`}>
+                      {asset.expenses.length} {asset.category === 'imovel' ? 'encargos' : 'registos'}
                     </span>
                   )}
                 </div>
