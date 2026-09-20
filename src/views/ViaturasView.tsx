@@ -218,12 +218,12 @@ export default function ViaturasView() {
             title: t.title,
             taskType: t.taskType,
             cost: t.nextCost !== undefined ? t.nextCost : t.cost,
-            status: 'pendente',
+            status: 'pendente' as const,
             dueDate: targetNextDueDate,
             recurring: true,
             recurrenceInterval: interval,
             nextDueDate: subsequentDueDate,
-            nextStatus: 'pendente',
+            nextStatus: 'pendente' as const,
             nextCost: t.nextCost !== undefined ? t.nextCost : t.cost,
             autoCreateNext: true,
             parentTaskId: t.id,
@@ -247,7 +247,7 @@ export default function ViaturasView() {
 
       const updated = prev.map(t => {
         if (t.id === id) {
-          const nextStatus = t.status === 'pendente' ? 'concluída' : 'pendente';
+          const nextStatus = t.status === 'pendente' ? ('concluída' as const) : ('pendente' as const);
           const completedDateStr = nextStatus === 'concluída' ? new Date().toISOString().split('T')[0] : undefined;
 
           const isRecurring = t.recurring || (t.recurrenceInterval && t.recurrenceInterval !== 'none');

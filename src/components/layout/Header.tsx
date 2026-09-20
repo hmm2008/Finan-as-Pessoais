@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Menu, Sun, Moon, Eye, EyeOff, Lock, Unlock, Database, Loader2, Check, AlertCircle, AlertTriangle, UploadCloud } from 'lucide-react';
 import { NotificationDropdown } from './NotificationDropdown';
+import { PWAInstallButton } from './PWAInstallButton';
 import { useAuth, usePrivacy, usePin, usePreferences } from '../../contexts';
 import { Button } from '../ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -57,6 +58,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
           <Button variant="ghost" size="icon" className="md:hidden rounded-2xl" onClick={onMenuClick}>
             <Menu className="h-5 w-5" />
           </Button>
+          <PWAInstallButton />
         </div>
         
         <div className="flex items-center gap-1 sm:gap-2">

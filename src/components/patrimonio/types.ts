@@ -33,7 +33,7 @@ export interface PropertyExpense {
   assetId: string;
   title: string;
   amount: number;
-  frequency: 'mensal' | 'trimestral' | 'semestral' | 'anual' | 'pontual';
+  frequency: string;
   category: string;
   dayOfMonth?: number;
   dueDate?: string;
@@ -42,6 +42,9 @@ export interface PropertyExpense {
   fixedExpenseId?: string; // Link to FixedExpense
   transactionId?: string; // Link to a pontual transaction (Despesas)
   paymentMethod?: string;
+  entity?: string;
+  alertDays?: number;
+  active?: boolean;
   notes?: string;
   observations?: string;
 }

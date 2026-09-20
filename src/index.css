@@ -215,6 +215,25 @@
   button:not(:disabled):hover svg {
     transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
+  /* Privacy Mask Utility */
+  .privacy-mask {
+    transition: filter 0.3s ease, opacity 0.3s ease;
+  }
+  .privacy-active .privacy-mask {
+    filter: blur(8px);
+    opacity: 0.7;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Custom Scrollbar Hide */
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 @media print {

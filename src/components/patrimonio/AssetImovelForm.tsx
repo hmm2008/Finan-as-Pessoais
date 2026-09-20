@@ -3,9 +3,11 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Switch } from '../ui/switch';
 import { X, Home, Plus, Trash2, Building2, MapPin, Calendar, Euro, Info } from 'lucide-react';
 import { Asset, PropertyExpense } from './types';
 import { motion, AnimatePresence } from 'motion/react';
+import { PaymentMethodSelector } from '../financas/PaymentMethodSelector';
 
 interface AssetImovelFormProps {
   isOpen: boolean;
@@ -17,20 +19,25 @@ interface AssetImovelFormProps {
 
 export interface LocalPropertyExpenseItem {
   id: string;
+  title: string;
   category: string;
   amount: string;
-  frequency: 'mensal' | 'trimestral' | 'semestral' | 'anual' | 'pontual';
-  dueDate: string;
-  startDate: string;
-  endDate: string;
-  observations: string;
+  frequency: string;
+  paymentMethod: string;
+  entity: string;
+  dayOfMonth: string;
+  alertDays: string;
+  active: boolean;
+  notes: string;
 }
 
 const DEFAULT_EXPENSE_CATEGORIES = [
+  'Habitação',
   'Condomínio',
   'IMI',
-  'Seguro Multirriscos',
+  'Seguros',
   'Manutenção',
+  'Impostos',
   'Outro'
 ];
 
@@ -95,13 +102,16 @@ export function AssetImovelForm({
         setExpenseItems(
           existingPropExpenses.map(e => ({
             id: e.id,
+            title: e.title || `${e.category} - ${initialData.name}`,
             category: e.category,
             amount: e.amount ? e.amount.toString() : '',
-            frequency: e.frequency || 'mensal',
-            dueDate: e.dueDate || '',
-            startDate: e.startDate || '',
-            endDate: e.endDate || '',
-            observations: e.observations || ''
+            frequency: e.frequency || 'Mensal',
+            paymentMethod: e.paymentMethod || 'Débito Direto',
+            entity: e.entity || '',
+            dayOfMonth: e.dayOfMonth ? e.dayOfMonth.toString() : '1',
+            alertDays: e.alertDays ? e.alertDays.toString() : '7',
+            active: e.active !== undefined ? e.active : true,
+            notes: e.notes || e.observations || ''
           }))
         );
       } else {
@@ -129,13 +139,16 @@ export function AssetImovelForm({
       ...prev,
       {
         id: `pe_${Date.now()}_${prev.length}`,
-        category: 'Condomínio',
+        title: '',
+        category: 'Habitação',
         amount: '',
-        frequency: 'mensal',
-        dueDate: '',
-        startDate: '',
-        endDate: '',
-        observations: ''
+        frequency: 'Mensal',
+        paymentMethod: 'Débito Direto',
+        entity: '',
+        dayOfMonth: '1',
+        alertDays: '7',
+        active: true,
+        notes: ''
       }
     ]);
   };
@@ -202,14 +215,16 @@ export function AssetImovelForm({
       .map(exp => ({
         id: exp.id,
         assetId: assetId,
-        title: `${exp.category} - ${assetObj.name}`,
+        title: exp.title.trim() || `${exp.category} - ${assetObj.name}`,
         amount: parseFloat(exp.amount) || 0,
-        frequency: exp.frequency as PropertyExpense['frequency'],
+        frequency: exp.frequency,
         category: exp.category,
-        dueDate: exp.dueDate || undefined,
-        startDate: exp.startDate || undefined,
-        endDate: exp.endDate || undefined,
-        observations: exp.observations?.trim() || undefined,
+        dayOfMonth: parseInt(exp.dayOfMonth) || 1,
+        paymentMethod: exp.paymentMethod,
+        entity: exp.entity?.trim() || undefined,
+        alertDays: parseInt(exp.alertDays) || 7,
+        active: exp.active,
+        notes: exp.notes?.trim() || undefined,
         fixedExpenseId: `fe_prop_${exp.id}`
       }));
 
@@ -456,7 +471,17 @@ export function AssetImovelForm({
                           className="p-5 rounded-3xl bg-muted/20 border border-border/30 space-y-4"
                         >
                           <div className="flex items-center justify-between gap-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Descrição / Nome do Encargo</Label>
+                                <Input
+                                  placeholder="Ex: Condomínio, IMI..."
+                                  value={item.title}
+                                  onChange={(e) => handleUpdateExpenseRow(item.id, 'title', e.target.value)}
+                                  className="h-10 rounded-xl bg-background/50 border-border/40 text-xs font-bold"
+                                />
+                              </div>
+
                               <div className="space-y-1.5">
                                 <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria</Label>
                                 {(isAddingCustomCategory && activeRowForCustom === item.id) ? (
@@ -507,38 +532,8 @@ export function AssetImovelForm({
                                   </Select>
                                 )}
                               </div>
-
-                              <div className="space-y-1.5">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor (€)</Label>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  placeholder="0.00"
-                                  value={item.amount}
-                                  onChange={(e) => handleUpdateExpenseRow(item.id, 'amount', e.target.value)}
-                                  className="h-10 rounded-xl bg-background/50 border-border/40 text-xs font-bold"
-                                />
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Frequência</Label>
-                                <Select
-                                  value={item.frequency}
-                                  onValueChange={(v) => handleUpdateExpenseRow(item.id, 'frequency', v)}
-                                >
-                                  <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/40 text-xs font-bold">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent className="rounded-xl">
-                                    <SelectItem value="mensal" className="text-xs font-medium">Mensal</SelectItem>
-                                    <SelectItem value="trimestral" className="text-xs font-medium">Trimestral</SelectItem>
-                                    <SelectItem value="semestral" className="text-xs font-medium">Semestral</SelectItem>
-                                    <SelectItem value="anual" className="text-xs font-medium">Anual</SelectItem>
-                                    <SelectItem value="pontual" className="text-xs font-medium">Pontual</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
                             </div>
+
                             <Button
                               type="button"
                               variant="ghost"
@@ -552,42 +547,108 @@ export function AssetImovelForm({
 
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="space-y-1.5">
-                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Próximo Vencimento</Label>
+                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor (€)</Label>
                               <Input
-                                type="date"
-                                value={item.dueDate}
-                                onChange={(e) => handleUpdateExpenseRow(item.id, 'dueDate', e.target.value)}
-                                className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={item.amount}
+                                onChange={(e) => handleUpdateExpenseRow(item.id, 'amount', e.target.value)}
+                                className="h-9 rounded-xl bg-background/30 border-border/20 text-xs font-bold"
                               />
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Início Vigência</Label>
-                              <Input
-                                type="date"
-                                value={item.startDate}
-                                onChange={(e) => handleUpdateExpenseRow(item.id, 'startDate', e.target.value)}
-                                className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
-                              />
+                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Periodicidade</Label>
+                              <Select
+                                value={item.frequency}
+                                onValueChange={(v) => handleUpdateExpenseRow(item.id, 'frequency', v)}
+                              >
+                                <SelectTrigger className="h-9 rounded-xl bg-background/30 border-border/20 text-xs font-bold">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl">
+                                  <SelectItem value="Mensal" className="text-xs font-medium">Mensal</SelectItem>
+                                  <SelectItem value="Trimestral" className="text-xs font-medium">Trimestral</SelectItem>
+                                  <SelectItem value="Semestral" className="text-xs font-medium">Semestral</SelectItem>
+                                  <SelectItem value="Anual" className="text-xs font-medium">Anual</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Fim Vigência</Label>
+                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Dia do Mês (Vencimento)</Label>
                               <Input
-                                type="date"
-                                value={item.endDate}
-                                onChange={(e) => handleUpdateExpenseRow(item.id, 'endDate', e.target.value)}
-                                className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
+                                type="number"
+                                min="1"
+                                max="31"
+                                placeholder="Ex: 15"
+                                value={item.dayOfMonth}
+                                onChange={(e) => handleUpdateExpenseRow(item.id, 'dayOfMonth', e.target.value)}
+                                className="h-9 rounded-xl bg-background/30 border-border/20 text-xs font-bold"
                               />
                             </div>
                           </div>
 
-                          <div className="space-y-1.5">
-                            <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observações</Label>
-                            <Input
-                              placeholder="Observações do encargo..."
-                              value={item.observations}
-                              onChange={(e) => handleUpdateExpenseRow(item.id, 'observations', e.target.value)}
-                              className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
-                            />
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="space-y-1.5">
+                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Entidade / Beneficiário</Label>
+                              <Input
+                                placeholder="Ex: Banco / EDP / Condomínio"
+                                value={item.entity}
+                                onChange={(e) => handleUpdateExpenseRow(item.id, 'entity', e.target.value)}
+                                className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Método de Pagamento</Label>
+                              <PaymentMethodSelector
+                                value={item.paymentMethod}
+                                onChange={(val) => handleUpdateExpenseRow(item.id, 'paymentMethod', val)}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Alertar Antes</Label>
+                              <Select
+                                value={item.alertDays}
+                                onValueChange={(v) => handleUpdateExpenseRow(item.id, 'alertDays', v)}
+                              >
+                                <SelectTrigger className="h-9 rounded-xl bg-background/30 border-border/20 text-xs font-bold">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl">
+                                  <SelectItem value="0" className="text-xs font-medium">No próprio dia</SelectItem>
+                                  <SelectItem value="3" className="text-xs font-medium">3 dias antes</SelectItem>
+                                  <SelectItem value="7" className="text-xs font-medium">7 dias antes</SelectItem>
+                                  <SelectItem value="14" className="text-xs font-medium">14 dias antes</SelectItem>
+                                  <SelectItem value="30" className="text-xs font-medium">30 dias antes</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center pt-2">
+                            <div className="space-y-1.5 flex-1">
+                              <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Notas (Opcional)</Label>
+                              <Input
+                                placeholder="Ex: Referência contrato..."
+                                value={item.notes}
+                                onChange={(e) => handleUpdateExpenseRow(item.id, 'notes', e.target.value)}
+                                className="h-9 rounded-xl bg-background/30 border-border/20 text-[11px] font-medium"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between p-3 rounded-2xl bg-secondary/30 border border-border/40">
+                              <div className="space-y-0.5">
+                                <Label className="text-xs font-bold">Despesa Ativa</Label>
+                                <p className="text-[10px] text-muted-foreground">Incluir nas projeções</p>
+                              </div>
+                              <Switch
+                                checked={item.active}
+                                onCheckedChange={(val) => handleUpdateExpenseRow(item.id, 'active', val)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-border/20 text-[10px] font-black uppercase tracking-widest text-primary">
+                            <span>🔗 Vinculado a Custos Fixos (Sincronizado)</span>
                           </div>
                         </motion.div>
                       ))

@@ -66,6 +66,9 @@ export function PropertyExpensesSection({
   const [notes, setNotes] = useState('');
   const [observations, setObservations] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Débito Direto');
+  const [entity, setEntity] = useState('');
+  const [alertDays, setAlertDays] = useState('7');
+  const [active, setActive] = useState(true);
 
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [isAddingCustom, setIsAddingCustom] = useState(false);
@@ -114,22 +117,22 @@ export function PropertyExpensesSection({
   const propertyExpenses = expenses.filter(e => e.assetId === asset.id);
 
   const monthlyTotal = propertyExpenses.reduce((sum, e) => {
-    if (e.frequency === 'pontual') return sum;
+    if (e.frequency === 'Pontual') return sum;
     return sum + (
-      e.frequency === 'mensal' ? e.amount : 
-      e.frequency === 'trimestral' ? e.amount / 3 :
-      e.frequency === 'semestral' ? e.amount / 6 :
+      e.frequency === 'Mensal' ? e.amount : 
+      e.frequency === 'Trimestral' ? e.amount / 3 :
+      e.frequency === 'Semestral' ? e.amount / 6 :
       e.amount / 12
     );
   }, 0);
 
   const annualTotal = propertyExpenses.reduce((sum, e) => {
     const amount = e.amount;
-    if (e.frequency === 'pontual') return sum + amount;
+    if (e.frequency === 'Pontual') return sum + amount;
     return sum + (
-      e.frequency === 'mensal' ? amount * 12 : 
-      e.frequency === 'trimestral' ? amount * 4 :
-      e.frequency === 'semestral' ? amount * 2 :
+      e.frequency === 'Mensal' ? amount * 12 : 
+      e.frequency === 'Trimestral' ? amount * 4 :
+      e.frequency === 'Semestral' ? amount * 2 :
       amount
     );
   }, 0);
@@ -148,13 +151,16 @@ export function PropertyExpensesSection({
         amount: val,
         frequency,
         category,
-        dayOfMonth: frequency !== 'pontual' ? dayVal : undefined,
-        dueDate: frequency === 'pontual' ? (dueDate || undefined) : undefined,
+        dayOfMonth: frequency !== 'Pontual' ? dayVal : undefined,
+        dueDate: frequency === 'Pontual' ? (dueDate || undefined) : undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         notes: notes.trim() || undefined,
         observations: observations.trim() || undefined,
-        paymentMethod
+        paymentMethod,
+        entity: entity.trim() || undefined,
+        alertDays: parseInt(alertDays) || 7,
+        active
       };
       onUpdateExpense(updatedExp);
     } else {
@@ -165,14 +171,17 @@ export function PropertyExpensesSection({
         amount: val,
         frequency,
         category,
-        dayOfMonth: frequency !== 'pontual' ? dayVal : undefined,
-        dueDate: frequency === 'pontual' ? (dueDate || undefined) : undefined,
+        dayOfMonth: frequency !== 'Pontual' ? dayVal : undefined,
+        dueDate: frequency === 'Pontual' ? (dueDate || undefined) : undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        fixedExpenseId: (linkToFixedExpense && frequency !== 'pontual') ? `fx_${Date.now()}` : undefined,
+        fixedExpenseId: (linkToFixedExpense && frequency !== 'Pontual') ? `fx_${Date.now()}` : undefined,
         notes: notes.trim() || undefined,
         observations: observations.trim() || undefined,
-        paymentMethod
+        paymentMethod,
+        entity: entity.trim() || undefined,
+        alertDays: parseInt(alertDays) || 7,
+        active
       };
       onAddExpense(newExp);
     }
@@ -193,6 +202,9 @@ export function PropertyExpensesSection({
     setNotes(exp.notes || '');
     setObservations(exp.observations || '');
     setPaymentMethod(exp.paymentMethod || 'Débito Direto');
+    setEntity(exp.entity || '');
+    setAlertDays(exp.alertDays?.toString() || '7');
+    setActive(exp.active ?? true);
     setLinkToFixedExpense(!!exp.fixedExpenseId);
     setIsAdding(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -201,7 +213,7 @@ export function PropertyExpensesSection({
   const handleCancel = () => {
     setTitle('');
     setAmount('');
-    setFrequency('mensal');
+    setFrequency('Mensal');
     setCategory('Condomínio');
     setDayOfMonth('1');
     setDueDate('');
@@ -210,6 +222,9 @@ export function PropertyExpensesSection({
     setNotes('');
     setObservations('');
     setPaymentMethod('Débito Direto');
+    setEntity('');
+    setAlertDays('7');
+    setActive(true);
     setEditingExpense(null);
     setIsAdding(false);
   };
@@ -320,7 +335,7 @@ export function PropertyExpensesSection({
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Descrição do Encargo</Label>
                       <Input 
-                        placeholder="Ex: Condomínio, IMI, Pintura..."
+                        placeholder="Ex: Condomínio, IMI, Taxa..."
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold"
@@ -390,88 +405,82 @@ export function PropertyExpensesSection({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Periodicidade</Label>
-                      <Select value={frequency} onValueChange={(v) => setFrequency(v as 'mensal' | 'anual' | 'pontual')}>
+                      <Select value={frequency} onValueChange={(v) => setFrequency(v)}>
                         <SelectTrigger className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl border-border/40">
-                          <SelectItem value="mensal" className="text-xs font-bold rounded-lg">Mensal</SelectItem>
-                          <SelectItem value="trimestral" className="text-xs font-bold rounded-lg">Trimestral</SelectItem>
-                          <SelectItem value="semestral" className="text-xs font-bold rounded-lg">Semestral</SelectItem>
-                          <SelectItem value="anual" className="text-xs font-bold rounded-lg">Anual</SelectItem>
-                          <SelectItem value="pontual" className="text-xs font-bold rounded-lg">Pontual</SelectItem>
+                          <SelectItem value="Mensal" className="text-xs font-bold rounded-lg">Mensal</SelectItem>
+                          <SelectItem value="Trimestral" className="text-xs font-bold rounded-lg">Trimestral</SelectItem>
+                          <SelectItem value="Semestral" className="text-xs font-bold rounded-lg">Semestral</SelectItem>
+                          <SelectItem value="Anual" className="text-xs font-bold rounded-lg">Anual</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Dia do Mês (Vencimento)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="Ex: 15"
+                        value={dayOfMonth}
+                        onChange={(e) => setDayOfMonth(e.target.value)}
+                        className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Entidade / Beneficiário</Label>
+                      <Input
+                        placeholder="Ex: Banco / EDP..."
+                        value={entity}
+                        onChange={(e) => setEntity(e.target.value)}
+                        className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold"
+                      />
+                    </div>
+                    
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Método de Pagamento</Label>
                       <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} className="h-11 rounded-xl" />
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        {frequency === 'pontual' ? 'Data de Vencimento' : 'Dia Previsto do Mês'}
-                      </Label>
-                      {frequency === 'pontual' ? (
-                        <Input 
-                          type="date"
-                          value={dueDate}
-                          onChange={(e) => setDueDate(e.target.value)}
-                          className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold"
-                        />
-                      ) : (
-                        <Select value={dayOfMonth} onValueChange={setDayOfMonth}>
-                          <SelectTrigger className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold">
-                            <SelectValue placeholder="Selecione o dia" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border-border/40">
-                            {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                              <SelectItem key={day} value={day.toString()} className="text-xs font-bold rounded-lg">
-                                Dia {day}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Alertar Antes</Label>
+                      <Select value={alertDays} onValueChange={setAlertDays}>
+                        <SelectTrigger className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border-border/40">
+                          <SelectItem value="0" className="text-xs font-bold rounded-lg">No próprio dia</SelectItem>
+                          <SelectItem value="3" className="text-xs font-bold rounded-lg">3 dias antes</SelectItem>
+                          <SelectItem value="7" className="text-xs font-bold rounded-lg">7 dias antes</SelectItem>
+                          <SelectItem value="14" className="text-xs font-bold rounded-lg">14 dias antes</SelectItem>
+                          <SelectItem value="30" className="text-xs font-bold rounded-lg">30 dias antes</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-
-                    {frequency !== 'pontual' && (
-                      <div className="space-y-2 flex flex-col justify-end">
-                        <div className="flex items-center justify-between p-3 h-11 bg-primary/5 rounded-xl border border-primary/20">
-                          <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Vincular a Custos Fixos</Label>
-                          <Switch 
-                            checked={linkToFixedExpense} 
-                            onCheckedChange={setLinkToFixedExpense} 
-                          />
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-6">
-                    <div className="flex-[2] space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observações</Label>
-                      <Input 
-                        placeholder="Observações específicas para o encargo..."
-                        value={observations}
-                        onChange={(e) => setObservations(e.target.value)}
-                        className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 text-xs font-medium"
-                      />
-                    </div>
                     <div className="flex-1 space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Notas do Sistema</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Notas (Opcional)</Label>
                       <Input 
-                        placeholder="Notas adicionais..."
+                        placeholder="Observações do encargo..."
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         className="h-11 rounded-xl bg-white dark:bg-slate-900 border-border/60 text-xs"
                       />
                     </div>
-                    <div className="flex items-end gap-3">
+                    <div className="flex items-center justify-between p-3 h-11 bg-primary/5 rounded-xl border border-primary/20 mt-6">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Despesa Ativa</Label>
+                      <Switch checked={active} onCheckedChange={setActive} />
+                    </div>
+                    <div className="flex items-end gap-3 mt-6">
                       <Button type="submit" className="h-11 px-8 bg-primary hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20">
                         {editingExpense ? 'Atualizar Encargo' : 'Registar Encargo'}
                       </Button>

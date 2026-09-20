@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Sparkles, Brain } from 'lucide-react';
 import { useDashboard } from '../../contexts';
+import { useExpenses } from '../../hooks/queries';
 
 export const AIInsightsWidget: React.FC = () => {
-  const { expenses } = useDashboard();
+  const { currentMonth } = useDashboard();
+  const { expenses } = useExpenses();
   const [insights, setInsights] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 

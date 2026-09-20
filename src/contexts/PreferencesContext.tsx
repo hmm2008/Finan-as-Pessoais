@@ -26,6 +26,7 @@ export interface UserPreferences {
   baseFontSize: 'sm' | 'md' | 'lg';
   privacyMode: boolean;
   pinHash: string | null;
+  userName?: string;
   navLabels?: Record<string, string>;
   pageTitles?: Record<string, string>;
   pageSubtitles?: Record<string, string>;
@@ -71,6 +72,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     'fixed-expenses',
     'goal-simulator',
     'ai-insights',
+    'financial-health',
+    'cashflow-sankey',
     'asset-trends'
   ],
   navLabels: {

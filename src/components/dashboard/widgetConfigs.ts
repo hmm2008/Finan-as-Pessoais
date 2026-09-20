@@ -93,6 +93,18 @@ export const WIDGETS: WidgetConfig[] = [
     defaultColSpan: 6,
   },
   {
+    id: 'financial-health',
+    title: 'Saúde Financeira',
+    component: lazy(() => import('./FinancialHealthScoreWidget').then(m => ({ default: m.FinancialHealthScoreWidget }))),
+    defaultColSpan: 4,
+  },
+  {
+    id: 'cashflow-sankey',
+    title: 'Fluxo de Caixa (Sankey)',
+    component: lazy(() => import('./CashFlowSankey').then(m => ({ default: m.CashFlowSankey }))),
+    defaultColSpan: 12,
+  },
+  {
     id: 'asset-trends',
     title: 'Tendências de Ativos',
     component: lazy(() => import('./AdvancedAssetTrends').then(m => ({ default: m.AdvancedAssetTrends }))),

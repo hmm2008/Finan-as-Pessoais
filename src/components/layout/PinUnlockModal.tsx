@@ -250,7 +250,7 @@ export function PinUnlockModal({ open, onClose }: PinUnlockModalProps) {
                     type="password"
                     maxLength={4}
                     value={pinCode}
-                    onChange={(e) => setPinCode(e.target.replace(/\D/g, ''))}
+                    onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="••••"
                     className="h-9 text-xs text-center font-mono tracking-widest"
                     required
