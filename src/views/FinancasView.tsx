@@ -172,11 +172,21 @@ export default function FinancasView() {
                           (e.paymentMethod || '').toLowerCase().includes(q) ||
                           (e.notes || '').toLowerCase().includes(q);
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? e.category === filterCategory : true;
-      const isPunctual = true; // Include all expenses, including fixed ones
       
       return matchPeriod && matchSearch && matchCategory;
+    }).map((e: any) => {
+      if (e.fixedExpenseId && !e.name) {
+        const matchedFE = fixedExpenses.find((fe: any) => String(fe.id) === String(e.fixedExpenseId));
+        if (matchedFE) {
+          return {
+            ...e,
+            name: matchedFE.name || matchedFE.description || e.name || e.entity
+          };
+        }
+      }
+      return e;
     }).sort(sortByDateDesc);
-  }, [expenses, period, current, year, search, filterCategory]);
+  }, [expenses, fixedExpenses, period, current, year, search, filterCategory]);
 
   // Despesas fixas registadas pelo utilizador para o período
   const filteredFixedExpenses = useMemo(() => {
@@ -195,11 +205,22 @@ export default function FinancasView() {
       const matchCategory = filterCategory && filterCategory !== 'Todas as categorias' ? e.category === filterCategory : true;
       
       return isFixed && matchPeriod && matchSearch && matchCategory;
+    }).map((e: any) => {
+      if (e.fixedExpenseId && !e.name) {
+        const matchedFE = fixedExpenses.find((fe: any) => String(fe.id) === String(e.fixedExpenseId));
+        if (matchedFE) {
+          return {
+            ...e,
+            name: matchedFE.name || matchedFE.description || e.name || e.entity
+          };
+        }
+      }
+      return e;
     }).sort(sortByDateDesc);
-  }, [expenses, period, current, year, search, filterCategory]);
+  }, [expenses, fixedExpenses, period, current, year, search, filterCategory]);
 
-  const DEFAULT_EXPENSE_CATS = ['Alimentação', 'Habitação', 'Transportes', 'Combustível', 'Saúde', 'Lazer'];
-  const DEFAULT_FIXED_EXPENSE_CATS = ['Habitação', 'Saúde', 'Transportes', 'Educação', 'Seguros', 'Subscrições', 'Telecomunicações', 'Impostos', 'Outros'];
+  const DEFAULT_EXPENSE_CATS = ['Alimentação', 'Habitação', 'Luz', 'Eletricidade', 'Água', 'Gás', 'Condomínio', 'IMI', 'Transportes', 'Combustível', 'Saúde', 'Lazer', 'Internet', 'Seguros', 'Educação', 'Investimentos', 'Outros'];
+  const DEFAULT_FIXED_EXPENSE_CATS = ['Habitação', 'Luz', 'Eletricidade', 'Água', 'Gás', 'Condomínio', 'IMI', 'Saúde', 'Transportes', 'Educação', 'Seguros', 'Subscrições', 'Telecomunicações', 'Impostos', 'Outros'];
   const DEFAULT_INCOME_CATS = ['Salário', 'Pensões', 'Rendimentos Prediais', 'Reembolso', 'Prémio/Bónus'];
 
   // Receitas registadas pelo utilizador para o período (sorted most recent to oldest)

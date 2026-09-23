@@ -32,11 +32,22 @@ export interface LocalPropertyExpenseItem {
 }
 
 const DEFAULT_EXPENSE_CATEGORIES = [
-  'Habitação',
+  'Luz',
+  'Eletricidade',
+  'Água',
+  'Gás',
   'Condomínio',
   'IMI',
   'Seguros',
+  'Seguro Multirriscos',
   'Manutenção',
+  'Telecomunicações / Internet',
+  'Internet',
+  'Limpeza',
+  'Obras / Reparações',
+  'Segurança / Alarme',
+  'Jardinagem',
+  'Habitação',
   'Impostos',
   'Outro'
 ];
@@ -97,14 +108,17 @@ export function AssetImovelForm({
       setCity(initialData.city || '');
       setNotes(initialData.notes || '');
 
-      const existingPropExpenses = initialExpenses.filter(e => e.assetId === initialData.id);
-      if (existingPropExpenses.length > 0) {
+      const propExpensesList = (initialExpenses && initialExpenses.length > 0)
+        ? initialExpenses.filter(e => String(e.assetId) === String(initialData.id))
+        : (Array.isArray(initialData.expenses) ? initialData.expenses : []);
+
+      if (propExpensesList.length > 0) {
         setExpenseItems(
-          existingPropExpenses.map(e => ({
+          propExpensesList.map(e => ({
             id: e.id,
             title: e.title || `${e.category} - ${initialData.name}`,
             category: e.category,
-            amount: e.amount ? e.amount.toString() : '',
+            amount: e.amount !== undefined && e.amount !== null ? e.amount.toString() : '',
             frequency: e.frequency || 'Mensal',
             paymentMethod: e.paymentMethod || 'Débito Direto',
             entity: e.entity || '',

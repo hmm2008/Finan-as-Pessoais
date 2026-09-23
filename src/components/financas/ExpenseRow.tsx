@@ -94,6 +94,9 @@ export function ExpenseRow({ expenses, onEdit, onDelete, selectedIds = [], onTog
         const isSelected = selectedIds.includes(expense.id);
         const { color, icon: Icon } = getCategoryConfig(expense.category);
         const isExpanded = expandedId === expense.id;
+        const displayName = (expense as any).name || (expense as any).description || expense.entity || 'Despesa';
+        const hasCustomName = Boolean((expense as any).name && (expense as any).name !== expense.entity);
+        const displayEntity = hasCustomName ? expense.entity : '';
 
         return (
           <Card 
@@ -185,7 +188,9 @@ export function ExpenseRow({ expenses, onEdit, onDelete, selectedIds = [], onTog
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-bold text-base text-foreground truncate tracking-tight">{expense.entity}</p>
+                      <p className="font-bold text-base text-foreground truncate tracking-tight" title={displayName}>
+                        {displayName}
+                      </p>
                       <div className="flex items-center gap-1 shrink-0">
                         {expense.recurring && (
                           <div className="p-0.5 rounded-md bg-primary/10 text-primary" title="Despesa Recorrente">
@@ -200,25 +205,36 @@ export function ExpenseRow({ expenses, onEdit, onDelete, selectedIds = [], onTog
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium flex-wrap">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         <span>{new Date(expense.date).toLocaleDateString('pt-PT')}</span>
                       </div>
+                      {displayEntity && (
+                        <>
+                          <span>&bull;</span>
+                          <span className="text-foreground/75 font-medium truncate max-w-[200px]" title={`Entidade: ${displayEntity}`}>
+                            {displayEntity}
+                          </span>
+                        </>
+                      )}
                       <span>&bull;</span>
                       <span className="truncate">{expense.category}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Mobile Sub-header: Entity - Category */}
+                {/* Mobile Sub-header: Name - Entity - Category */}
                 <div className="sm:hidden px-4 py-3 flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${color} border`}>
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">
-                      <span className="font-bold">{expense.entity}</span>
+                      <span className="font-bold">{displayName}</span>
+                      {displayEntity && (
+                        <span className="text-xs text-muted-foreground/80 ml-1 font-normal">({displayEntity})</span>
+                      )}
                       <span className="mx-2 text-muted-foreground/30">—</span>
                       <span className="text-muted-foreground text-xs font-medium uppercase tracking-tight">{expense.category}</span>
                     </p>

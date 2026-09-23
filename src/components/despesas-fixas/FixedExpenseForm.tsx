@@ -6,8 +6,9 @@ import { Label } from '../ui/label';
 import { X, Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
-import { useFixedExpenses } from '../../hooks/queries';
+import { useFixedExpenses, useAssets } from '../../hooks/queries';
 import { PaymentMethodSelector } from '../financas/PaymentMethodSelector';
+import { scheduleSheetsBackgroundSync } from '../../lib/googleSheetsDataService';
 
 export interface FixedExpenseFormProps {
   isOpen: boolean;
@@ -18,8 +19,101 @@ export interface FixedExpenseFormProps {
 
 const DEFAULT_CATEGORIES = ['Habitação', 'Saúde', 'Transportes', 'Educação', 'Seguros', 'Subscrições', 'Telecomunicações', 'Impostos', 'Outros'];
 
+const syncToPropertyExpense = (
+  fixedExpenseId: string,
+  linkedAssetId: string,
+  amountVal: number,
+  titleVal: string,
+  frequencyVal: string,
+  categoryVal: string,
+  dayVal: number,
+  exactDateVal: string,
+  methodVal: string,
+  entityVal: string,
+  alertDaysVal: number,
+  activeVal: boolean,
+  notesVal: string,
+  propertyExpenseId?: string
+) => {
+  try {
+    const saved = localStorage.getItem('fin_property_expenses');
+    let propExpenses = saved ? JSON.parse(saved) : [];
+    if (!Array.isArray(propExpenses)) propExpenses = [];
+
+    // Filter out any existing property expense linked to this fixedExpenseId or propertyExpenseId
+    const otherPropExpenses = propExpenses.filter((pe: any) => 
+      String(pe.fixedExpenseId) !== String(fixedExpenseId) &&
+      (!propertyExpenseId || String(pe.id) !== String(propertyExpenseId))
+    );
+
+    if (linkedAssetId && linkedAssetId !== 'none') {
+      const existing = propExpenses.find((pe: any) => 
+        String(pe.fixedExpenseId) === String(fixedExpenseId) || 
+        (propertyExpenseId && String(pe.id) === String(propertyExpenseId)) ||
+        String(pe.id) === `prop_exp_fe_${fixedExpenseId}`
+      );
+
+      const targetId = existing?.id || propertyExpenseId || `prop_exp_fe_${fixedExpenseId}`;
+
+      const newPropExpense: any = {
+        id: targetId,
+        assetId: linkedAssetId,
+        title: titleVal,
+        amount: amountVal,
+        frequency: frequencyVal.toLowerCase() === 'mensal' ? 'mensal' : frequencyVal.toLowerCase() === 'trimestral' ? 'trimestral' : frequencyVal.toLowerCase() === 'semestral' ? 'semestral' : frequencyVal.toLowerCase() === 'anual' ? 'anual' : 'pontual',
+        category: categoryVal === 'Habitação' ? 'Condomínio' : categoryVal,
+        dayOfMonth: frequencyVal === 'Mensal' ? dayVal : undefined,
+        dueDate: frequencyVal !== 'Mensal' ? exactDateVal || undefined : undefined,
+        fixedExpenseId: fixedExpenseId,
+        paymentMethod: methodVal,
+        entity: entityVal,
+        alertDays: alertDaysVal,
+        active: activeVal,
+        notes: notesVal
+      };
+      
+      const updatedExpenses = [...otherPropExpenses, newPropExpense];
+      localStorage.setItem('fin_property_expenses', JSON.stringify(updatedExpenses));
+
+      // Also update embedded asset expenses if present
+      try {
+        const savedAssets = localStorage.getItem('fin_assets') || localStorage.getItem('fin_patrimonio');
+        if (savedAssets) {
+          let assetsList = JSON.parse(savedAssets);
+          if (Array.isArray(assetsList)) {
+            assetsList = assetsList.map((ast: any) => {
+              if (String(ast.id) === String(linkedAssetId)) {
+                let exps = Array.isArray(ast.expenses) ? ast.expenses : [];
+                const expExists = exps.some((e: any) => String(e.id) === String(targetId));
+                if (expExists) {
+                  exps = exps.map((e: any) => String(e.id) === String(targetId) ? newPropExpense : e);
+                } else {
+                  exps = [...exps, newPropExpense];
+                }
+                return { ...ast, expenses: exps };
+              }
+              return ast;
+            });
+            localStorage.setItem('fin_assets', JSON.stringify(assetsList));
+            localStorage.setItem('fin_patrimonio', JSON.stringify(assetsList));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to sync to embedded asset', err);
+      }
+    } else {
+      localStorage.setItem('fin_property_expenses', JSON.stringify(otherPropExpenses));
+    }
+
+    scheduleSheetsBackgroundSync(300, true);
+  } catch (e) {
+    console.error('Failed to sync fixed expense to property expenses', e);
+  }
+};
+
 export function FixedExpenseForm({ isOpen, onClose, initialData, onSave }: FixedExpenseFormProps) {
   const { addFixedExpense, updateFixedExpense } = useFixedExpenses();
+  const { assets } = useAssets();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -32,11 +126,14 @@ export function FixedExpenseForm({ isOpen, onClose, initialData, onSave }: Fixed
   const [alertDays, setAlertDays] = useState('7');
   const [active, setActive] = useState(true);
   const [notes, setNotes] = useState('');
+  const [linkedAssetId, setLinkedAssetId] = useState('none');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const [newCustomCategory, setNewCustomCategory] = useState('');
+
+  const properties = assets?.filter((a: any) => a.category === 'imovel') || [];
 
   useEffect(() => {
     const saved = localStorage.getItem('fixed_expense_custom_categories');
@@ -69,6 +166,7 @@ export function FixedExpenseForm({ isOpen, onClose, initialData, onSave }: Fixed
         setAlertDays(initialData.alertDays !== undefined && initialData.alertDays !== null ? String(initialData.alertDays) : '7');
         setActive(initialData.active !== undefined ? initialData.active : true);
         setNotes(initialData.notes || '');
+        setLinkedAssetId(initialData.assetId || 'none');
       } else {
         setName('');
         setAmount('');
@@ -81,6 +179,7 @@ export function FixedExpenseForm({ isOpen, onClose, initialData, onSave }: Fixed
         setAlertDays('7');
         setActive(true);
         setNotes('');
+        setLinkedAssetId('none');
       }
       setIsSubmitting(false);
       setIsAddingCustom(false);
@@ -132,7 +231,8 @@ export function FixedExpenseForm({ isOpen, onClose, initialData, onSave }: Fixed
         exactDate: frequency !== 'Mensal' ? exactDate : null,
         alertDays: parseInt(alertDays) || 7,
         active,
-        notes
+        notes,
+        assetId: linkedAssetId && linkedAssetId !== 'none' ? linkedAssetId : undefined
       };
 
       let result;
@@ -141,6 +241,25 @@ export function FixedExpenseForm({ isOpen, onClose, initialData, onSave }: Fixed
       } else {
         result = await addFixedExpense(payload);
       }
+
+      const feId = result?.id || initialData?.id || `fe_${Date.now()}`;
+      
+      syncToPropertyExpense(
+        feId,
+        linkedAssetId,
+        parseFloat(amount) || 0,
+        name,
+        frequency,
+        category,
+        parseInt(dueDateDay) || 1,
+        exactDate,
+        method,
+        entity,
+        parseInt(alertDays) || 7,
+        active,
+        notes,
+        initialData?.propertyExpenseId
+      );
 
       if (onSave) {
         onSave(result || payload);
@@ -258,6 +377,21 @@ export function FixedExpenseForm({ isOpen, onClose, initialData, onSave }: Fixed
                 value={entity}
                 onChange={(e) => setEntity(e.target.value)}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="linkedAsset">Vincular a um Imóvel (Opcional)</Label>
+              <Select value={linkedAssetId} onValueChange={setLinkedAssetId}>
+                <SelectTrigger id="linkedAsset">
+                  <SelectValue placeholder="Selecione um imóvel para associar este encargo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum Imóvel</SelectItem>
+                  {properties.map((prop: any) => (
+                    <SelectItem key={prop.id} value={prop.id}>{prop.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="bg-secondary/30 border border-border rounded-lg p-4 space-y-4">

@@ -111,25 +111,27 @@ export function PropertyIncomesSection({
     }
   };
 
-  const propertyIncomes = incomes.filter(i => i.assetId === asset.id);
+  const propertyIncomes = incomes.filter(i => String(i.assetId) === String(asset.id));
 
   const monthlyTotal = propertyIncomes.reduce((sum, i) => {
-    if (i.frequency === 'pontual') return sum;
+    const freq = (i.frequency || 'mensal').toLowerCase();
+    if (freq === 'pontual') return sum;
     return sum + (
-      i.frequency === 'mensal' ? i.amount : 
-      i.frequency === 'trimestral' ? i.amount / 3 :
-      i.frequency === 'semestral' ? i.amount / 6 :
+      freq === 'mensal' ? i.amount : 
+      freq === 'trimestral' ? i.amount / 3 :
+      freq === 'semestral' ? i.amount / 6 :
       i.amount / 12
     );
   }, 0);
 
   const annualTotal = propertyIncomes.reduce((sum, i) => {
     const amount = i.amount;
-    if (i.frequency === 'pontual') return sum + amount;
+    const freq = (i.frequency || 'mensal').toLowerCase();
+    if (freq === 'pontual') return sum + amount;
     return sum + (
-      i.frequency === 'mensal' ? amount * 12 : 
-      i.frequency === 'trimestral' ? amount * 4 :
-      i.frequency === 'semestral' ? amount * 2 :
+      freq === 'mensal' ? amount * 12 : 
+      freq === 'trimestral' ? amount * 4 :
+      freq === 'semestral' ? amount * 2 :
       amount
     );
   }, 0);
@@ -141,6 +143,8 @@ export function PropertyIncomesSection({
     const val = parseFloat(amount) || 0;
     const dayVal = parseInt(dayOfMonth) || 1;
     
+    const isPontual = (frequency || '').toLowerCase() === 'pontual';
+    
     if (editingIncome) {
       const updatedInc: PropertyIncome = {
         ...editingIncome,
@@ -148,8 +152,8 @@ export function PropertyIncomesSection({
         amount: val,
         frequency,
         category,
-        dayOfMonth: frequency !== 'pontual' ? dayVal : undefined,
-        dueDate: frequency === 'pontual' ? (dueDate || undefined) : undefined,
+        dayOfMonth: !isPontual ? dayVal : undefined,
+        dueDate: isPontual ? (dueDate || undefined) : undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         notes: notes.trim() || undefined,
@@ -165,12 +169,12 @@ export function PropertyIncomesSection({
         amount: val,
         frequency,
         category,
-        dayOfMonth: frequency !== 'pontual' ? dayVal : undefined,
-        dueDate: frequency === 'pontual' ? (dueDate || undefined) : undefined,
+        dayOfMonth: !isPontual ? dayVal : undefined,
+        dueDate: isPontual ? (dueDate || undefined) : undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        fixedIncomeId: (linkToFixedIncome && frequency !== 'pontual') ? `fx_inc_${Date.now()}` : undefined,
-        transactionId: (frequency === 'pontual') ? `tr_inc_${Date.now()}` : undefined,
+        fixedIncomeId: (linkToFixedIncome && !isPontual) ? `fx_inc_${Date.now()}` : undefined,
+        transactionId: isPontual ? `tr_inc_${Date.now()}` : undefined,
         notes: notes.trim() || undefined,
         observations: observations.trim() || undefined,
         paymentMethod

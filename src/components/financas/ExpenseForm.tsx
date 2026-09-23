@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { X, Wand2, Plus, Car } from 'lucide-react';
+import { X, Wand2, Plus, Car, Building2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { getSuggestedCategory, getAISuggestedCategory } from './AutoCategorization';
-import { useExpenses, useVehicles, useVehicleFuel, useCategorizationRules } from '../../hooks/queries';
+import { useExpenses, useFixedExpenses, useVehicles, useVehicleFuel, useCategorizationRules, useAssets } from '../../hooks/queries';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 
 interface ExpenseFormProps {
@@ -21,10 +21,13 @@ const DEFAULT_CATEGORIES = ['Alimentação', 'Habitação', 'Transportes', 'Comb
 export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) {
 
   const { addExpense, updateExpense } = useExpenses();
+  const { fixedExpenses } = useFixedExpenses();
   const { vehicles, updateVehicle } = useVehicles();
+  const { assets } = useAssets();
   const { fuelEntries, addFuelEntry, updateFuelEntry, deleteFuelEntry } = useVehicleFuel();
   const { categorizationRules, addRule } = useCategorizationRules();
 
+  const [name, setName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -33,6 +36,7 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
   const [recurring, setRecurring] = useState(false);
   const [notes, setNotes] = useState('');
   const [vehicleId, setVehicleId] = useState('');
+  const [assetId, setAssetId] = useState('');
   const [liters, setLiters] = useState('');
   const [kilometers, setKilometers] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,17 +52,27 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
+        const matchedFE = initialData.fixedExpenseId 
+          ? fixedExpenses.find((fe: any) => String(fe.id) === String(initialData.fixedExpenseId)) 
+          : null;
+
+        const resolvedName = initialData.name || matchedFE?.name || matchedFE?.description || initialData.description || initialData.entity || '';
+        const resolvedEntity = initialData.entity || matchedFE?.entity || matchedFE?.name || initialData.name || '';
+
+        setName(resolvedName);
         setDate(initialData.date || new Date().toISOString().split('T')[0]);
         setAmount(initialData.amount ? initialData.amount.toString() : '');
-        setCategory(initialData.category || '');
-        setEntity(initialData.entity || initialData.name || initialData.description || '');
-        setMethod(initialData.method || 'Débito Direto');
-        setRecurring(initialData.recurring !== undefined ? initialData.recurring : (initialData.isFixedExpense ? true : false));
+        setCategory(initialData.category || matchedFE?.category || '');
+        setEntity(resolvedEntity);
+        setMethod(initialData.method || matchedFE?.method || 'Débito Direto');
+        setRecurring(initialData.recurring !== undefined ? initialData.recurring : (initialData.isFixedExpense || !!matchedFE ? true : false));
         setNotes(initialData.notes || '');
-        setVehicleId(initialData.vehicleId || '');
+        setVehicleId(initialData.vehicleId || matchedFE?.vehicleId || '');
+        setAssetId(initialData.assetId || matchedFE?.assetId || '');
         setLiters(initialData.liters !== undefined && initialData.liters !== null ? initialData.liters.toString() : '');
         setKilometers(initialData.kilometers !== undefined && initialData.kilometers !== null ? initialData.kilometers.toString() : '');
       } else {
+        setName('');
         setDate(new Date().toISOString().split('T')[0]);
         setAmount('');
         setCategory('');
@@ -67,6 +81,7 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
         setRecurring(false);
         setNotes('');
         setVehicleId('');
+        setAssetId('');
         setLiters('');
         setKilometers('');
       }
@@ -92,17 +107,17 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
 
   // Auto-categorization effect
   useEffect(() => {
-    const textToAnalyze = `${entity} ${notes}`.trim();
+    const textToAnalyze = `${name} ${entity} ${notes}`.trim();
     if (textToAnalyze.length > 2) {
       const suggestion = getSuggestedCategory(textToAnalyze, categorizationRules);
       if (suggestion && suggestion !== category) {
         setSuggestedCategory(suggestion);
         setIsAISuggesting(false);
-      } else if (!suggestion && !category && entity.length > 3) {
+      } else if (!suggestion && !category && (entity.length > 3 || name.length > 3)) {
         // Debounce AI suggestion
         const timer = setTimeout(async () => {
           setIsAISuggesting(true);
-          const aiSuggestion = await getAISuggestedCategory(entity, parseFloat(amount) || 0, allCategories);
+          const aiSuggestion = await getAISuggestedCategory(name || entity, parseFloat(amount) || 0, allCategories);
           if (aiSuggestion && aiSuggestion !== 'Outros' && aiSuggestion !== 'Unknown') {
             setSuggestedCategory(aiSuggestion);
           }
@@ -115,7 +130,7 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
     } else {
       setSuggestedCategory(null);
     }
-  }, [entity, notes, category, categorizationRules]);
+  }, [name, entity, notes, category, categorizationRules]);
 
   const applySuggestion = () => {
     if (suggestedCategory) {
@@ -177,6 +192,8 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
       const kmVal = isFuel && kilometers ? parseInt(kilometers) : (selectedVeh?.kilometers || 0);
 
       const payload = {
+        name: name.trim(),
+        description: name.trim() || entity.trim(),
         date,
         amount: parseFloat(amount),
         category,
@@ -190,6 +207,9 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
         vehicleName: isFuel && selectedVeh ? `${selectedVeh.brand} ${selectedVeh.model}` : undefined,
         liters: isFuel && liters ? litersVal : undefined,
         kilometers: isFuel && kilometers ? kmVal : undefined,
+        assetId: assetId ? assetId : (initialData?.assetId || undefined),
+        propertyExpenseId: initialData?.propertyExpenseId || undefined,
+        fixedExpenseId: initialData?.fixedExpenseId || undefined
       };
 
       let savedExpense: any;
@@ -256,10 +276,23 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
           >
             <X className="w-4 h-4" />
           </Button>
-          <CardTitle className="text-xl">Adicionar Despesa</CardTitle>
+          <CardTitle className="text-xl">
+            {initialData ? 'Editar Despesa' : 'Nova Despesa'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="expenseName">Nome da Despesa <span className="text-destructive">*</span></Label>
+              <Input 
+                id="expenseName" 
+                placeholder="Ex: Compras Supermercado, Seguro Automóvel, Jantar de Família..."
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="date">Data <span className="text-destructive">*</span></Label>
@@ -278,7 +311,7 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
                   type="number" 
                   step="0.01" 
                   min="0.01" 
-                  placeholder="0.00"
+                  placeholder="0.00" 
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required 
@@ -290,7 +323,7 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
               <Label htmlFor="entity">Entidade / Beneficiário <span className="text-destructive">*</span></Label>
               <Input 
                 id="entity" 
-                placeholder="Ex: Continente, Galp..."
+                placeholder="Ex: Continente, Galp, Fidelidade..."
                 value={entity}
                 onChange={(e) => setEntity(e.target.value)}
                 required
@@ -436,6 +469,28 @@ export function ExpenseForm({ isOpen, onClose, initialData }: ExpenseFormProps) 
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Asset / Property Association */}
+            {assets && assets.length > 0 && (
+              <div className="space-y-2 p-3.5 border border-border/60 rounded-xl bg-secondary/20">
+                <div className="flex items-center gap-2 text-foreground font-semibold text-xs uppercase tracking-wider">
+                  <Building2 className="w-4 h-4 text-indigo-500" /> Imóvel / Ativo Associado (Opcional)
+                </div>
+                <Select value={assetId || "none"} onValueChange={(val) => setAssetId(val === "none" ? "" : val)}>
+                  <SelectTrigger id="assetSelect" className="bg-background text-xs h-9">
+                    <SelectValue placeholder="Nenhum (Despesa Geral)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum (Despesa Geral)</SelectItem>
+                    {assets.map((a: any) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.category === 'imovel' ? '🏠 ' : '📈 '}{a.name} ({a.subType || a.category})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 

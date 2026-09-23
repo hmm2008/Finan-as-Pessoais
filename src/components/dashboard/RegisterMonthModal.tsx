@@ -145,22 +145,28 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
         activeFixedExpenses.forEach((fe: any) => {
           const day = Math.min(maxDays, Math.max(1, Number(fe.dueDay || fe.day || 1)));
           const dateStr = `${yStr}-${mStr.padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          const entityName = fe.entity || fe.description || fe.name || 'Despesa Fixa';
+          const fixedExpName = fe.name || fe.description || fe.entity || 'Despesa Fixa';
+          const entityName = fe.entity || fe.name || fe.description || 'Despesa Fixa';
           const amount = Number(fe.amount) || 0;
 
           // Duplicate check
           const isDuplicate = existingExpenses.some((e: any) => {
             const sameMonth = e.date && e.date.startsWith(monthKey);
-            const sameEntity = (e.entity || '').toLowerCase().trim() === entityName.toLowerCase().trim();
+            const sameEntity = (e.entity || '').toLowerCase().trim() === entityName.toLowerCase().trim() ||
+                               (e.name || '').toLowerCase().trim() === fixedExpName.toLowerCase().trim();
             const sameAmount = Math.abs((Number(e.amount) || 0) - amount) < 0.01;
             return sameMonth && sameEntity && sameAmount;
           }) || newlyAddedExpenses.some((e: any) => {
-            return e.date && e.date.startsWith(monthKey) && e.entity === entityName && Math.abs(e.amount - amount) < 0.01;
+            return e.date && e.date.startsWith(monthKey) && 
+              (e.entity === entityName || e.name === fixedExpName) && 
+              Math.abs(e.amount - amount) < 0.01;
           });
 
           if (!isDuplicate) {
             const newExp = {
               id: `exp_fixed_${monthKey}_${fe.id || Math.random().toString(36).substring(2, 8)}`,
+              name: fixedExpName,
+              description: fixedExpName,
               amount,
               category: fe.category || 'Outros',
               date: dateStr,
@@ -169,6 +175,9 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
               notes: fe.notes || 'Lançamento automático de despesa fixa',
               recurring: true,
               vehicle: !!fe.vehicle,
+              vehicleId: fe.vehicleId || undefined,
+              assetId: fe.assetId || undefined,
+              propertyExpenseId: fe.propertyExpenseId || undefined,
               fixedExpenseId: fe.id
             };
             newlyAddedExpenses.push(newExp);
@@ -188,22 +197,28 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
             dateStr = fi.exactDate;
           }
 
-          const entityName = fi.entity || fi.name || 'Receita Fixa';
+          const fixedIncName = fi.name || fi.description || fi.entity || 'Receita Fixa';
+          const entityName = fi.entity || fi.name || fi.description || 'Receita Fixa';
           const amount = Number(fi.amount) || 0;
 
           // Duplicate check
           const isDuplicate = existingIncomes.some((i: any) => {
             const sameMonth = i.date && i.date.startsWith(monthKey);
-            const sameEntity = (i.entity || '').toLowerCase().trim() === entityName.toLowerCase().trim();
+            const sameEntity = (i.entity || '').toLowerCase().trim() === entityName.toLowerCase().trim() ||
+                               (i.name || '').toLowerCase().trim() === fixedIncName.toLowerCase().trim();
             const sameAmount = Math.abs((Number(i.amount) || 0) - amount) < 0.01;
             return sameMonth && sameEntity && sameAmount;
           }) || newlyAddedIncomes.some((i: any) => {
-            return i.date && i.date.startsWith(monthKey) && i.entity === entityName && Math.abs(i.amount - amount) < 0.01;
+            return i.date && i.date.startsWith(monthKey) && 
+              (i.entity === entityName || i.name === fixedIncName) && 
+              Math.abs(i.amount - amount) < 0.01;
           });
 
           if (!isDuplicate) {
             const newInc = {
               id: `inc_fixed_${monthKey}_${fi.id || Math.random().toString(36).substring(2, 8)}`,
+              name: fixedIncName,
+              description: fixedIncName,
               amount,
               category: fi.category || 'Outros',
               date: dateStr,
@@ -211,6 +226,8 @@ export function RegisterMonthModal({ isOpen, onClose }: RegisterMonthModalProps)
               method: fi.method || 'Transferência Bancária',
               notes: fi.notes || 'Lançamento automático de receita fixa',
               recurring: true,
+              assetId: fi.assetId || undefined,
+              propertyIncomeId: fi.propertyIncomeId || undefined,
               fixedIncomeId: fi.id
             };
             newlyAddedIncomes.push(newInc);

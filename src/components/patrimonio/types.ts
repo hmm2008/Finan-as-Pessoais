@@ -26,6 +26,8 @@ export interface Asset {
   startDate?: string;
   endDate?: string;
   institution?: string; // Banco, Broker (Degiro, XTB, Trading212, etc.)
+  expenses?: PropertyExpense[];
+  incomes?: PropertyIncome[];
 }
 
 export interface PropertyExpense {

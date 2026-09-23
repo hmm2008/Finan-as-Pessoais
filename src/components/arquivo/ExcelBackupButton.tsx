@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '../ui/button';
 import { FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { getCachedDriveToken } from '../../lib/googleDriveService';
+import { getCachedDriveToken, googleSheetsFetch } from '../../lib/googleDriveService';
 
 interface ExcelBackupButtonProps {
   onSuccess?: () => void;
@@ -29,7 +29,7 @@ export function ExcelBackupButton({ onSuccess }: ExcelBackupButtonProps) {
     // 1. Try to download directly from Google Drive if connected
     if (accessToken && spreadsheetId) {
       try {
-        const response = await fetch(
+        const response = await googleSheetsFetch(
           `https://www.googleapis.com/drive/v3/files/${spreadsheetId}/export?mimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
           {
             headers: {

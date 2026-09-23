@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { connectGoogleDrive, findOrCreateFinanceSpreadsheet, getCachedDriveToken } from '../lib/googleDriveService';
+import { connectGoogleDrive, findOrCreateFinanceSpreadsheet, getCachedDriveToken, googleSheetsFetch } from '../lib/googleDriveService';
 import { importAllDataFromSheets, exportAllDataToSheets } from '../lib/googleSheetsDataService';
 
 export function useConnectDrive() {
@@ -19,7 +19,7 @@ export function useConnectDrive() {
       if (token && hasSpreadsheet && isOnline) {
         // Double check if token is actually valid by a lightweight call
         try {
-          const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+          const res = await googleSheetsFetch('https://www.googleapis.com/drive/v3/about?fields=user', {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (res.status === 401 || res.status === 403) {

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Asset, PropertyExpense, PropertyIncome } from '../components/patrimonio/types';
+import { Transaction } from '../api/base44Client';
 import { PageHeader } from '../components/layout';
 import { 
   PatrimonioHeader, 
@@ -9,7 +11,8 @@ import {
   AssetFinanceiroForm, 
   PropertyExpensesSection,
   PropertyIncomesSection,
-  PropertyFinancialSummary 
+  PropertyFinancialSummary,
+  PropertyRealExpensesCard
 } from '../components/patrimonio';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -20,6 +23,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export default function PatrimonioView() {
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
+  const queryClient = useQueryClient();
 
   const [assets, setAssets] = useState<Asset[]>(() => {
     try {
@@ -66,6 +70,21 @@ export default function PatrimonioView() {
     return [];
   });
 
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    try {
+      const saved = localStorage.getItem('fin_expenses');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao carregar transações:', e);
+    }
+    return [];
+  });
+
   const [activeTab, setActiveTab] = useState<'imovel' | 'financeiro'>('imovel');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
@@ -80,7 +99,41 @@ export default function PatrimonioView() {
   const [expenseToDelete, setExpenseToDelete] = useState<PropertyExpense | null>(null);
   const [incomeToDelete, setIncomeToDelete] = useState<PropertyIncome | null>(null);
 
-  // Sync to localStorage and trigger background Google Sheets sync
+  // Listen to 'storage' events from other parts of the app (other tabs / windows)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      // Only react if this was triggered from another window or explicitly matching our keys
+      if (e && e.key && !['fin_assets', 'fin_patrimonio', 'fin_property_expenses', 'fin_property_incomes'].includes(e.key)) {
+        return;
+      }
+      try {
+        const savedAssets = localStorage.getItem('fin_assets') || localStorage.getItem('fin_patrimonio');
+        if (savedAssets) {
+          const parsed = JSON.parse(savedAssets);
+          if (Array.isArray(parsed)) setAssets(parsed);
+        }
+        
+        const savedExpenses = localStorage.getItem('fin_property_expenses');
+        if (savedExpenses) {
+          const parsed = JSON.parse(savedExpenses);
+          if (Array.isArray(parsed)) setPropertyExpenses(parsed);
+        }
+
+        const savedIncomes = localStorage.getItem('fin_property_incomes');
+        if (savedIncomes) {
+          const parsed = JSON.parse(savedIncomes);
+          if (Array.isArray(parsed)) setPropertyIncomes(parsed);
+        }
+      } catch (err) {
+        console.error('Error syncing from localStorage event:', err);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Scroll to details when property is selected
   useEffect(() => {
     if (selectedPropertyId && detailsRef.current) {
       setTimeout(() => {
@@ -93,32 +146,37 @@ export default function PatrimonioView() {
     try {
       localStorage.setItem('fin_assets', JSON.stringify(assets));
       localStorage.setItem('fin_patrimonio', JSON.stringify(assets));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('storage'));
-      }
-      scheduleSheetsBackgroundSync();
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      scheduleSheetsBackgroundSync(1000);
     } catch (e) {
       console.error('Erro ao guardar ativos:', e);
     }
-  }, [assets]);
+  }, [assets, queryClient]);
 
   useEffect(() => {
     try {
       localStorage.setItem('fin_property_expenses', JSON.stringify(propertyExpenses));
-      scheduleSheetsBackgroundSync();
+      queryClient.invalidateQueries({ queryKey: ['fixedExpenses'] });
+      scheduleSheetsBackgroundSync(1000);
     } catch (e) {
       console.error('Erro ao guardar despesas de imóvel:', e);
     }
-  }, [propertyExpenses]);
+  }, [propertyExpenses, queryClient]);
 
   useEffect(() => {
     try {
       localStorage.setItem('fin_property_incomes', JSON.stringify(propertyIncomes));
-      scheduleSheetsBackgroundSync();
+      queryClient.invalidateQueries({ queryKey: ['fixedIncomes'] });
+      scheduleSheetsBackgroundSync(1000);
     } catch (e) {
       console.error('Erro ao guardar rendimentos de imóvel:', e);
     }
-  }, [propertyIncomes]);
+  }, [propertyIncomes, queryClient]);
+
+  const handleAddTransaction = (transaction: Transaction) => {
+    setTransactions(prev => [transaction, ...prev]);
+    localStorage.setItem('fin_expenses', JSON.stringify([transaction, ...transactions]));
+  };
 
   const selectedAsset = assets.find(a => a.id === selectedPropertyId);
 
@@ -151,32 +209,210 @@ export default function PatrimonioView() {
     setEditingAsset(null);
   };
 
-  const handleDeleteAssetPermanent = (id: string) => {
-    setAssets(prev => prev.filter(a => a.id !== id));
-    setPropertyExpenses(prev => prev.filter(pe => pe.assetId !== id));
-    setPropertyIncomes(prev => prev.filter(pi => pi.assetId !== id));
-    if (selectedPropertyId === id) {
-      setSelectedPropertyId(null);
+  const updateAssetExpensesEmbedded = (expense: PropertyExpense) => {
+    try {
+      const saved = localStorage.getItem('fin_assets') || localStorage.getItem('fin_patrimonio');
+      if (!saved) return;
+      let currentAssets = JSON.parse(saved);
+      if (!Array.isArray(currentAssets)) return;
+
+      let changed = false;
+      currentAssets = currentAssets.map((ast: any) => {
+        if (String(ast.id) === String(expense.assetId)) {
+          let list = Array.isArray(ast.expenses) ? ast.expenses : [];
+          const exists = list.some((e: any) => String(e.id) === String(expense.id));
+          if (exists) {
+            list = list.map((e: any) => String(e.id) === String(expense.id) ? expense : e);
+          } else {
+            list = [...list, expense];
+          }
+          changed = true;
+          return { ...ast, expenses: list };
+        }
+        return ast;
+      });
+
+      if (changed) {
+        localStorage.setItem('fin_assets', JSON.stringify(currentAssets));
+        localStorage.setItem('fin_patrimonio', JSON.stringify(currentAssets));
+        setAssets(currentAssets);
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar encargos embebidos no ativo:', e);
     }
   };
 
+  const removeAssetExpenseEmbedded = (expenseId: string) => {
+    try {
+      const saved = localStorage.getItem('fin_assets') || localStorage.getItem('fin_patrimonio');
+      if (!saved) return;
+      let currentAssets = JSON.parse(saved);
+      if (!Array.isArray(currentAssets)) return;
+
+      let changed = false;
+      currentAssets = currentAssets.map((ast: any) => {
+        if (Array.isArray(ast.expenses)) {
+          const filtered = ast.expenses.filter((e: any) => String(e.id) !== String(expenseId));
+          if (filtered.length !== ast.expenses.length) {
+            changed = true;
+            return { ...ast, expenses: filtered };
+          }
+        }
+        return ast;
+      });
+
+      if (changed) {
+        localStorage.setItem('fin_assets', JSON.stringify(currentAssets));
+        localStorage.setItem('fin_patrimonio', JSON.stringify(currentAssets));
+        setAssets(currentAssets);
+      }
+    } catch (e) {
+      console.error('Erro ao remover encargo embebido no ativo:', e);
+    }
+  };
+
+  const updateAssetIncomesEmbedded = (income: PropertyIncome) => {
+    try {
+      const saved = localStorage.getItem('fin_assets') || localStorage.getItem('fin_patrimonio');
+      if (!saved) return;
+      let currentAssets = JSON.parse(saved);
+      if (!Array.isArray(currentAssets)) return;
+
+      let changed = false;
+      currentAssets = currentAssets.map((ast: any) => {
+        if (String(ast.id) === String(income.assetId)) {
+          let list = Array.isArray(ast.incomes) ? ast.incomes : [];
+          const exists = list.some((i: any) => String(i.id) === String(income.id));
+          if (exists) {
+            list = list.map((i: any) => String(i.id) === String(income.id) ? income : i);
+          } else {
+            list = [...list, income];
+          }
+          changed = true;
+          return { ...ast, incomes: list };
+        }
+        return ast;
+      });
+
+      if (changed) {
+        localStorage.setItem('fin_assets', JSON.stringify(currentAssets));
+        localStorage.setItem('fin_patrimonio', JSON.stringify(currentAssets));
+        setAssets(currentAssets);
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar rendimentos embebidos no ativo:', e);
+    }
+  };
+
+  const removeAssetIncomeEmbedded = (incomeId: string) => {
+    try {
+      const saved = localStorage.getItem('fin_assets') || localStorage.getItem('fin_patrimonio');
+      if (!saved) return;
+      let currentAssets = JSON.parse(saved);
+      if (!Array.isArray(currentAssets)) return;
+
+      let changed = false;
+      currentAssets = currentAssets.map((ast: any) => {
+        if (Array.isArray(ast.incomes)) {
+          const filtered = ast.incomes.filter((i: any) => String(i.id) !== String(incomeId));
+          if (filtered.length !== ast.incomes.length) {
+            changed = true;
+            return { ...ast, incomes: filtered };
+          }
+        }
+        return ast;
+      });
+
+      if (changed) {
+        localStorage.setItem('fin_assets', JSON.stringify(currentAssets));
+        localStorage.setItem('fin_patrimonio', JSON.stringify(currentAssets));
+        setAssets(currentAssets);
+      }
+    } catch (e) {
+      console.error('Erro ao remover rendimento embebido no ativo:', e);
+    }
+  };
+
+  const handleDeleteAssetPermanent = (id: string) => {
+    setAssets(prev => prev.filter(a => String(a.id) !== String(id)));
+    setPropertyExpenses(prev => {
+      const next = prev.filter(pe => String(pe.assetId) !== String(id));
+      localStorage.setItem('fin_property_expenses', JSON.stringify(next));
+      return next;
+    });
+    setPropertyIncomes(prev => {
+      const next = prev.filter(pi => String(pi.assetId) !== String(id));
+      localStorage.setItem('fin_property_incomes', JSON.stringify(next));
+      return next;
+    });
+    if (String(selectedPropertyId) === String(id)) {
+      setSelectedPropertyId(null);
+    }
+    scheduleSheetsBackgroundSync(300, true);
+  };
+
   const handleAddPropertyExpense = (expense: PropertyExpense) => {
-    setPropertyExpenses(prev => [...prev, expense]);
-    
-    if (expense.frequency !== 'pontual') {
-      syncPropertyExpenseToFixed(expense);
-    } else {
-      syncPropertyExpenseToPontual(expense);
+    try {
+      const saved = localStorage.getItem('fin_property_expenses');
+      let currentExpenses: PropertyExpense[] = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(currentExpenses)) currentExpenses = [];
+
+      const next = [...currentExpenses.filter(pe => String(pe.id) !== String(expense.id)), expense];
+      localStorage.setItem('fin_property_expenses', JSON.stringify(next));
+      setPropertyExpenses(next);
+
+      updateAssetExpensesEmbedded(expense);
+
+      const isPontual = (expense.frequency || '').toLowerCase() === 'pontual';
+      if (!isPontual) {
+        syncPropertyExpenseToFixed(expense);
+      } else {
+        syncPropertyExpenseToPontual(expense);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['fixedExpenses'] });
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+
+      scheduleSheetsBackgroundSync(300, true);
+    } catch (e) {
+      console.error('Erro ao adicionar encargo de imóvel:', e);
     }
   };
 
   const handleUpdatePropertyExpense = (expense: PropertyExpense) => {
-    setPropertyExpenses(prev => prev.map(pe => pe.id === expense.id ? expense : pe));
-    
-    if (expense.frequency !== 'pontual') {
-      syncPropertyExpenseToFixed(expense);
-    } else {
-      syncPropertyExpenseToPontual(expense);
+    try {
+      const saved = localStorage.getItem('fin_property_expenses');
+      let currentExpenses: PropertyExpense[] = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(currentExpenses)) currentExpenses = [];
+
+      const exists = currentExpenses.some(pe => String(pe.id) === String(expense.id));
+      let next: PropertyExpense[];
+      if (exists) {
+        next = currentExpenses.map(pe => String(pe.id) === String(expense.id) ? expense : pe);
+      } else {
+        next = [...currentExpenses, expense];
+      }
+
+      localStorage.setItem('fin_property_expenses', JSON.stringify(next));
+      setPropertyExpenses(next);
+
+      updateAssetExpensesEmbedded(expense);
+
+      const isPontual = (expense.frequency || '').toLowerCase() === 'pontual';
+      if (!isPontual) {
+        syncPropertyExpenseToFixed(expense);
+      } else {
+        syncPropertyExpenseToPontual(expense);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['fixedExpenses'] });
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+
+      scheduleSheetsBackgroundSync(300, true);
+    } catch (e) {
+      console.error('Erro ao atualizar encargo de imóvel:', e);
     }
   };
 
@@ -186,42 +422,76 @@ export default function PatrimonioView() {
       let currentFixed = savedFixed ? JSON.parse(savedFixed) : [];
       if (!Array.isArray(currentFixed)) currentFixed = [];
       
-      const asset = assets.find(a => a.id === expense.assetId);
+      const asset = assets.find(a => String(a.id) === String(expense.assetId));
       const assetName = asset?.name || 'Ativo';
       const isProperty = asset?.category === 'imovel';
 
+      const generatedId = expense.fixedExpenseId || `fe_prop_${expense.id}`;
+
+      const existingFixed = currentFixed.find((fe: any) => 
+        String(fe.id) === String(generatedId) || 
+        String(fe.id) === String(expense.fixedExpenseId) ||
+        (fe.propertyExpenseId && String(fe.propertyExpenseId) === String(expense.id))
+      );
+
+      const fixedExpId = existingFixed?.id || generatedId;
+
       const fixedExpData = {
-        id: expense.fixedExpenseId || `fe_prop_${expense.id}`,
-        name: `${expense.category} - ${assetName}`,
-        entity: assetName,
+        id: fixedExpId,
+        name: expense.title || (existingFixed?.name ? existingFixed.name : `${expense.category} - ${assetName}`),
+        description: expense.title || (existingFixed?.description ? existingFixed.description : `${expense.category} - ${assetName}`),
+        entity: expense.entity || existingFixed?.entity || assetName,
         category: isProperty 
-          ? (expense.category === 'Condomínio' ? 'Habitação' : expense.category === 'IMI' ? 'Impostos' : expense.category === 'Seguro Multirriscos' ? 'Seguros' : 'Outros')
-          : (expense.category === 'Comissões' ? 'Investimentos' : 'Outros'),
+          ? (expense.category === 'Condomínio' ? 'Habitação' : expense.category === 'IMI' ? 'Impostos' : expense.category === 'Seguro Multirriscos' ? 'Seguros' : expense.category || 'Outros')
+          : (expense.category === 'Comissões' ? 'Investimentos' : expense.category || 'Outros'),
         amount: expense.amount,
-        frequency: expense.frequency.charAt(0).toUpperCase() + expense.frequency.slice(1),
+        frequency: expense.frequency ? (expense.frequency.charAt(0).toUpperCase() + expense.frequency.slice(1).toLowerCase()) : 'Mensal',
         dueDateDay: expense.dayOfMonth || (expense.dueDate ? new Date(expense.dueDate).getDate() : 1),
         dueDay: expense.dayOfMonth || (expense.dueDate ? new Date(expense.dueDate).getDate() : 1),
         startDate: expense.startDate,
         endDate: expense.endDate,
         dueDate: expense.dueDate,
-        paymentMethod: 'Transferência Bancária',
-        active: true,
+        exactDate: expense.dueDate,
+        method: expense.paymentMethod || 'Transferência Bancária',
+        paymentMethod: expense.paymentMethod || 'Transferência Bancária',
+        active: expense.active !== undefined ? expense.active : true,
         assetId: expense.assetId,
+        propertyExpenseId: expense.id,
         observations: expense.observations,
-        notes: `Custo Fixo do ${isProperty ? 'Imóvel' : 'Ativo'}: ${assetName}. ${expense.notes || ''}`
+        notes: expense.notes || `Custo Fixo do ${isProperty ? 'Imóvel' : 'Ativo'}: ${assetName}. ${expense.observations || ''}`
       };
 
-      const existsIndex = currentFixed.findIndex((fe: any) => fe.id === fixedExpData.id);
+      const existsIndex = currentFixed.findIndex((fe: any) => String(fe.id) === String(fixedExpId));
       let updatedFixed;
       if (existsIndex >= 0) {
-        updatedFixed = currentFixed.map((fe: any) => fe.id === fixedExpData.id ? fixedExpData : fe);
+        updatedFixed = currentFixed.map((fe: any) => String(fe.id) === String(fixedExpId) ? { ...fe, ...fixedExpData } : fe);
       } else {
         updatedFixed = [...currentFixed, fixedExpData];
       }
 
       localStorage.setItem('fin_fixed_expenses', JSON.stringify(updatedFixed));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('storage'));
+      queryClient.setQueryData(['fixedExpenses'], updatedFixed);
+
+      if (!expense.fixedExpenseId || expense.fixedExpenseId !== fixedExpId) {
+        expense.fixedExpenseId = fixedExpId;
+        const savedProp = localStorage.getItem('fin_property_expenses');
+        let propList: PropertyExpense[] = savedProp ? JSON.parse(savedProp) : [];
+        if (Array.isArray(propList)) {
+          propList = propList.map(pe => String(pe.id) === String(expense.id) ? { ...pe, fixedExpenseId: fixedExpId } : pe);
+          localStorage.setItem('fin_property_expenses', JSON.stringify(propList));
+          setPropertyExpenses(propList);
+        }
+      }
+
+      // If it previously had a pontual transaction, remove it
+      if (expense.transactionId) {
+        const savedExpenses = localStorage.getItem('fin_expenses');
+        let currentExpenses = savedExpenses ? JSON.parse(savedExpenses) : [];
+        if (Array.isArray(currentExpenses)) {
+          const filtered = currentExpenses.filter((e: any) => String(e.id) !== String(expense.transactionId));
+          localStorage.setItem('fin_expenses', JSON.stringify(filtered));
+          queryClient.setQueryData(['expenses'], filtered);
+        }
       }
     } catch (e) {
       console.error('Erro ao sincronizar custo fixo global:', e);
@@ -234,32 +504,57 @@ export default function PatrimonioView() {
       let current = saved ? JSON.parse(saved) : [];
       if (!Array.isArray(current)) current = [];
       
-      const asset = assets.find(a => a.id === expense.assetId);
+      const asset = assets.find(a => String(a.id) === String(expense.assetId));
       const assetName = asset?.name || 'Imóvel';
 
+      const generatedId = expense.transactionId || `tr_prop_exp_${expense.id}`;
+
       const transData = {
-        id: expense.transactionId || `tr_prop_exp_${expense.id}`,
-        description: `${expense.title} - ${assetName}`,
-        entity: assetName,
+        id: generatedId,
+        name: expense.title || `${expense.category} - ${assetName}`,
+        description: expense.title ? `${expense.title} - ${assetName}` : `${expense.category} - ${assetName}`,
+        entity: expense.entity || assetName,
         category: expense.category,
         amount: expense.amount,
         date: expense.dueDate || new Date().toISOString().split('T')[0],
-        paymentMethod: 'Transferência Bancária',
-        notes: `Despesa Pontual do Imóvel: ${assetName}. ${expense.observations || ''}`,
-        assetId: expense.assetId
+        method: expense.paymentMethod || 'Transferência Bancária',
+        paymentMethod: expense.paymentMethod || 'Transferência Bancária',
+        notes: `Despesa Pontual do Imóvel: ${assetName}. ${expense.observations || expense.notes || ''}`,
+        assetId: expense.assetId,
+        propertyExpenseId: expense.id
       };
 
-      const existsIndex = current.findIndex((t: any) => t.id === transData.id);
+      const existsIndex = current.findIndex((t: any) => String(t.id) === String(generatedId));
       let updated;
       if (existsIndex >= 0) {
-        updated = current.map((t: any) => t.id === transData.id ? transData : t);
+        updated = current.map((t: any) => String(t.id) === String(generatedId) ? { ...t, ...transData } : t);
       } else {
         updated = [transData, ...current];
       }
 
       localStorage.setItem('fin_expenses', JSON.stringify(updated));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('storage'));
+      queryClient.setQueryData(['expenses'], updated);
+
+      if (!expense.transactionId) {
+        expense.transactionId = generatedId;
+        const savedProp = localStorage.getItem('fin_property_expenses');
+        let propList: PropertyExpense[] = savedProp ? JSON.parse(savedProp) : [];
+        if (Array.isArray(propList)) {
+          propList = propList.map(pe => String(pe.id) === String(expense.id) ? { ...pe, transactionId: generatedId } : pe);
+          localStorage.setItem('fin_property_expenses', JSON.stringify(propList));
+          setPropertyExpenses(propList);
+        }
+      }
+
+      // If it previously had a fixed expense link, remove it
+      if (expense.fixedExpenseId) {
+        const savedFixed = localStorage.getItem('fin_fixed_expenses');
+        let currentFixed = savedFixed ? JSON.parse(savedFixed) : [];
+        if (Array.isArray(currentFixed)) {
+          const filtered = currentFixed.filter((fe: any) => String(fe.id) !== String(expense.fixedExpenseId));
+          localStorage.setItem('fin_fixed_expenses', JSON.stringify(filtered));
+          queryClient.setQueryData(['fixedExpenses'], filtered);
+        }
       }
     } catch (e) {
       console.error('Erro ao sincronizar despesa pontual:', e);
@@ -267,22 +562,67 @@ export default function PatrimonioView() {
   };
 
   const handleAddPropertyIncome = (income: PropertyIncome) => {
-    setPropertyIncomes(prev => [...prev, income]);
-    
-    if (income.frequency !== 'pontual') {
-      syncPropertyIncomeToFixed(income);
-    } else {
-      syncPropertyIncomeToPontual(income);
+    try {
+      const saved = localStorage.getItem('fin_property_incomes');
+      let currentIncomes: PropertyIncome[] = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(currentIncomes)) currentIncomes = [];
+
+      const next = [...currentIncomes.filter(pi => String(pi.id) !== String(income.id)), income];
+      localStorage.setItem('fin_property_incomes', JSON.stringify(next));
+      setPropertyIncomes(next);
+
+      updateAssetIncomesEmbedded(income);
+
+      const isPontual = (income.frequency || '').toLowerCase() === 'pontual';
+      if (!isPontual) {
+        syncPropertyIncomeToFixed(income);
+      } else {
+        syncPropertyIncomeToPontual(income);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['fixedIncomes'] });
+      queryClient.invalidateQueries({ queryKey: ['incomes'] });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+
+      scheduleSheetsBackgroundSync(300, true);
+    } catch (e) {
+      console.error('Erro ao adicionar rendimento de imóvel:', e);
     }
   };
 
   const handleUpdatePropertyIncome = (income: PropertyIncome) => {
-    setPropertyIncomes(prev => prev.map(pi => pi.id === income.id ? income : pi));
-    
-    if (income.frequency !== 'pontual') {
-      syncPropertyIncomeToFixed(income);
-    } else {
-      syncPropertyIncomeToPontual(income);
+    try {
+      const saved = localStorage.getItem('fin_property_incomes');
+      let currentIncomes: PropertyIncome[] = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(currentIncomes)) currentIncomes = [];
+
+      const exists = currentIncomes.some(pi => String(pi.id) === String(income.id));
+      let next: PropertyIncome[];
+      if (exists) {
+        next = currentIncomes.map(pi => String(pi.id) === String(income.id) ? income : pi);
+      } else {
+        next = [...currentIncomes, income];
+      }
+
+      localStorage.setItem('fin_property_incomes', JSON.stringify(next));
+      setPropertyIncomes(next);
+
+      updateAssetIncomesEmbedded(income);
+
+      const isPontual = (income.frequency || '').toLowerCase() === 'pontual';
+      if (!isPontual) {
+        syncPropertyIncomeToFixed(income);
+      } else {
+        syncPropertyIncomeToPontual(income);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['fixedIncomes'] });
+      queryClient.invalidateQueries({ queryKey: ['incomes'] });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+
+      scheduleSheetsBackgroundSync(300, true);
+    } catch (e) {
+      console.error('Erro ao atualizar rendimento de imóvel:', e);
     }
   };
 
@@ -292,34 +632,54 @@ export default function PatrimonioView() {
       let currentFixed = savedFixed ? JSON.parse(savedFixed) : [];
       if (!Array.isArray(currentFixed)) currentFixed = [];
       
-      const asset = assets.find(a => a.id === income.assetId);
+      const asset = assets.find(a => String(a.id) === String(income.assetId));
       const assetName = asset?.name || 'Imóvel';
 
+      const generatedId = income.fixedIncomeId || `fi_prop_${income.id}`;
+
+      const existingFixed = currentFixed.find((fi: any) => 
+        String(fi.id) === String(generatedId) || 
+        String(fi.id) === String(income.fixedIncomeId) ||
+        (fi.propertyIncomeId && String(fi.propertyIncomeId) === String(income.id))
+      );
+
+      const fixedIncId = existingFixed?.id || generatedId;
+
       const fixedIncData = {
-        id: income.fixedIncomeId || `fi_prop_${income.id}`,
-        name: `${income.category} - ${assetName}`,
+        id: fixedIncId,
+        name: income.title || (existingFixed?.name ? existingFixed.name : `${income.category} - ${assetName}`),
         entity: assetName,
-        category: income.category === 'Renda Mensal' ? 'Rendas' : income.category === 'Venda de Imóvel' ? 'Vendas' : 'Outros',
+        category: income.category === 'Renda Mensal' ? 'Rendas' : income.category === 'Venda de Imóvel' ? 'Vendas' : income.category || 'Outros',
         amount: income.amount,
-        frequency: income.frequency.charAt(0).toUpperCase() + income.frequency.slice(1),
+        frequency: income.frequency ? (income.frequency.charAt(0).toUpperCase() + income.frequency.slice(1).toLowerCase()) : 'Mensal',
         dueDateDay: income.dayOfMonth || (income.dueDate ? new Date(income.dueDate).getDate() : 1),
         active: true,
         assetId: income.assetId,
+        propertyIncomeId: income.id,
         observations: income.observations,
-        notes: `Rendimento Fixo do Imóvel: ${assetName}. ${income.notes || ''}`
+        notes: income.notes || `Rendimento Fixo do Imóvel: ${assetName}. ${income.observations || ''}`
       };
 
-      const existsIndex = currentFixed.findIndex((fi: any) => fi.id === fixedIncData.id);
+      const existsIndex = currentFixed.findIndex((fi: any) => String(fi.id) === String(fixedIncId));
       let updatedFixed;
       if (existsIndex >= 0) {
-        updatedFixed = currentFixed.map((fi: any) => fi.id === fixedIncData.id ? fixedIncData : fi);
+        updatedFixed = currentFixed.map((fi: any) => String(fi.id) === String(fixedIncId) ? { ...fi, ...fixedIncData } : fi);
       } else {
         updatedFixed = [...currentFixed, fixedIncData];
       }
 
       localStorage.setItem('fin_fixed_incomes', JSON.stringify(updatedFixed));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('storage'));
+      queryClient.setQueryData(['fixedIncomes'], updatedFixed);
+
+      if (!income.fixedIncomeId || income.fixedIncomeId !== fixedIncId) {
+        income.fixedIncomeId = fixedIncId;
+        const savedProp = localStorage.getItem('fin_property_incomes');
+        let propList: PropertyIncome[] = savedProp ? JSON.parse(savedProp) : [];
+        if (Array.isArray(propList)) {
+          propList = propList.map(pi => String(pi.id) === String(income.id) ? { ...pi, fixedIncomeId: fixedIncId } : pi);
+          localStorage.setItem('fin_property_incomes', JSON.stringify(propList));
+          setPropertyIncomes(propList);
+        }
       }
     } catch (e) {
       console.error('Erro ao sincronizar rendimento fixo global:', e);
@@ -332,44 +692,164 @@ export default function PatrimonioView() {
       let current = saved ? JSON.parse(saved) : [];
       if (!Array.isArray(current)) current = [];
       
-      const asset = assets.find(a => a.id === income.assetId);
+      const asset = assets.find(a => String(a.id) === String(income.assetId));
       const assetName = asset?.name || 'Imóvel';
 
+      const generatedId = income.transactionId || `tr_prop_inc_${income.id}`;
+
       const transData = {
-        id: income.transactionId || `tr_prop_inc_${income.id}`,
-        description: `${income.title} - ${assetName}`,
+        id: generatedId,
+        description: income.title ? `${income.title} - ${assetName}` : `${income.category} - ${assetName}`,
         entity: assetName,
         category: income.category,
         amount: income.amount,
         date: income.dueDate || new Date().toISOString().split('T')[0],
-        paymentMethod: 'Transferência Bancária',
-        notes: `Rendimento Pontual do Imóvel: ${assetName}. ${income.observations || ''}`,
-        assetId: income.assetId
+        paymentMethod: income.paymentMethod || 'Transferência Bancária',
+        notes: `Receita Pontual do Imóvel: ${assetName}. ${income.observations || income.notes || ''}`,
+        assetId: income.assetId,
+        propertyIncomeId: income.id
       };
 
-      const existsIndex = current.findIndex((t: any) => t.id === transData.id);
+      const existsIndex = current.findIndex((t: any) => String(t.id) === String(generatedId));
       let updated;
       if (existsIndex >= 0) {
-        updated = current.map((t: any) => t.id === transData.id ? transData : t);
+        updated = current.map((t: any) => String(t.id) === String(generatedId) ? { ...t, ...transData } : t);
       } else {
         updated = [transData, ...current];
       }
 
       localStorage.setItem('fin_incomes', JSON.stringify(updated));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('storage'));
+      queryClient.setQueryData(['incomes'], updated);
+
+      if (!income.transactionId) {
+        income.transactionId = generatedId;
+        const savedProp = localStorage.getItem('fin_property_incomes');
+        let propList: PropertyIncome[] = savedProp ? JSON.parse(savedProp) : [];
+        if (Array.isArray(propList)) {
+          propList = propList.map(pi => String(pi.id) === String(income.id) ? { ...pi, transactionId: generatedId } : pi);
+          localStorage.setItem('fin_property_incomes', JSON.stringify(propList));
+          setPropertyIncomes(propList);
+        }
       }
     } catch (e) {
-      console.error('Erro ao sincronizar rendimento pontual:', e);
+      console.error('Erro ao sincronizar receita pontual:', e);
     }
   };
 
   const handleDeletePropertyExpensePermanent = (id: string) => {
-    setPropertyExpenses(prev => prev.filter(pe => pe.id !== id));
+    const expense = propertyExpenses.find(pe => String(pe.id) === String(id));
+    if (expense) {
+      if (expense.fixedExpenseId) {
+        try {
+          const savedFixed = localStorage.getItem('fin_fixed_expenses');
+          if (savedFixed) {
+            const currentFixed = JSON.parse(savedFixed);
+            if (Array.isArray(currentFixed)) {
+              const updatedFixed = currentFixed.filter((fe: any) => 
+                String(fe.id) !== String(expense.fixedExpenseId) &&
+                (!fe.propertyExpenseId || String(fe.propertyExpenseId) !== String(expense.id))
+              );
+              localStorage.setItem('fin_fixed_expenses', JSON.stringify(updatedFixed));
+              queryClient.setQueryData(['fixedExpenses'], updatedFixed);
+              queryClient.invalidateQueries({ queryKey: ['fixedExpenses'] });
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao eliminar custo fixo global sincronizado:', e);
+        }
+      }
+      if (expense.transactionId) {
+        try {
+          const savedExpenses = localStorage.getItem('fin_expenses');
+          if (savedExpenses) {
+            const currentExpenses = JSON.parse(savedExpenses);
+            if (Array.isArray(currentExpenses)) {
+              const updatedExpenses = currentExpenses.filter((e: any) => 
+                String(e.id) !== String(expense.transactionId) &&
+                (!e.propertyExpenseId || String(e.propertyExpenseId) !== String(expense.id))
+              );
+              localStorage.setItem('fin_expenses', JSON.stringify(updatedExpenses));
+              queryClient.setQueryData(['expenses'], updatedExpenses);
+              queryClient.invalidateQueries({ queryKey: ['expenses'] });
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao eliminar despesa pontual sincronizada:', e);
+        }
+      }
+    }
+
+    removeAssetExpenseEmbedded(id);
+
+    setPropertyExpenses(prev => {
+      const next = prev.filter(pe => String(pe.id) !== String(id));
+      localStorage.setItem('fin_property_expenses', JSON.stringify(next));
+      return next;
+    });
+
+    queryClient.invalidateQueries({ queryKey: ['fixedExpenses'] });
+    queryClient.invalidateQueries({ queryKey: ['expenses'] });
+    queryClient.invalidateQueries({ queryKey: ['assets'] });
+
+    scheduleSheetsBackgroundSync(300, true);
   };
 
   const handleDeletePropertyIncomePermanent = (id: string) => {
-    setPropertyIncomes(prev => prev.filter(pi => pi.id !== id));
+    const income = propertyIncomes.find(pi => String(pi.id) === String(id));
+    if (income) {
+      if (income.fixedIncomeId) {
+        try {
+          const savedFixed = localStorage.getItem('fin_fixed_incomes');
+          if (savedFixed) {
+            const currentFixed = JSON.parse(savedFixed);
+            if (Array.isArray(currentFixed)) {
+              const updatedFixed = currentFixed.filter((fi: any) => 
+                String(fi.id) !== String(income.fixedIncomeId) &&
+                (!fi.propertyIncomeId || String(fi.propertyIncomeId) !== String(income.id))
+              );
+              localStorage.setItem('fin_fixed_incomes', JSON.stringify(updatedFixed));
+              queryClient.setQueryData(['fixedIncomes'], updatedFixed);
+              queryClient.invalidateQueries({ queryKey: ['fixedIncomes'] });
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao eliminar rendimento fixo global sincronizado:', e);
+        }
+      }
+      if (income.transactionId) {
+        try {
+          const savedIncomes = localStorage.getItem('fin_incomes');
+          if (savedIncomes) {
+            const currentIncomes = JSON.parse(savedIncomes);
+            if (Array.isArray(currentIncomes)) {
+              const updatedIncomes = currentIncomes.filter((i: any) => 
+                String(i.id) !== String(income.transactionId) &&
+                (!i.propertyIncomeId || String(i.propertyIncomeId) !== String(income.id))
+              );
+              localStorage.setItem('fin_incomes', JSON.stringify(updatedIncomes));
+              queryClient.setQueryData(['incomes'], updatedIncomes);
+              queryClient.invalidateQueries({ queryKey: ['incomes'] });
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao eliminar receita pontual sincronizada:', e);
+        }
+      }
+    }
+
+    removeAssetIncomeEmbedded(id);
+
+    setPropertyIncomes(prev => {
+      const next = prev.filter(pi => String(pi.id) !== String(id));
+      localStorage.setItem('fin_property_incomes', JSON.stringify(next));
+      return next;
+    });
+
+    queryClient.invalidateQueries({ queryKey: ['fixedIncomes'] });
+    queryClient.invalidateQueries({ queryKey: ['incomes'] });
+    queryClient.invalidateQueries({ queryKey: ['assets'] });
+
+    scheduleSheetsBackgroundSync(300, true);
   };
 
   const handleEditAssetClick = (asset: Asset) => {
@@ -540,6 +1020,13 @@ export default function PatrimonioView() {
                           expenses={propertyExpenses}
                           incomes={propertyIncomes}
                         />
+
+                        {selectedAsset.category === 'imovel' && (
+                          <PropertyRealExpensesCard
+                            asset={selectedAsset}
+                            propertyExpenses={propertyExpenses}
+                          />
+                        )}
 
                         <PropertyExpensesSection 
                           asset={selectedAsset}

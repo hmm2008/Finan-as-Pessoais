@@ -30,6 +30,89 @@ export function setCachedDriveToken(token: string | null) {
   }
 }
 
+export function cipherShift(str: string, shift: number): string {
+  return str
+    .split('')
+    .map(c => String.fromCharCode(c.charCodeAt(0) + shift))
+    .join('');
+}
+
+/**
+ * Custom fetch wrapper to catch network errors/AdBlockers and automatically fallback to a server-side proxy.
+ */
+export async function googleSheetsFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const targetUrl = typeof input === 'string' ? input : (input as any).toString ? (input as any).toString() : String(input);
+
+  try {
+    // Attempt direct fetch first (standard, fast)
+    const response = await fetch(input, init);
+    return response;
+  } catch (err: any) {
+    // If the error is a TypeError (Failed to fetch), indicating block or offline state,
+    // and it's a Google API, try to proxy it through the server!
+    if (
+      (err instanceof TypeError || err.message?.includes('fetch') || err.name === 'TypeError') &&
+      targetUrl.includes('googleapis.com')
+    ) {
+      console.warn(`Direct connection to Google API failed. Retrying via server proxy for: ${targetUrl}`);
+      try {
+        const originalHeaders: Record<string, string> = {};
+        if (init?.headers) {
+          if (init.headers instanceof Headers) {
+            init.headers.forEach((value, key) => {
+              originalHeaders[key] = value;
+            });
+          } else if (Array.isArray(init.headers)) {
+            init.headers.forEach(([key, value]) => {
+              originalHeaders[key] = value;
+            });
+          } else {
+            Object.entries(init.headers).forEach(([key, value]) => {
+              originalHeaders[key] = value;
+            });
+          }
+        }
+
+        let bodyObj = undefined;
+        if (init?.body && typeof init.body === 'string') {
+          try {
+            bodyObj = JSON.parse(init.body);
+          } catch (e) {
+            bodyObj = init.body;
+          }
+        }
+
+        // Obfuscate (shift + Base64 encode) the destination URL to avoid deep-packet inspection of "google" in request headers/parameters by AdBlockers
+        const shiftedUrl = cipherShift(targetUrl, 3);
+        const encodedUrl = btoa(shiftedUrl);
+        const proxyHeaders: Record<string, string> = {
+          ...originalHeaders,
+          'Content-Type': 'application/json',
+        };
+
+        const proxyRes = await fetch(`/api/sys-io?d=${encodeURIComponent(encodedUrl)}`, {
+          method: init?.method || 'GET',
+          headers: proxyHeaders,
+          body: bodyObj !== undefined ? JSON.stringify(bodyObj) : undefined,
+        });
+
+        if (proxyRes.ok || proxyRes.status < 500) {
+          return proxyRes;
+        }
+      } catch (proxyErr: any) {
+        console.error('Server proxy fallback also failed:', proxyErr);
+      }
+    }
+
+    // If fallback failed or wasn't applicable, throw a helpful user-facing error
+    throw new Error(
+      'Erro de Ligação à Google: A ligação aos servidores da Google foi bloqueada ou está inacessível. ' +
+      'Por favor, desative bloqueadores de anúncios (AdBlockers), extensões de privacidade ou ' +
+      'anti-tracking que possam estar a bloquear domínios como sheets.googleapis.com ou googleapis.com.'
+    );
+  }
+}
+
 /**
  * Connect to Google Drive by prompting OAuth popup for Drive.file and Spreadsheets scopes.
  */
@@ -69,7 +152,7 @@ export async function connectGoogleDrive(): Promise<{ accessToken: string; userE
 export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promise<DriveSpreadsheetInfo> {
   // 1. Search if file already exists in Drive
   const query = encodeURIComponent("name='Finanças Pessoais' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
-  const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,webViewLink)`, {
+  const searchRes = await googleSheetsFetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,webViewLink)`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
 
@@ -91,7 +174,7 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
     const existing = searchData.files[0];
     
     // Fetch spreadsheet sheets
-    const sheetsRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${existing.id}?fields=sheets.properties(sheetId,title)`, {
+    const sheetsRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${existing.id}?fields=sheets.properties(sheetId,title)`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     
@@ -107,7 +190,7 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
 
       if (lixeiraSheet && !reciclagemExists) {
         try {
-          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${existing.id}:batchUpdate`, {
+          await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${existing.id}:batchUpdate`, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -143,7 +226,7 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
   }
 
   // 2. File not found, create new Spreadsheet with structured tabs and headers
-  const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+  const createRes = await googleSheetsFetch('https://sheets.googleapis.com/v4/spreadsheets', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -190,7 +273,7 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
 
   // 3. Write Headers for each sheet
   try {
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
+    await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -235,7 +318,7 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
  */
 export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spreadsheetId: string): Promise<boolean> {
   // 1. Fetch spreadsheet metadata to get sheet IDs
-  const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
+  const metaRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
 
@@ -266,7 +349,7 @@ export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spre
   // Check if Dashboard_Calculos exists, if not create it
   let dashboardSheet = existingSheets.find(s => s.title === 'Dashboard_Calculos');
   if (!dashboardSheet) {
-    const addSheetRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+    const addSheetRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -336,7 +419,7 @@ export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spre
   // Execute structural batchUpdate
   if (requests.length > 0) {
     try {
-      const batchRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+      const batchRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -363,7 +446,7 @@ export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spre
 
   // First clear entire Dashboard_Calculos sheet to remove old values/formulas
   try {
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("'Dashboard_Calculos'!A1:Z1000")}:clear`, {
+    await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("'Dashboard_Calculos'!A1:Z1000")}:clear`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}` }
     });
@@ -403,7 +486,7 @@ export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spre
   ];
 
   try {
-    const valRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
+    const valRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -435,7 +518,7 @@ export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spre
  */
 export async function testSpreadsheetHealth(accessToken: string, spreadsheetId: string): Promise<boolean> {
   try {
-    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=spreadsheetId,properties.title`, {
+    const res = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=spreadsheetId,properties.title`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     if (res.status === 401 || res.status === 403) {
@@ -455,7 +538,7 @@ export async function testSpreadsheetHealth(accessToken: string, spreadsheetId: 
  */
 export async function getSpreadsheetModifiedTime(accessToken: string, spreadsheetId: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${spreadsheetId}?fields=modifiedTime`, {
+    const res = await googleSheetsFetch(`https://www.googleapis.com/drive/v3/files/${spreadsheetId}?fields=modifiedTime`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     if (!res.ok) {
@@ -476,7 +559,7 @@ export async function getSpreadsheetModifiedTime(accessToken: string, spreadshee
  * Lists all revisions for a specific file in Google Drive.
  */
 export async function listSpreadsheetRevisions(accessToken: string, fileId: string) {
-  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions?fields=revisions(id,modifiedTime,lastModifyingUser,publishAuto,published)`, {
+  const response = await googleSheetsFetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions?fields=revisions(id,modifiedTime,lastModifyingUser,publishAuto,published)`, {
     headers: {
       Authorization: `Bearer ${accessToken}`
     }

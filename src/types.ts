@@ -3,6 +3,7 @@ export interface Entity {
 }
 
 export interface Expense extends Entity {
+  name?: string;
   date: string;
   amount: number;
   category: string;
@@ -11,7 +12,14 @@ export interface Expense extends Entity {
   method: string;
   recurring: boolean;
   vehicle?: boolean;
+  vehicleId?: string;
+  vehiclePlate?: string;
+  vehicleName?: string;
+  liters?: number;
+  kilometers?: number;
   notes: string;
+  assetId?: string;
+  propertyExpenseId?: string;
   fixedExpenseId?: string;
 }
 

@@ -19,21 +19,23 @@ export function PropertyFinancialSummary({ asset, expenses, incomes }: PropertyF
 
   // Monthly Calculations
   const monthlyExpenses = pExpenses.reduce((sum, e) => {
-    if (e.frequency === 'pontual') return sum;
+    const freq = (e.frequency || 'mensal').toLowerCase();
+    if (freq === 'pontual') return sum;
     return sum + (
-      e.frequency === 'mensal' ? e.amount : 
-      e.frequency === 'trimestral' ? e.amount / 3 :
-      e.frequency === 'semestral' ? e.amount / 6 :
+      freq === 'mensal' ? e.amount : 
+      freq === 'trimestral' ? e.amount / 3 :
+      freq === 'semestral' ? e.amount / 6 :
       e.amount / 12
     );
   }, 0);
 
   const monthlyIncomes = pIncomes.reduce((sum, i) => {
-    if (i.frequency === 'pontual') return sum;
+    const freq = (i.frequency || 'mensal').toLowerCase();
+    if (freq === 'pontual') return sum;
     return sum + (
-      i.frequency === 'mensal' ? i.amount : 
-      i.frequency === 'trimestral' ? i.amount / 3 :
-      i.frequency === 'semestral' ? i.amount / 6 :
+      freq === 'mensal' ? i.amount : 
+      freq === 'trimestral' ? i.amount / 3 :
+      freq === 'semestral' ? i.amount / 6 :
       i.amount / 12
     );
   }, 0);
@@ -43,22 +45,24 @@ export function PropertyFinancialSummary({ asset, expenses, incomes }: PropertyF
   // Annual Calculations (including pontual)
   const annualExpenses = pExpenses.reduce((sum, e) => {
     const amount = e.amount;
-    if (e.frequency === 'pontual') return sum + amount;
+    const freq = (e.frequency || 'mensal').toLowerCase();
+    if (freq === 'pontual') return sum + amount;
     return sum + (
-      e.frequency === 'mensal' ? amount * 12 : 
-      e.frequency === 'trimestral' ? amount * 4 :
-      e.frequency === 'semestral' ? amount * 2 :
+      freq === 'mensal' ? amount * 12 : 
+      freq === 'trimestral' ? amount * 4 :
+      freq === 'semestral' ? amount * 2 :
       amount
     );
   }, 0);
 
   const annualIncomes = pIncomes.reduce((sum, i) => {
     const amount = i.amount;
-    if (i.frequency === 'pontual') return sum + amount;
+    const freq = (i.frequency || 'mensal').toLowerCase();
+    if (freq === 'pontual') return sum + amount;
     return sum + (
-      i.frequency === 'mensal' ? amount * 12 : 
-      i.frequency === 'trimestral' ? amount * 4 :
-      i.frequency === 'semestral' ? amount * 2 :
+      freq === 'mensal' ? amount * 12 : 
+      freq === 'trimestral' ? amount * 4 :
+      freq === 'semestral' ? amount * 2 :
       amount
     );
   }, 0);

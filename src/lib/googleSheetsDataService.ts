@@ -1,6 +1,6 @@
 import { auth } from './firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
-import { getCachedDriveToken, setCachedDriveToken, formatAndStyleFinanceSpreadsheet, getSpreadsheetModifiedTime } from './googleDriveService';
+import { getCachedDriveToken, setCachedDriveToken, formatAndStyleFinanceSpreadsheet, getSpreadsheetModifiedTime, googleSheetsFetch } from './googleDriveService';
 import { sanitizeForFirestore } from '../hooks/queries';
 import { AssetCategory } from '../types';
 
@@ -310,7 +310,7 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
   ];
 
   const allHeaders: Record<string, string[]> = {
-    'Despesas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo"],
+    'Despesas': ["ID", "Nome da Despesa", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo", "ID Imóvel"],
     'Receitas_Pontuais': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas"],
     'Receitas_Fixas_Registadas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas", "ID Fixo"],
     'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Observações", "Próximo Vencimento"],
@@ -334,7 +334,7 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
   try {
     // 1. Get current sheets list
     const getMeta = async () => {
-      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`, {
+      const res = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (!res.ok) return [];
@@ -410,7 +410,7 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     if (structuralRequests.length > 0) {
       console.log('A executar atualizações estruturais...', structuralRequests.length);
       try {
-        const structRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+        const structRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ requests: structuralRequests })
@@ -421,7 +421,7 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
           // Individual fallback
           for (const req of structuralRequests) {
             try {
-              await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+              await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ requests: [req] })
@@ -457,7 +457,7 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
       });
 
     if (headerData.length > 0) {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
+      await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: headerData })
@@ -603,6 +603,8 @@ export async function exportAllDataToSheets(
     fInc: fixedIncomes,
     acc: accounts,
     pat: patrimonio,
+    pExp: propertyExpenses,
+    pInc: propertyIncomes,
     veh: vehicles,
     rules: categorizationRules,
     goals: goals,
@@ -629,18 +631,42 @@ export async function exportAllDataToSheets(
 
   // 2. Format 2D Arrays for Sheets with Headers + Data Rows
   const expRows = [
-    ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo"],
-    ...expenses.map((e: any) => [
-      e.id || '',
-      e.date || '',
-      e.entity || '',
-      e.category || '',
-      Number(e.amount || 0),
-      e.method || '',
-      e.vehicle ? 'Sim' : 'Não',
-      e.notes || '',
-      e.fixedExpenseId || ''
-    ])
+    ["ID", "Nome da Despesa", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo", "ID Imóvel"],
+    ...expenses.map((e: any) => {
+      let resolvedExpName = '';
+      if (e.fixedExpenseId) {
+        const matchedFE = fixedExpenses.find((fe: any) => String(fe.id) === String(e.fixedExpenseId));
+        if (matchedFE && (matchedFE.name || matchedFE.description)) {
+          resolvedExpName = matchedFE.name || matchedFE.description;
+        }
+      }
+      if (!resolvedExpName && e.propertyExpenseId) {
+        const matchedPE = propertyExpenses.find((pe: any) => String(pe.id) === String(e.propertyExpenseId));
+        if (matchedPE && (matchedPE.title || matchedPE.name)) {
+          resolvedExpName = matchedPE.title || matchedPE.name;
+        }
+      }
+      if (!resolvedExpName && e.name && e.name.trim()) {
+        resolvedExpName = e.name.trim();
+      }
+      if (!resolvedExpName) {
+        resolvedExpName = e.description || e.entity || '';
+      }
+
+      return [
+        e.id || '',
+        resolvedExpName,
+        e.date || '',
+        e.entity || e.name || '',
+        e.category || '',
+        Number(e.amount || 0),
+        e.method || '',
+        e.vehicle ? 'Sim' : 'Não',
+        e.notes || '',
+        e.fixedExpenseId || '',
+        e.assetId || e.propertyExpenseId || ''
+      ];
+    })
   ];
 
   const incRows = [
@@ -726,37 +752,41 @@ export async function exportAllDataToSheets(
   const patRows = [
     ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Gastos Mensais Est. (€)", "Gastos Anuais Est. (€)", "Rendimentos Mensais Est. (€)", "Rendimentos Anuais Est. (€)", "Lucro Mensal Est. (€)", "Lucro Anual Est. (€)", "Rentabilidade Bruta (%)", "Rentabilidade Líquida (%)", "Encargos JSON", "Rendimentos JSON"],
     ...patrimonio.map((p: any) => {
-      const pExpenses = propertyExpenses.filter((e: any) => e.assetId === p.id);
-      const pIncomes = propertyIncomes.filter((i: any) => i.assetId === p.id);
+      const pExpenses = propertyExpenses.filter((e: any) => String(e.assetId) === String(p.id));
+      const pIncomes = propertyIncomes.filter((i: any) => String(i.assetId) === String(p.id));
       
       const mExpenses = pExpenses.reduce((sum: number, e: any) => {
-        if (e.frequency === 'pontual') return sum;
-        return sum + (e.frequency === 'mensal' ? e.amount : e.frequency === 'trimestral' ? e.amount / 3 : e.frequency === 'semestral' ? e.amount / 6 : e.amount / 12);
+        const freq = (e.frequency || '').toLowerCase();
+        if (freq === 'pontual') return sum;
+        return sum + (freq === 'mensal' ? e.amount : freq === 'trimestral' ? e.amount / 3 : freq === 'semestral' ? e.amount / 6 : e.amount / 12);
       }, 0);
       
       const mIncomes = pIncomes.reduce((sum: number, i: any) => {
-        if (i.frequency === 'pontual') return sum;
-        return sum + (i.frequency === 'mensal' ? i.amount : i.frequency === 'trimestral' ? i.amount / 3 : i.frequency === 'semestral' ? i.amount / 6 : i.amount / 12);
+        const freq = (i.frequency || '').toLowerCase();
+        if (freq === 'pontual') return sum;
+        return sum + (freq === 'mensal' ? i.amount : freq === 'trimestral' ? i.amount / 3 : freq === 'semestral' ? i.amount / 6 : i.amount / 12);
       }, 0);
 
       const aExpenses = pExpenses.reduce((sum: number, e: any) => {
         const amount = e.amount || 0;
-        if (e.frequency === 'pontual') return sum + amount;
+        const freq = (e.frequency || '').toLowerCase();
+        if (freq === 'pontual') return sum + amount;
         return sum + (
-          e.frequency === 'mensal' ? amount * 12 : 
-          e.frequency === 'trimestral' ? amount * 4 : 
-          e.frequency === 'semestral' ? amount * 2 : 
+          freq === 'mensal' ? amount * 12 : 
+          freq === 'trimestral' ? amount * 4 : 
+          freq === 'semestral' ? amount * 2 : 
           amount
         );
       }, 0);
       
       const aIncomes = pIncomes.reduce((sum: number, i: any) => {
         const amount = i.amount || 0;
-        if (i.frequency === 'pontual') return sum + amount;
+        const freq = (i.frequency || '').toLowerCase();
+        if (freq === 'pontual') return sum + amount;
         return sum + (
-          i.frequency === 'mensal' ? amount * 12 : 
-          i.frequency === 'trimestral' ? amount * 4 : 
-          i.frequency === 'semestral' ? amount * 2 : 
+          freq === 'mensal' ? amount * 12 : 
+          freq === 'trimestral' ? amount * 4 : 
+          freq === 'semestral' ? amount * 2 : 
           amount
         );
       }, 0);
@@ -1026,7 +1056,7 @@ export async function exportAllDataToSheets(
 
   // Clear ranges first
   onProgress?.('A limpar dados antigos na Drive...', 80);
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
+  await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -1040,7 +1070,7 @@ export async function exportAllDataToSheets(
     data: dataPayload
   };
 
-  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
+  const res = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -1175,7 +1205,7 @@ export async function fetchAndParseRemoteSheets(
 ) {
   let titles: string[] = [];
   try {
-    const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`, {
+    const metaRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     if (metaRes.ok) {
@@ -1256,7 +1286,7 @@ export async function fetchAndParseRemoteSheets(
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?` + 
     ranges.map(r => `ranges=${encodeURIComponent(r)}`).join('&');
 
-  const res = await fetch(url, {
+  const res = await googleSheetsFetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
 
@@ -1277,21 +1307,45 @@ export async function fetchAndParseRemoteSheets(
     return rows.length > 1 ? rows.slice(1) : [];
   };
 
-  // Parse Expenses
+  // Parse Expenses (supports new 11-column/10-column schema as well as 9-column legacy schema)
   const expRows = getRowsByKey('Despesas');
-  const parsedExpenses = expRows.map((row: any[], i: number) => ({
-    id: row[0] || `exp_sheet_${i}`,
-    date: row[1] || new Date().toISOString().slice(0, 10),
-    entity: row[2] || 'Despesa',
-    category: row[3] || 'Outros',
-    amount: parseNum(row[4]),
-    method: row[5] || 'MBWay',
-    vehicle: parseBool(row[6]),
-    notes: row[7] || '',
-    fixedExpenseId: row[8] || undefined,
-    description: row[2] || 'Despesa',
-    recurring: !!row[8]
-  })).filter((e: any) => e.amount > 0 || e.entity);
+  const parsedExpenses = expRows.map((row: any[], i: number) => {
+    // Detect if column 1 is a date string (legacy format: ID, Data, Entidade...) vs new format (ID, Nome, Data, Entidade...)
+    const isLegacyFormat = typeof row[1] === 'string' && /^\d{4}[-/.]\d{2}[-/.]\d{2}/.test(row[1].trim());
+
+    if (isLegacyFormat) {
+      return {
+        id: row[0] || `exp_sheet_${i}`,
+        name: row[2] || 'Despesa',
+        date: row[1] || new Date().toISOString().slice(0, 10),
+        entity: row[2] || 'Despesa',
+        category: row[3] || 'Outros',
+        amount: parseNum(row[4]),
+        method: row[5] || 'MBWay',
+        vehicle: parseBool(row[6]),
+        notes: row[7] || '',
+        fixedExpenseId: row[8] || undefined,
+        description: row[2] || 'Despesa',
+        recurring: !!row[8]
+      };
+    }
+
+    return {
+      id: row[0] || `exp_sheet_${i}`,
+      name: row[1] || row[3] || 'Despesa',
+      date: row[2] || new Date().toISOString().slice(0, 10),
+      entity: row[3] || row[1] || 'Despesa',
+      category: row[4] || 'Outros',
+      amount: parseNum(row[5]),
+      method: row[6] || 'MBWay',
+      vehicle: parseBool(row[7]),
+      notes: row[8] || '',
+      fixedExpenseId: row[9] || undefined,
+      assetId: row[10] || undefined,
+      description: row[1] || row[3] || 'Despesa',
+      recurring: !!row[9]
+    };
+  }).filter((e: any) => e.amount > 0 || e.name || e.entity);
 
   // Parse Incomes
   const incRows = getRowsByKey('Receitas_Pontuais');
@@ -1632,7 +1686,7 @@ export async function fetchAndParseRemoteSheets(
  */
 export async function getSpreadsheetSheetTitles(accessToken: string, spreadsheetId: string): Promise<string[]> {
   try {
-    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`, {
+    const res = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     if (!res.ok) return [];
@@ -1816,7 +1870,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
   onProgress?.('A inspecionar abas do Google Sheets...', 10);
 
   // 1. Fetch spreadsheet metadata to get existing sheet IDs and names
-  const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
+  const metaRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
 
@@ -1851,7 +1905,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
   if (existingTitles.includes('Receitas')) {
     onProgress?.('A resgatar dados da folha legada "Receitas"...', 20);
     try {
-      const getRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Receitas!A2:H5000`, {
+      const getRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Receitas!A2:H5000`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (getRes.ok) {
@@ -1875,7 +1929,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
   if (existingTitles.includes('Receitas_Fixas_Reg')) {
     onProgress?.('A resgatar dados da folha legada "Receitas_Fixas_Reg"...', 30);
     try {
-      const getRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Receitas_Fixas_Reg!A2:H5000`, {
+      const getRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Receitas_Fixas_Reg!A2:H5000`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (getRes.ok) {
@@ -1935,7 +1989,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
       addSheet: { properties: { title } }
     }));
 
-    const addRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+    const addRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -1979,7 +2033,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
     ])
   ];
 
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
+  await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -2013,7 +2067,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
       deleteSheet: { sheetId }
     }));
 
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+    await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -2053,7 +2107,7 @@ export async function reorganizeIncomeSheetsAndDatabase(
 
   // Update cached spreadsheet info in localStorage
   try {
-    const freshMetaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
+    const freshMetaRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     if (freshMetaRes.ok) {
@@ -2291,7 +2345,7 @@ export async function clearAllSpreadsheetData(
   // Get ALL existing sheets in the workbook (including legacy sheets like Receitas, Receitas_Fixas_Reg, etc.)
   let allExistingSheets: string[] = activeSheetTitles;
   try {
-    const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
+    const metaRes = await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     if (metaRes.ok) {
@@ -2314,7 +2368,7 @@ export async function clearAllSpreadsheetData(
 
   if (clearRanges.length > 0) {
     try {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
+      await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -2332,7 +2386,7 @@ export async function clearAllSpreadsheetData(
     const rangeStr = (sheetName === 'Dashboard_Calculos' || sheetName === 'Receitas' || sheetName === 'Receitas_Fixas_Reg')
       ? `'${sheetName}'!A1:Z`
       : `'${sheetName}'!A2:Z`;
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeStr)}:clear`, {
+    await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeStr)}:clear`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}` }
     }).catch(() => {});
@@ -2370,7 +2424,7 @@ export async function clearAllSpreadsheetData(
 
   if (headerPayload.length > 0) {
     try {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
+      await googleSheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,

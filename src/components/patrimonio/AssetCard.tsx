@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Asset } from '../../types';
 import { usePrivacy } from '../../contexts';
+import { useExpenses } from '../../hooks/queries';
 import { 
   Building2, TrendingUp, Edit, Trash2, AlertCircle, 
   MapPin, Calendar, ArrowUpRight, ArrowDownRight,
-  ChevronRight, Landmark, PieChart, Coins
+  ChevronRight, Landmark, PieChart, Coins, Receipt
 } from 'lucide-react';
 import { addDays, isBefore, parseISO } from 'date-fns';
 import { motion } from 'motion/react';
@@ -28,12 +29,78 @@ export function AssetCard({
 }: AssetCardProps) {
   const { maskValue } = usePrivacy();
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
+  const { expenses: allExpenses } = useExpenses();
 
   const purchaseVal = asset.purchaseValue || 0;
   const currentVal = asset.currentValue || 0;
   const gainAbs = currentVal - purchaseVal;
   const gainPct = purchaseVal > 0 ? (gainAbs / purchaseVal) * 100 : 0;
   const isPositive = gainAbs >= 0;
+
+  // Real expenses paid from Finanças
+  const realExpensesPaid = useMemo(() => {
+    if (!asset || asset.category !== 'imovel' || !allExpenses || !Array.isArray(allExpenses)) return 0;
+    const assetIdStr = String(asset.id);
+    const assetNameLower = (asset.name || '').trim().toLowerCase();
+    
+    const thisPropExpenseIds = new Set(
+      (asset.expenses || []).map((pe: any) => String(pe.id))
+    );
+    const thisPropExpenseTitles = (asset.expenses || [])
+      .map((pe: any) => (pe.title || '').trim().toLowerCase())
+      .filter((t: string) => t.length >= 2);
+    const thisPropExpenseEntities = (asset.expenses || [])
+      .map((pe: any) => (pe.entity || '').trim().toLowerCase())
+      .filter((e: string) => e.length >= 2);
+
+    const thisFixedExpenseIds = new Set(
+      (asset.expenses || []).filter((pe: any) => pe.fixedExpenseId).map((pe: any) => String(pe.fixedExpenseId))
+    );
+    
+    return allExpenses
+      .filter((exp: any) => {
+        if (!exp) return false;
+        if (exp.assetId && String(exp.assetId) === assetIdStr) return true;
+        if (exp.propertyExpenseId && thisPropExpenseIds.has(String(exp.propertyExpenseId))) return true;
+        if (exp.fixedExpenseId && thisFixedExpenseIds.has(String(exp.fixedExpenseId))) return true;
+        
+        const nameLower = (exp.name || '').toLowerCase();
+        const descLower = (exp.description || '').toLowerCase();
+        const entityLower = (exp.entity || '').toLowerCase();
+        const catLower = (exp.category || '').toLowerCase();
+        const notesLower = (exp.notes || '').toLowerCase();
+
+        if (assetNameLower && assetNameLower.length >= 3) {
+          if (
+            nameLower.includes(assetNameLower) ||
+            descLower.includes(assetNameLower) ||
+            entityLower.includes(assetNameLower) ||
+            notesLower.includes(`imóvel: ${assetNameLower}`) ||
+            notesLower.includes(`imovel: ${assetNameLower}`) ||
+            notesLower.includes(assetNameLower)
+          ) {
+            return true;
+          }
+        }
+
+        if (thisPropExpenseTitles.length > 0) {
+          const matchesTitle = thisPropExpenseTitles.some((t: string) => 
+            nameLower.includes(t) || descLower.includes(t) || catLower === t
+          );
+          if (matchesTitle) return true;
+        }
+
+        if (thisPropExpenseEntities.length > 0) {
+          const matchesEntity = thisPropExpenseEntities.some((ent: string) => 
+            entityLower.includes(ent) || nameLower.includes(ent) || descLower.includes(ent)
+          );
+          if (matchesEntity) return true;
+        }
+
+        return false;
+      })
+      .reduce((sum: number, exp: any) => sum + (Number(exp.amount) || 0), 0);
+  }, [asset, allExpenses]);
 
   // Check for alerts in property expenses
   const getAlerts = () => {
@@ -238,15 +305,23 @@ export function AssetCard({
                     Gerir Ativo
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Button>
-                  {asset.expenses && asset.expenses.length > 0 && (
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight border shadow-sm ${
-                      asset.category === 'imovel'
-                        ? 'bg-blue-500/10 text-blue-600 border-blue-500/10'
-                        : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/10'
-                    }`}>
-                      {asset.expenses.length} {asset.category === 'imovel' ? 'encargos' : 'registos'}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    {realExpensesPaid > 0 && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tight bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shadow-sm flex items-center gap-1">
+                        <Receipt className="w-2.5 h-2.5" />
+                        Real: {maskValue(realExpensesPaid, formatter.format)}
+                      </span>
+                    )}
+                    {asset.expenses && asset.expenses.length > 0 && (
+                      <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tight border shadow-sm ${
+                        asset.category === 'imovel'
+                          ? 'bg-blue-500/10 text-blue-600 border-blue-500/10'
+                          : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/10'
+                      }`}>
+                        {asset.expenses.length} {asset.category === 'imovel' ? 'encargos' : 'registos'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

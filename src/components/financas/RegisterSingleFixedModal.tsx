@@ -34,11 +34,14 @@ export function RegisterSingleFixedModal({ isOpen, onClose, item, type }: Regist
     const dateStr = `${yStr}-${mStr}-${String(targetDay).padStart(2, '0')}`;
     
     const amount = Number(item.amount) || 0;
-    const entityName = item.entity || item.name || (type === 'income' ? 'Receita Fixa' : 'Despesa Fixa');
+    const fixedName = item.name || item.description || item.entity || (type === 'income' ? 'Receita Fixa' : 'Despesa Fixa');
+    const entityName = item.entity || item.name || item.description || (type === 'income' ? 'Receita Fixa' : 'Despesa Fixa');
     
     if (type === 'expense') {
       await addExpense({
         id: `exp_fixed_${yStr}-${mStr}_${item.id || Math.random().toString(36).substring(2, 8)}`,
+        name: fixedName,
+        description: fixedName,
         amount,
         category: item.category || 'Outros',
         date: dateStr,
@@ -47,11 +50,16 @@ export function RegisterSingleFixedModal({ isOpen, onClose, item, type }: Regist
         notes: item.notes || 'Lançamento automático de despesa fixa',
         recurring: true,
         vehicle: !!item.vehicle,
+        vehicleId: item.vehicleId || undefined,
+        assetId: item.assetId || undefined,
+        propertyExpenseId: item.propertyExpenseId || undefined,
         fixedExpenseId: item.id
       });
     } else {
       await addIncome({
         id: `inc_fixed_${yStr}-${mStr}_${item.id || Math.random().toString(36).substring(2, 8)}`,
+        name: fixedName,
+        description: fixedName,
         amount,
         category: item.category || 'Outros',
         date: dateStr,
@@ -59,6 +67,8 @@ export function RegisterSingleFixedModal({ isOpen, onClose, item, type }: Regist
         method: item.method || 'Transferência Bancária',
         notes: item.notes || 'Lançamento automático de receita fixa',
         recurring: true,
+        assetId: item.assetId || undefined,
+        propertyIncomeId: item.propertyIncomeId || undefined,
         fixedIncomeId: item.id
       });
     }

@@ -66,6 +66,106 @@ function getAI(): GoogleGenAI {
 const app = express();
 app.use(express.json());
 
+// -----------------------------------------
+function decipherShift(str: string, shift: number): string {
+  return str
+    .split('')
+    .map(c => String.fromCharCode(c.charCodeAt(0) - shift))
+    .join('');
+}
+
+// Google API Proxy (with generic route /api/sys-io to bypass strict AdBlock filters)
+// -----------------------------------------
+app.all(['/api/google-proxy', '/api/sys-io'], async (req, res) => {
+  let rawUrl = (req.headers['x-sys-endpoint'] || req.headers['x-target-url'] || req.query.d) as string;
+  if (!rawUrl) {
+    return res.status(400).json({ error: 'target url header or query parameter is required' });
+  }
+
+  let targetUrl = rawUrl;
+  // If rawUrl is base64 encoded (does not start with http/https), decode and decrypt it to bypass AdBlock filters
+  if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+    try {
+      const decodedBase64 = Buffer.from(rawUrl, 'base64').toString('utf-8');
+      // If it has been shifted, decipher it
+      if (!decodedBase64.startsWith('http://') && !decodedBase64.startsWith('https://')) {
+        targetUrl = decipherShift(decodedBase64, 3);
+      } else {
+        targetUrl = decodedBase64;
+      }
+    } catch (e: any) {
+      return res.status(400).json({ error: 'Invalid encoded target URL', details: e.message });
+    }
+  }
+
+  // Restrict to Google API domains only for security
+  try {
+    const parsedUrl = new URL(targetUrl);
+    if (!parsedUrl.hostname.endsWith('googleapis.com')) {
+      return res.status(400).json({ error: 'Only googleapis.com domains are allowed.' });
+    }
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid target URL.' });
+  }
+
+  // Dynamically forward headers
+  const headers: Record<string, string> = {};
+  if (req.headers['authorization']) {
+    headers['Authorization'] = req.headers['authorization'] as string;
+  }
+  if (req.headers['content-type']) {
+    headers['Content-Type'] = req.headers['content-type'] as string;
+  }
+  if (req.headers['accept']) {
+    headers['Accept'] = req.headers['accept'] as string;
+  }
+
+  try {
+    const fetchOptions: RequestInit = {
+      method: req.method,
+      headers,
+    };
+
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
+      fetchOptions.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    }
+
+    const response = await fetch(targetUrl, fetchOptions);
+    const contentType = response.headers.get('content-type') || '';
+
+    // Safely read response text/bytes first to prevent header-sending crashes on empty/invalid response bodies
+    let responseBody: any;
+    if (contentType.includes('application/json')) {
+      try {
+        responseBody = await response.json();
+      } catch (e) {
+        responseBody = await response.text();
+      }
+    } else {
+      responseBody = await response.text();
+    }
+
+    // Only set response status and headers AFTER successful read completes
+    if (!res.headersSent) {
+      res.status(response.status);
+      if (contentType) {
+        res.setHeader('content-type', contentType);
+      }
+
+      if (typeof responseBody === 'object') {
+        res.json(responseBody);
+      } else {
+        res.send(responseBody);
+      }
+    }
+  } catch (err: any) {
+    console.error('Proxy request failed:', err);
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'Failed to communicate with Google APIs via server proxy.', details: err.message });
+    }
+  }
+});
+
 const PORT = 3000;
 
 // -----------------------------------------

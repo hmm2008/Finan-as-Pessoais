@@ -21,7 +21,8 @@ export function DashboardRecentTransactions() {
       category: e.category || 'Despesa',
       date: e.date ? new Date(e.date) : new Date(),
       amount: Number(e.amount) || 0,
-      description: e.entity || e.notes || e.category || 'Despesa'
+      description: e.name || e.description || e.entity || e.notes || e.category || 'Despesa',
+      entity: e.entity && e.entity !== (e.name || e.description) ? e.entity : ''
     })),
     ...incomes.map((i: any) => ({
       id: i.id,
@@ -29,7 +30,8 @@ export function DashboardRecentTransactions() {
       category: i.category || 'Receita',
       date: i.date ? new Date(i.date) : new Date(),
       amount: Number(i.amount) || 0,
-      description: i.entity || i.notes || i.category || 'Receita'
+      description: i.name || i.description || i.entity || i.notes || i.category || 'Receita',
+      entity: i.entity && i.entity !== (i.name || i.description) ? i.entity : ''
     }))
   ];
 
@@ -55,7 +57,7 @@ export function DashboardRecentTransactions() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs sm:text-sm font-medium truncate">{t.description}</p>
                   <p className="text-[9px] sm:text-[10px] text-muted-foreground truncate">
-                    {t.category} &bull; {!isNaN(t.date.getTime()) ? t.date.toLocaleDateString('pt-PT') : ''}
+                    {t.category} {t.entity ? `• ${t.entity}` : ''} &bull; {!isNaN(t.date.getTime()) ? t.date.toLocaleDateString('pt-PT') : ''}
                   </p>
                 </div>
                 <div className={`text-xs sm:text-sm font-bold shrink-0 ${t.type === 'income' ? 'text-emerald-500' : 'text-foreground'}`}>

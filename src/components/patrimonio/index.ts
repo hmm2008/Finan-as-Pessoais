@@ -7,3 +7,4 @@ export * from './AssetFinanceiroForm';
 export * from './PropertyExpensesSection';
 export * from './PropertyIncomesSection';
 export * from './PropertyFinancialSummary';
+export * from './PropertyRealExpensesCard';
