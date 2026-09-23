@@ -20,14 +20,15 @@ export default function NotificacoesView() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
   const navigate = useNavigate();
 
-  // Helper to categorize dates
-  const groupNotificationsByDate = (items: NotificationItem[]) => {
+  // Memoize categorized dates
+  const grouped = React.useMemo(() => {
     const today = new Date();
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
 
-    return items.reduce<Record<string, NotificationItem[]>>((groups, item) => {
-      const itemDate = new Date(item.createdAt);
+    return (notifications || []).reduce<Record<string, NotificationItem[]>>((groups, item) => {
+      if (!item) return groups;
+      const itemDate = new Date(item.createdAt || Date.now());
       
       let groupKey = 'Mais antigas';
       if (itemDate.toDateString() === today.toDateString()) {
@@ -48,9 +49,7 @@ export default function NotificacoesView() {
       groups[groupKey].push(item);
       return groups;
     }, {});
-  };
-
-  const grouped = groupNotificationsByDate(notifications);
+  }, [notifications]);
 
   const handleItemClick = (item: NotificationItem) => {
     markAsRead(item.id);

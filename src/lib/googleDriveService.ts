@@ -460,7 +460,7 @@ export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spre
     ["Total de Receitas Pontuais (€)", `=${fnSUM}(Receitas_Pontuais!E2:E100000)`],
     ["Total de Receitas Fixas Registadas (€)", `=${fnSUM}(Receitas_Fixas_Registadas!E2:E100000)`],
     ["Total Geral de Receitas (€)", "=B3+B4"],
-    ["Total de Despesas Registadas (€)", `=${fnSUM}(Despesas!E2:E100000)`],
+    ["Total de Despesas Registadas (€)", `=${fnSUM}(Despesas!F2:F100000)`],
     ["Saldo Líquido Registado (€)", "=B5-B6"],
     ["", ""],
     ["Compromissos Fixos Mensais Previstos (€)", `=${fnSUM}(Despesas_Fixas!E2:E100000)`],
@@ -476,13 +476,16 @@ export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spre
     ["Outros", `=${fnSUMIF}(Receitas_Pontuais!D2:D100000${sep} "Outros"${sep} Receitas_Pontuais!E2:E100000) + ${fnSUMIF}(Receitas_Fixas_Registadas!D2:D100000${sep} "Outros"${sep} Receitas_Fixas_Registadas!E2:E100000)`],
     ["", ""],
     ["RESUMO DE DESPESAS POR CATEGORIA", "TOTAL (€)"],
-    ["Habitação", `=${fnSUMIF}(Despesas!D2:D100000${sep} "Habitação"${sep} Despesas!E2:E100000)`],
-    ["Alimentação", `=${fnSUMIF}(Despesas!D2:D100000${sep} "Alimentação"${sep} Despesas!E2:E100000)`],
-    ["Transportes & Veículos", `=${fnSUMIF}(Despesas!D2:D100000${sep} "Transportes"${sep} Despesas!E2:E100000) + ${fnSUMIF}(Despesas!D2:D100000${sep} "Veículo"${sep} Despesas!E2:E100000)`],
-    ["Saúde", `=${fnSUMIF}(Despesas!D2:D100000${sep} "Saúde"${sep} Despesas!E2:E100000)`],
-    ["Lazer & Restaurantes", `=${fnSUMIF}(Despesas!D2:D100000${sep} "Lazer"${sep} Despesas!E2:E100000) + ${fnSUMIF}(Despesas!D2:D100000${sep} "Restaurantes"${sep} Despesas!E2:E100000)`],
-    ["Educação", `=${fnSUMIF}(Despesas!D2:D100000${sep} "Educação"${sep} Despesas!E2:E100000)`],
-    ["Outros", `=${fnSUMIF}(Despesas!D2:D100000${sep} "Outros"${sep} Despesas!E2:E100000) + ${fnSUMIF}(Despesas!D2:D100000${sep} "Diversos"${sep} Despesas!E2:E100000)`]
+    ["Habitação", `=${fnSUMIF}(Despesas!E2:E100000${sep} "Habitação"${sep} Despesas!F2:F100000)`],
+    ["Luz & Eletricidade", `=${fnSUMIF}(Despesas!E2:E100000${sep} "Luz"${sep} Despesas!F2:F100000) + ${fnSUMIF}(Despesas!E2:E100000${sep} "Eletricidade"${sep} Despesas!F2:F100000)`],
+    ["Água & Gás", `=${fnSUMIF}(Despesas!E2:E100000${sep} "Água"${sep} Despesas!F2:F100000) + ${fnSUMIF}(Despesas!E2:E100000${sep} "Gás"${sep} Despesas!F2:F100000)`],
+    ["Condomínio & IMI", `=${fnSUMIF}(Despesas!E2:E100000${sep} "Condomínio"${sep} Despesas!F2:F100000) + ${fnSUMIF}(Despesas!E2:E100000${sep} "IMI"${sep} Despesas!F2:F100000)`],
+    ["Alimentação", `=${fnSUMIF}(Despesas!E2:E100000${sep} "Alimentação"${sep} Despesas!F2:F100000)`],
+    ["Transportes & Combustível", `=${fnSUMIF}(Despesas!E2:E100000${sep} "Transportes"${sep} Despesas!F2:F100000) + ${fnSUMIF}(Despesas!E2:E100000${sep} "Combustível"${sep} Despesas!F2:F100000) + ${fnSUMIF}(Despesas!E2:E100000${sep} "Veículo"${sep} Despesas!F2:F100000)`],
+    ["Saúde", `=${fnSUMIF}(Despesas!E2:E100000${sep} "Saúde"${sep} Despesas!F2:F100000)`],
+    ["Lazer & Restaurantes", `=${fnSUMIF}(Despesas!E2:E100000${sep} "Lazer"${sep} Despesas!F2:F100000) + ${fnSUMIF}(Despesas!E2:E100000${sep} "Restaurantes"${sep} Despesas!F2:F100000)`],
+    ["Educação", `=${fnSUMIF}(Despesas!E2:E100000${sep} "Educação"${sep} Despesas!F2:F100000)`],
+    ["Outros", `=${fnSUMIF}(Despesas!E2:E100000${sep} "Outros"${sep} Despesas!F2:F100000) + ${fnSUMIF}(Despesas!E2:E100000${sep} "Outro"${sep} Despesas!F2:F100000) + ${fnSUMIF}(Despesas!E2:E100000${sep} "Diversos"${sep} Despesas!F2:F100000)`]
   ];
 
   try {
