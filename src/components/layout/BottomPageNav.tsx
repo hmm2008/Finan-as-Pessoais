@@ -16,7 +16,11 @@ import {
   Clock,
   ArrowUpCircle,
   ArrowDownCircle,
-  PieChart
+  PieChart,
+  BarChart3,
+  Sparkles,
+  ShieldCheck,
+  Calculator
 } from 'lucide-react';
 
 export function BottomPageNav() {
@@ -32,11 +36,15 @@ export function BottomPageNav() {
     { id: '/objectivos', label: customLabels['/objectivos'] || 'Objetivos', icon: Target, secure: true },
     { id: '/configuracoes', label: customLabels['/configuracoes'] || 'Ajustes', icon: Settings, secure: true },
     
-    // Secondary links (shown in desktop scroller)
+    // Secondary links (shown in footer navigation scroller)
     { id: '/receitas-fixas', label: customLabels['/receitas-fixas'] || 'Receitas Fixas', icon: ArrowUpCircle, secondary: true, secure: true },
     { id: '/despesas-fixas', label: customLabels['/despesas-fixas'] || 'Despesas Fixas', icon: ArrowDownCircle, secondary: true },
     { id: '/orcamentos', label: customLabels['/orcamentos'] || 'Orçamentos', icon: PieChart, secondary: true, secure: true },
     { id: '/viaturas', label: customLabels['/viaturas'] || 'Viaturas', icon: Car, secondary: true },
+    { id: '/investimentos', label: customLabels['/investimentos'] || 'Investimentos', icon: BarChart3, secondary: true, secure: true },
+    { id: '/projecoes', label: customLabels['/projecoes'] || 'Projeções & FIRE', icon: Sparkles, secondary: true, secure: true },
+    { id: '/auditoria', label: customLabels['/auditoria'] || 'Auditoria & Saúde', icon: ShieldCheck, secondary: true, secure: true },
+    { id: '/fiscal', label: customLabels['/fiscal'] || 'Assistente Fiscal', icon: Calculator, secondary: true, secure: true },
     { id: '/utilitarios', label: customLabels['/utilitarios'] || 'Utilitários', icon: Wrench, secondary: true },
     { id: '/lixeira', label: customLabels['/lixeira'] || 'Reciclagem', icon: Trash2, secondary: true, secure: true },
   ];

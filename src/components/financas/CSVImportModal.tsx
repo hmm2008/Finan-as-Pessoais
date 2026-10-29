@@ -27,7 +27,10 @@ import {
   Repeat,
   Sparkles,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Landmark,
+  FileCode,
+  ShieldCheck
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -36,6 +39,7 @@ import { useExpenses, useIncomes } from '../../hooks/queries';
 import { getSuggestedCategory } from './AutoCategorization';
 import { usePaymentMethods, normalizePaymentMethod } from '../../hooks/usePaymentMethods';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
+import { parseOFXStatement, parseCAMT053Statement, detectBankCSVFormat } from './bankStatementParsers';
 
 interface CSVImportModalProps {
   isOpen: boolean;
@@ -89,6 +93,7 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
   const [fileName, setFileName] = useState<string>('');
   const [rawData, setRawData] = useState<Record<string, any>[]>([]);
   const [allColumns, setAllColumns] = useState<string[]>([]);
+  const [detectedBankName, setDetectedBankName] = useState<string>('');
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const [importProgress, setImportProgress] = useState<number>(0);
   const [importResult, setImportResult] = useState<{ expenses: number; incomes: number } | null>(null);
@@ -120,7 +125,7 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
     }
   }, [isOpen, defaultYear, defaultMonth]);
 
-  // Smart Column Detection for all titles: Tipo, Data, Valor, Categoria, Descrição, Origem/entidade, Método de pagamento, Recorrente
+  // Smart Column Detection for generic files
   const autoDetectColumns = (cols: string[]) => {
     let bestEntity = '';
     let bestAmount = '';
@@ -133,7 +138,7 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
 
     const lowerCols = cols.map(c => ({ original: c, lower: c.toLowerCase().trim() }));
 
-    // 1. Detect Tipo (Despesa / Receita)
+    // 1. Detect Tipo
     for (const c of lowerCols) {
       if (['tipo', 'natureza', 'sentido', 'tipo de movimento', 'tipo de transação', 'tipo de transacao', 'tipo de registo', 'tipo movimento', 'd/c'].some(k => c.lower === k || c.lower.startsWith(k))) {
         bestType = c.original;
@@ -148,7 +153,6 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
         break;
       }
     }
-    // Fallback for entity if not found
     if (!bestEntity) {
       for (const c of lowerCols) {
         if (['descrição', 'descricao', 'descritivo', 'histórico', 'historico', 'memo'].some(k => c.lower.includes(k))) {
@@ -183,7 +187,7 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
       }
     }
 
-    // 6. Detect Description / Descrição (distinct from entity if possible)
+    // 6. Detect Description / Descrição
     for (const c of lowerCols) {
       if (c.original !== bestEntity && ['descrição', 'descricao', 'descritivo', 'detalhe', 'observações', 'observacoes', 'obs', 'notas', 'memo', 'info'].some(k => c.lower.includes(k))) {
         bestDesc = c.original;
@@ -191,7 +195,7 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
       }
     }
 
-    // 7. Detect Payment Method / Método de Pagamento
+    // 7. Detect Payment Method
     for (const c of lowerCols) {
       if (['método de pagamento', 'metodo de pagamento', 'método de pag', 'metodo de pag', 'método', 'metodo', 'forma de pagamento', 'meio de pagamento', 'payment method', 'modo de pagamento', 'pagamento', 'meio pag.'].some(k => c.lower.includes(k))) {
         bestMethod = c.original;
@@ -199,7 +203,7 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
       }
     }
 
-    // 8. Detect Recurring / Recorrente (sim ou não)
+    // 8. Detect Recurring
     for (const c of lowerCols) {
       if (['recorrente (sim ou não)', 'recorrente (sim/não)', 'recorrente', 'recorrência', 'recorrencia', 'fixa', 'fixo', 'despesa fixa', 'repetir', 'recurring', 'frequência', 'frequencia'].some(k => c.lower.includes(k))) {
         bestRecurring = c.original;
@@ -220,16 +224,72 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
     }
   };
 
+  // Apply bank auto-mappings if detected
+  const applyBankMappings = (mappings: any) => {
+    if (mappings.entityField) setEntityField(mappings.entityField);
+    if (mappings.amountField) setAmountField(mappings.amountField);
+    if (mappings.dateField) setDateField(mappings.dateField);
+    if (mappings.categoryField) setCategoryField(mappings.categoryField);
+    if (mappings.descriptionField) setDescriptionField(mappings.descriptionField);
+    if (mappings.methodField) setMethodField(mappings.methodField);
+    if (mappings.recurringField) setRecurringField(mappings.recurringField);
+    if (mappings.typeField) {
+      setTypeField(mappings.typeField);
+      setTypeMode('auto');
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const nameLower = file.name.toLowerCase();
     setFileName(file.name);
     setImportResult(null);
+    setDetectedBankName('');
 
-    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    const isExcel = nameLower.endsWith('.xlsx') || nameLower.endsWith('.xls');
+    const isOFX = nameLower.endsWith('.ofx') || nameLower.endsWith('.qfx');
+    const isXML = nameLower.endsWith('.xml') || nameLower.endsWith('.camt053');
 
-    if (isExcel) {
+    if (isOFX || isXML) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const text = String(evt.target?.result || '');
+          if (isOFX || text.includes('<OFX>') || text.includes('<STMTTRN>')) {
+            const ofxRes = parseOFXStatement(text, file.name);
+            setAllColumns(ofxRes.columns);
+            setRawData(ofxRes.data);
+            setDetectedBankName(`${ofxRes.formatName} (${ofxRes.bankName})`);
+            applyBankMappings(ofxRes.autoMappings);
+          } else if (isXML || text.includes('<Document') || text.includes('<Ntry>')) {
+            const camtRes = parseCAMT053Statement(text, file.name);
+            setAllColumns(camtRes.columns);
+            setRawData(camtRes.data);
+            setDetectedBankName(`${camtRes.formatName} - ${camtRes.bankName}`);
+            applyBankMappings(camtRes.autoMappings);
+          } else {
+            // Fallback text parse
+            Papa.parse(text, {
+              header: true,
+              skipEmptyLines: true,
+              complete: (results) => {
+                if (results.meta.fields && results.meta.fields.length > 0) {
+                  const cols = results.meta.fields;
+                  setAllColumns(cols);
+                  setRawData(results.data as Record<string, any>[]);
+                  autoDetectColumns(cols);
+                }
+              }
+            });
+          }
+        } catch (err) {
+          console.error('Erro ao ler ficheiro de extrato:', err);
+        }
+      };
+      reader.readAsText(file);
+    } else if (isExcel) {
       const reader = new FileReader();
       reader.onload = (evt) => {
         try {
@@ -243,7 +303,14 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
             const cols = Object.keys(jsonData[0]);
             setAllColumns(cols);
             setRawData(jsonData);
-            autoDetectColumns(cols);
+
+            const bankInfo = detectBankCSVFormat(cols);
+            if (bankInfo.isBankCSV) {
+              setDetectedBankName(`Extrato ${bankInfo.bankName}`);
+              if (bankInfo.mappings) applyBankMappings(bankInfo.mappings);
+            } else {
+              autoDetectColumns(cols);
+            }
           }
         } catch (err) {
           console.error('Erro ao ler ficheiro Excel:', err);
@@ -251,6 +318,7 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
       };
       reader.readAsBinaryString(file);
     } else {
+      // CSV or plain text
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
@@ -259,7 +327,14 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
             const cols = results.meta.fields;
             setAllColumns(cols);
             setRawData(results.data as Record<string, any>[]);
-            autoDetectColumns(cols);
+
+            const bankInfo = detectBankCSVFormat(cols);
+            if (bankInfo.isBankCSV) {
+              setDetectedBankName(`Extrato ${bankInfo.bankName}`);
+              if (bankInfo.mappings) applyBankMappings(bankInfo.mappings);
+            } else {
+              autoDetectColumns(cols);
+            }
           }
         }
       });
@@ -600,11 +675,11 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
             <X className="w-4 h-4" />
           </Button>
           <CardTitle className="text-xl flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-primary" />
-            Importar Ficheiro Excel ou CSV
+            <Landmark className="w-5 h-5 text-primary" />
+            Importação Inteligente de Extratos Bancários (OFX, CAMT.053, CSV, Excel)
           </CardTitle>
           <CardDescription>
-            Mapeamento completo da sua folha (Tipo, Data, Valor, Categoria, Descrição, Origem/Entidade, Método de Pagamento e Recorrente) com a nossa estrutura.
+            Suporta extratos oficiais de bancos portugueses e internacionais (CGD, Millennium bcp, Santander, Novo Banco, Revolut, Wise) e ficheiros OFX / CAMT.053 SEPA XML.
           </CardDescription>
         </CardHeader>
 
@@ -712,21 +787,41 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
           {/* Step 1: Upload File Area */}
           {!rawData.length && !importResult && (
             <div 
-              className="border-2 border-dashed border-border rounded-xl p-8 sm:p-12 text-center flex flex-col items-center justify-center bg-secondary/20 hover:bg-secondary/30 transition-colors cursor-pointer"
+              className="border-2 border-dashed border-border rounded-xl p-8 sm:p-10 text-center flex flex-col items-center justify-center bg-secondary/20 hover:bg-secondary/30 transition-colors cursor-pointer group"
               onClick={() => document.getElementById('file-upload-input')?.click()}
             >
-              <FileSpreadsheet className="w-12 h-12 text-primary/70 mb-3" />
-              <p className="text-sm font-semibold mb-1 text-foreground">Carregar Ficheiro de Transações (XLS, XLSX ou CSV)</p>
-              <p className="text-xs text-muted-foreground mb-4 max-w-md">
-                Suporta títulos personalizados como Tipo, Data, Valor, Categoria, Descrição, Origem/Entidade, Método de Pagamento e Recorrente.
+              <div className="flex items-center justify-center gap-3 mb-3">
+                <Landmark className="w-9 h-9 text-primary/80 group-hover:scale-110 transition-transform" />
+                <FileCode className="w-8 h-8 text-emerald-500/80 group-hover:scale-110 transition-transform" />
+                <FileSpreadsheet className="w-9 h-9 text-blue-500/80 group-hover:scale-110 transition-transform" />
+              </div>
+              <p className="text-base font-bold mb-1 text-foreground">Carregar Extrato Bancário ou Ficheiro</p>
+              <p className="text-xs text-muted-foreground mb-4 max-w-lg">
+                Suporta ficheiros de extratos bancários <strong>.OFX</strong>, <strong>.XML (CAMT.053 SEPA)</strong>, <strong>.CSV</strong> e <strong>.XLSX</strong> de bancos como CGD, Millennium bcp, Santander, Novo Banco, BPI, Revolut, Wise, etc.
               </p>
-              <Button size="sm" className="gap-2 pointer-events-none">
-                <UploadCloud className="w-4 h-4" /> Selecionar Ficheiro
+
+              <div className="flex flex-wrap justify-center gap-2 mb-4">
+                <Badge variant="outline" className="text-[11px] bg-background gap-1">
+                  <Landmark className="w-3 h-3 text-primary" /> OFX / QFX
+                </Badge>
+                <Badge variant="outline" className="text-[11px] bg-background gap-1">
+                  <FileCode className="w-3 h-3 text-emerald-500" /> CAMT.053 (XML)
+                </Badge>
+                <Badge variant="outline" className="text-[11px] bg-background gap-1">
+                  <FileSpreadsheet className="w-3 h-3 text-blue-500" /> CSV Bancário
+                </Badge>
+                <Badge variant="outline" className="text-[11px] bg-background gap-1">
+                  <FileSpreadsheet className="w-3 h-3 text-amber-500" /> Excel (XLSX/XLS)
+                </Badge>
+              </div>
+
+              <Button size="sm" className="gap-2 pointer-events-none shadow-sm">
+                <UploadCloud className="w-4 h-4" /> Selecionar Extrato / Ficheiro
               </Button>
               <input 
                 id="file-upload-input" 
                 type="file" 
-                accept=".csv, .xlsx, .xls, text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
+                accept=".csv, .xlsx, .xls, .ofx, .qfx, .xml, .camt053, text/csv, text/xml, application/xml, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
                 className="hidden" 
                 onChange={handleFileUpload} 
               />
@@ -740,12 +835,18 @@ export function CSVImportModal({ isOpen, onClose, defaultYear, defaultMonth }: C
               {/* File Info & Detected Fields Summary */}
               <div className="bg-card border border-border p-3.5 rounded-xl space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <FileText className="w-4 h-4 text-primary" />
                     <span className="text-xs font-bold truncate max-w-xs">{fileName}</span>
                     <Badge variant="secondary" className="text-[10px]">
                       {rawData.length} linhas detetadas
                     </Badge>
+                    {detectedBankName && (
+                      <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/30 text-primary font-bold gap-1">
+                        <Landmark className="w-3 h-3" />
+                        {detectedBankName}
+                      </Badge>
+                    )}
                   </div>
                   <Button variant="ghost" size="sm" onClick={handleReset} className="h-7 text-xs text-muted-foreground hover:text-foreground">
                     <RefreshCw className="w-3 h-3 mr-1" /> Trocar Ficheiro

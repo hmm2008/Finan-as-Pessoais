@@ -282,7 +282,7 @@ export async function findOrCreateFinanceSpreadsheet(accessToken: string): Promi
       body: JSON.stringify({
         valueInputOption: 'USER_ENTERED',
         data: [
-          { range: 'Despesas!A1:I1', values: [["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo"]] },
+          { range: 'Despesas!A1:K1', values: [["ID", "Nome da Despesa", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo", "ID Imóvel"]] },
           { range: 'Receitas_Pontuais!A1:H1', values: [["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas"]] },
           { range: 'Receitas_Fixas_Registadas!A1:H1', values: [["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas", "ID Fixo"]] },
           { range: 'Despesas_Fixas!A1:O1', values: [["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Observações", "Próximo Vencimento"]] },
@@ -469,6 +469,8 @@ export async function formatAndStyleFinanceSpreadsheet(accessToken: string, spre
     ["", ""],
     ["Total Património Registado (€)", `=${fnSUM}(Patrimonio!D2:D100000)`],
     ["Saldo Total em Contas Bancárias (€)", `=${fnSUM}(Contas!E2:E100000)`],
+    ["Total Custo Aquisição Investimentos (€)", `=${fnSUM}(Patrimonio!E2:E100000)`],
+    ["Mais-Valia Potencial Global (€)", "=B13-B15"],
     ["", ""],
     ["RESUMO DE RECEITAS POR CATEGORIA", "TOTAL (€)"],
     ["Salário / Ordenado", `=${fnSUMIF}(Receitas_Pontuais!D2:D100000${sep} "Salário"${sep} Receitas_Pontuais!E2:E100000) + ${fnSUMIF}(Receitas_Pontuais!D2:D100000${sep} "Ordenado"${sep} Receitas_Pontuais!E2:E100000) + ${fnSUMIF}(Receitas_Fixas_Registadas!D2:D100000${sep} "Salário"${sep} Receitas_Fixas_Registadas!E2:E100000) + ${fnSUMIF}(Receitas_Fixas_Registadas!D2:D100000${sep} "Ordenado"${sep} Receitas_Fixas_Registadas!E2:E100000)`],

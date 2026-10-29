@@ -6,7 +6,7 @@ import { useNotifications, NotificationItem } from '../contexts/NotificationCont
 import { useNavigate } from 'react-router-dom';
 import { 
   Bell, Check, Trash2, Calendar, Info, 
-  AlertTriangle, CheckCircle2, AlertCircle, ArrowRight, BellOff 
+  AlertTriangle, CheckCircle2, AlertCircle, ArrowRight, BellOff, ShieldCheck 
 } from 'lucide-react';
 
 const TYPE_CONFIG: Record<string, { icon: any; bgClass: string; textClass: string; label: string }> = {
@@ -67,14 +67,23 @@ export default function NotificacoesView() {
         />
 
         <div className="flex items-center gap-2">
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={() => navigate('/auditoria')}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 rounded-xl shadow-md"
+          >
+            <ShieldCheck className="w-4 h-4 mr-1.5" /> Cockpit de Auditoria
+          </Button>
+
           {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={markAllAsRead}>
-              <Check className="w-4 h-4 mr-1.5" /> Marcar todas como lidas
+            <Button variant="outline" size="sm" onClick={markAllAsRead} className="text-xs h-9 rounded-xl">
+              <Check className="w-4 h-4 mr-1.5" /> Marcar lidas
             </Button>
           )}
           {notifications.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearAll} className="text-destructive hover:bg-destructive/10">
-              <Trash2 className="w-4 h-4 mr-1.5" /> Limpar todas
+            <Button variant="ghost" size="sm" onClick={clearAll} className="text-destructive hover:bg-destructive/10 text-xs h-9 rounded-xl">
+              <Trash2 className="w-4 h-4 mr-1.5" /> Limpar
             </Button>
           )}
         </div>

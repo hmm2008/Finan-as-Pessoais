@@ -14,13 +14,30 @@ export const AIInsightsWidget: React.FC = () => {
     const fetchInsights = async () => {
       setIsLoading(true);
       try {
+        // Sanitize & map expenses payload to avoid sending large unnecessary metadata
+        const lightExpenses = (expenses || []).slice(-150).map((e: any) => ({
+          category: e.category || 'Outros',
+          amount: Number(e.amount || 0),
+          date: e.date || ''
+        }));
+
         const response = await fetch('/api/suggest-savings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ expenses })
+          body: JSON.stringify({ expenses: lightExpenses })
         });
-        const data = await response.json();
-        setInsights(data.suggestions);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          setInsights(data.suggestions || null);
+        } else {
+          console.warn('Response was not JSON');
+        }
       } catch (error) {
         console.error('Error fetching AI insights:', error);
       } finally {

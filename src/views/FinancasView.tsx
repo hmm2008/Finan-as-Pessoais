@@ -20,7 +20,6 @@ import { usePrivacy, useDashboard } from '../contexts';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { Button } from '../components/ui/button';
 import { Search, Info, Plus, Upload, FileText, Wallet } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useExpenses, useIncomes, useFixedExpenses, useFixedIncomes } from '../hooks/queries';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
 
@@ -29,7 +28,6 @@ export default function FinancasView() {
   const { currentMonth, setMonth } = useDashboard();
   const { prefs } = usePreferences();
   const formatter = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
-  const navigate = useNavigate();
 
   const customTitles = prefs.pageTitles || {};
   const customSubtitles = prefs.pageSubtitles || {};

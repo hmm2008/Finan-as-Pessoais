@@ -7,6 +7,21 @@
     <meta name="description" content="Gestão Financeira Pessoal — Tome o controlo do seu orçamento, despesas, objetivos de poupança e investimentos com total privacidade." />
     <meta name="keywords" content="finanças pessoais, orçamento, poupança, despesas, receitas, portugal" />
     <meta name="author" content="Finanças Pessoais App" />
+    <script>
+      // In sandbox/iframe environments without WebSocket HMR support, ignore Vite HMR WebSocket closing errors
+      window.addEventListener('error', function(e) {
+        if (e && e.message && (e.message.includes('WebSocket closed') || e.message.includes('[vite]'))) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(e) {
+        if (e && e.reason && (String(e.reason).includes('WebSocket closed') || String(e.reason).includes('[vite]'))) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+    </script>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

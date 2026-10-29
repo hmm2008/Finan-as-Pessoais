@@ -25,7 +25,10 @@ import {
   Wrench,
   Loader2,
   KeyRound,
-  Palette
+  Palette,
+  BarChart3,
+  ShieldCheck,
+  Calculator
 } from 'lucide-react';
 
 export interface NavItemConfig {
@@ -44,6 +47,10 @@ export const DEFAULT_NAV_ITEMS: NavItemConfig[] = [
   { id: '/patrimonio', defaultLabel: 'Património', icon: TrendingUp, description: 'Bens, ativos e contas de investimento' },
   { id: '/viaturas', defaultLabel: 'Viaturas', icon: Car, description: 'Abastecimentos e despesas de veículos' },
   { id: '/objectivos', defaultLabel: 'Objetivos', icon: Target, description: 'Metas de poupança e fundos de emergência' },
+  { id: '/investimentos', defaultLabel: 'Investimentos', icon: BarChart3, description: 'Análise da carteira de investimentos e ativos' },
+  { id: '/projecoes', defaultLabel: 'Projeções & FIRE', icon: Sparkles, description: 'Simulador de reforma antecipada e projeções financeiras' },
+  { id: '/auditoria', defaultLabel: 'Auditoria & Saúde', icon: ShieldCheck, description: 'Cockpit de auditoria, diagnóstico e alertas de saúde financeira' },
+  { id: '/fiscal', defaultLabel: 'Assistente Fiscal', icon: Calculator, description: 'Simulador de deduções de IRS, prazos da AT, IMI e IUC' },
   { id: '/utilitarios', defaultLabel: 'Utilitários', icon: Wrench, description: 'Geração de relatórios mensais/anuais e backups' },
   { id: '/lixeira', defaultLabel: 'Reciclagem', icon: Trash2, description: 'Recuperação de itens e registos eliminados' },
   { id: '/configuracoes', defaultLabel: 'Configurações', icon: Settings, description: 'Definições da conta e preferências da app' },

@@ -13,6 +13,7 @@ import {
   PatrimonioView, NotificacoesView, OrcamentosView,
   DespesasFixasView, ReceitasFixasView, ObjectivosView,
   ConfiguracoesView, LixeiraView, ArquivoView, UtilitariosView,
+  InvestmentsView, ProjecoesView, AuditoriaView, AssistenteFiscalView,
   RelatorioMensalImprimivelView, PageNotFoundView
 } from './views';
 
@@ -73,6 +74,11 @@ export default function App() {
           <Route path="/arquivo" element={<Navigate to="/utilitarios" replace />} />
           
           {/* Protected Routes */}
+          <Route path="/investimentos" element={<ProtectedRoute><InvestmentsView /></ProtectedRoute>} />
+          <Route path="/projecoes" element={<ProtectedRoute><ProjecoesView /></ProtectedRoute>} />
+          <Route path="/auditoria" element={<ProtectedRoute><AuditoriaView /></ProtectedRoute>} />
+          <Route path="/fiscal" element={<ProtectedRoute><AssistenteFiscalView /></ProtectedRoute>} />
+          <Route path="/assistente-fiscal" element={<Navigate to="/fiscal" replace />} />
           <Route path="/patrimonio" element={<ProtectedRoute><PatrimonioView /></ProtectedRoute>} />
           <Route path="/orcamentos" element={<ProtectedRoute><OrcamentosView /></ProtectedRoute>} />
           <Route path="/receitas-fixas" element={<ProtectedRoute><ReceitasFixasView /></ProtectedRoute>} />

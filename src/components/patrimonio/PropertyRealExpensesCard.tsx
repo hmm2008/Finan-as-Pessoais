@@ -191,28 +191,27 @@ export function PropertyRealExpensesCard({
       
       return false;
     }).map((exp: any) => {
-      // Resolve the Name of the Expense (Nome da Despesa) following the exact same criteria as Finanças
       let resolvedName = '';
-      
-      // 1. If it links to a Fixed Expense, prioritize the name of that Fixed Expense
-      if (exp.fixedExpenseId) {
+
+      // 1. Prioritize explicit name recorded on the expense itself (from database or sheet)
+      if (exp.name && exp.name.trim() && exp.name.trim().toLowerCase() !== 'despesa') {
+        resolvedName = exp.name.trim();
+      }
+
+      // 2. If no explicit name, check linked Fixed Expense
+      if (!resolvedName && exp.fixedExpenseId) {
         const matchedFE = (fixedExpenses || []).find((fe: any) => String(fe.id) === String(exp.fixedExpenseId));
         if (matchedFE && (matchedFE.name || matchedFE.description)) {
           resolvedName = matchedFE.name || matchedFE.description;
         }
       }
 
-      // 2. If it links to a Property Expense, use its title or name
+      // 3. If no name yet, check linked Property Expense
       if (!resolvedName && exp.propertyExpenseId) {
         const matchedPE = propertyExpenses.find((pe: any) => String(pe.id) === String(exp.propertyExpenseId));
         if (matchedPE && (matchedPE.title || (matchedPE as any).name)) {
           resolvedName = matchedPE.title || (matchedPE as any).name;
         }
-      }
-
-      // 3. If there is an explicit name on the expense record itself
-      if (!resolvedName && exp.name && exp.name.trim()) {
-        resolvedName = exp.name.trim();
       }
 
       // 4. Try matching with property expenses of this asset by title or category

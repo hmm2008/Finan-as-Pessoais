@@ -1,15 +1,17 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { ShieldCheck, Activity, TrendingUp, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Activity, TrendingUp, AlertTriangle, ArrowRight } from 'lucide-react';
 import { useExpenses, useIncomes } from '../../hooks/queries';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { useDashboard } from '../../contexts';
+import { useNavigate } from 'react-router-dom';
 
 export const FinancialHealthScoreWidget: React.FC = () => {
   const { currentMonth } = useDashboard();
   const { expenses } = useExpenses();
   const { incomes } = useIncomes();
+  const navigate = useNavigate();
 
   const currentMonthIncomes = incomes.filter((inc: any) => inc.date?.startsWith(currentMonth));
   const currentMonthExpenses = expenses.filter((exp: any) => exp.date?.startsWith(currentMonth));
@@ -47,7 +49,10 @@ export const FinancialHealthScoreWidget: React.FC = () => {
   };
 
   return (
-    <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-2xl sm:rounded-3xl h-full flex flex-col hover:bg-card/80 transition-all duration-300">
+    <Card 
+      onClick={() => navigate('/auditoria')}
+      className="border-border/40 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/5 rounded-2xl sm:rounded-3xl h-full flex flex-col hover:bg-card/80 transition-all duration-300 cursor-pointer group"
+    >
       <CardHeader className="flex flex-row items-center justify-between pb-2 p-4 sm:p-6">
         <CardTitle className="text-[8px] sm:text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
           Saúde Financeira
@@ -97,6 +102,11 @@ export const FinancialHealthScoreWidget: React.FC = () => {
              totalScore >= 60 ? "A sua taxa de poupança está acima da média. Mantenha o foco." :
              "Atenção aos gastos variáveis. Considere rever o seu orçamento mensal."}
           </p>
+
+          <div className="pt-2 flex items-center justify-center gap-1 text-[10px] font-bold text-primary group-hover:underline">
+            <span>Ver Diagnóstico & Auditoria</span>
+            <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+          </div>
         </div>
       </CardContent>
     </Card>

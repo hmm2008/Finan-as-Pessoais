@@ -4,7 +4,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Wallet, TrendingUp, Car, Target, Settings, 
   CreditCard, LogOut, Bell, FileText, Trash2, Calendar, Database, Wrench, Check, AlertCircle, Loader2,
-  Lock, Unlock, KeyRound, ChevronLeft, ChevronRight
+  Lock, Unlock, KeyRound, ChevronLeft, ChevronRight, BarChart3, Sparkles, Building2, ShieldCheck, Calculator
 } from 'lucide-react';
 import { useAuth, usePin } from '../../contexts';
 import { usePreferences, textStyleToCSS } from '../../contexts/PreferencesContext';
@@ -27,9 +27,13 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
     { id: '/receitas-fixas', label: customLabels['/receitas-fixas'] || 'Receitas Fixas', icon: TrendingUp, secure: true },
     { id: '/despesas-fixas', label: customLabels['/despesas-fixas'] || 'Despesas Fixas', icon: Calendar },
     { id: '/orcamentos', label: customLabels['/orcamentos'] || 'Orçamentos', icon: CreditCard, secure: true },
-    { id: '/patrimonio', label: customLabels['/patrimonio'] || 'Património', icon: TrendingUp },
+    { id: '/patrimonio', label: customLabels['/patrimonio'] || 'Património', icon: Building2 },
     { id: '/viaturas', label: customLabels['/viaturas'] || 'Viaturas', icon: Car },
     { id: '/objectivos', label: customLabels['/objectivos'] || customLabels['/objetivos'] || 'Objetivos', icon: Target, secure: true },
+    { id: '/investimentos', label: customLabels['/investimentos'] || 'Investimentos', icon: BarChart3, secure: true },
+    { id: '/projecoes', label: customLabels['/projecoes'] || 'Projeções & FIRE', icon: Sparkles, secure: true },
+    { id: '/auditoria', label: customLabels['/auditoria'] || 'Auditoria & Saúde', icon: ShieldCheck, secure: true },
+    { id: '/fiscal', label: customLabels['/fiscal'] || 'Assistente Fiscal', icon: Calculator, secure: true },
     { id: '/utilitarios', label: customLabels['/utilitarios'] || customLabels['/backup'] || customLabels['/arquivo'] || 'Utilitários', icon: Wrench },
     { id: '/lixeira', label: customLabels['/lixeira'] || customLabels['/trash'] || 'Reciclagem', icon: Trash2, secure: true },
   ];

@@ -24,7 +24,11 @@ import {
   Database,
   Wrench,
   Loader2,
-  Palette
+  Palette,
+  BarChart3,
+  Sparkles,
+  ShieldCheck,
+  Calculator
 } from 'lucide-react';
 
 export interface PageConfig {
@@ -91,6 +95,34 @@ export const MAIN_PAGES_CONFIG: PageConfig[] = [
     defaultSubtitle: 'Acompanhamento e simulação de metas financeiras de curto, médio e longo prazo', 
     icon: Target, 
     description: 'Metas de poupança, simulador e progresso financeiro' 
+  },
+  { 
+    id: '/investimentos', 
+    defaultTitle: 'Investimentos', 
+    defaultSubtitle: 'Análise detalhada da carteira de investimentos e ativos financeiros', 
+    icon: BarChart3, 
+    description: 'Acompanhamento de carteiras, yields e alocação de ativos' 
+  },
+  { 
+    id: '/projecoes', 
+    defaultTitle: 'Projeções & FIRE', 
+    defaultSubtitle: 'Simulador de independência financeira e projeções a longo prazo', 
+    icon: Sparkles, 
+    description: 'Projeção de património futuro e calculadora de independência financeira' 
+  },
+  { 
+    id: '/auditoria', 
+    defaultTitle: 'Cockpit de Auditoria & Saúde Financeira', 
+    defaultSubtitle: 'Diagnóstico de saúde financeira, deteção de anomalias e resolução de alertas', 
+    icon: ShieldCheck, 
+    description: 'Verificação automática de discrepâncias, duplicados e otimizações' 
+  },
+  { 
+    id: '/fiscal', 
+    defaultTitle: 'Assistente Fiscal & Impostos', 
+    defaultSubtitle: 'Alertas de IMI, IUC, simulador de deduções de IRS e calendário da Autoridade Tributária', 
+    icon: Calculator, 
+    description: 'Cálculo de deduções de IRS, imobiliário (IMI), automóvel (IUC) e prazos da AT' 
   },
   { 
     id: '/utilitarios', 

@@ -64,7 +64,8 @@ function getAI(): GoogleGenAI {
 }
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // -----------------------------------------
 function decipherShift(str: string, shift: number): string {
@@ -926,13 +927,29 @@ app.post('/api/reset-pin', async (req, res) => {
   }
 });
 
+// Global JSON error handler middleware to prevent HTML error responses
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Express error handler caught:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  const statusCode = err.status || err.statusCode || 500;
+  res.status(statusCode).json({
+    error: err.message || 'Erro interno no servidor.',
+    code: err.code || 'SERVER_ERROR'
+  });
+});
+
 // -----------------------------------------
 // Vite / Static Assets Setup
 // -----------------------------------------
 const setupServer = async () => {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);

@@ -795,10 +795,91 @@ export function useCategorizationRules() {
 }
 
 // -----------------------------------------
+// 14. Accounts Hook (useAccounts)
+// -----------------------------------------
+export function useAccounts() {
+  const queryClient = useQueryClient();
+
+  const queryResult = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => {
+      const a1 = getLocalEntityList<any>('fin_accounts');
+      const a2 = getLocalEntityList<any>('fin_bank_accounts');
+      const map = new Map<string, any>();
+      [...a1, ...a2].forEach((item: any) => {
+        if (item && (item.id || item.name)) {
+          map.set(item.id || item.name, item);
+        }
+      });
+      return Array.from(map.values());
+    },
+    initialData: () => {
+      const a1 = getLocalEntityList<any>('fin_accounts');
+      const a2 = getLocalEntityList<any>('fin_bank_accounts');
+      const map = new Map<string, any>();
+      [...a1, ...a2].forEach((item: any) => {
+        if (item && (item.id || item.name)) {
+          map.set(item.id || item.name, item);
+        }
+      });
+      return Array.from(map.values());
+    },
+    staleTime: 0,
+  });
+
+  const updateAccount = useMutation({
+    mutationFn: async (updatedAcc: any) => {
+      await updateEntity<any>('fin_accounts', 'accounts', updatedAcc);
+      await updateEntity<any>('fin_bank_accounts', 'accounts', updatedAcc);
+      return updatedAcc;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    }
+  });
+
+  return {
+    accounts: queryResult.data || [],
+    isLoading: queryResult.isLoading,
+    updateAccount: updateAccount.mutateAsync
+  };
+}
+
+// -----------------------------------------
+// 15. Audit Alerts Hook (useAuditAlerts)
+// -----------------------------------------
+export function useAuditAlerts() {
+  const queryClient = useQueryClient();
+
+  const queryResult = useQuery({
+    queryKey: ['auditAlerts'],
+    queryFn: () => getEntityList<any>('fin_audit_alerts', 'audit_alerts'),
+    initialData: () => getLocalEntityList<any>('fin_audit_alerts'),
+    staleTime: 0,
+  });
+
+  const saveAlerts = useMutation({
+    mutationFn: async (alerts: any[]) => {
+      localStorage.setItem('fin_audit_alerts', JSON.stringify(alerts));
+      scheduleSheetsBackgroundSync();
+      return alerts;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['auditAlerts'], data);
+    }
+  });
+
+  return {
+    auditAlerts: queryResult.data || [],
+    isLoading: queryResult.isLoading,
+    saveAuditAlerts: saveAlerts.mutateAsync
+  };
+}
+
+// -----------------------------------------
 // Helper: Global Cloud Migration & Sweep
 // -----------------------------------------
 export async function syncAllLocalEntitiesToFirestore(userUid: string): Promise<void> {
-  // Disconnected from Firestore. Data sync runs only through Google Sheets now.
   console.log('Firestore sync disabled. Re-routing all syncs to Google Sheets.');
 }
 

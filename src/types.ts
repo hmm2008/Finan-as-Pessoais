@@ -10,6 +10,7 @@ export interface Expense extends Entity {
   description: string;
   entity: string;
   method: string;
+  paymentMethod?: string;
   recurring: boolean;
   vehicle?: boolean;
   vehicleId?: string;
@@ -21,6 +22,11 @@ export interface Expense extends Entity {
   assetId?: string;
   propertyExpenseId?: string;
   fixedExpenseId?: string;
+  installmentsTotal?: number;
+  installmentsCurrent?: number;
+  installmentId?: string;
+  tags?: string[];
+  receiptUrl?: string;
 }
 
 export interface Income extends Entity {
@@ -56,9 +62,12 @@ export interface Asset extends Entity {
   quantity?: number;
   averagePrice?: number;
   interestRate?: number;
+  expectedYield?: number;
   startDate?: string;
   endDate?: string;
   institution?: string;
+  custodian?: string;
+  ticker?: string;
 }
 
 export interface Vehicle extends Entity {
@@ -83,3 +92,18 @@ export interface Notification extends Entity {
   link?: string;
   category?: string;
 }
+
+export interface AuditAlert {
+  id: string;
+  type: 'duplicate' | 'budget_overrun' | 'vehicle_deadline' | 'stale_subscription' | 'emergency_fund' | 'diversification';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  title: string;
+  description: string;
+  entityId?: string;
+  entityType?: 'expense' | 'budget' | 'vehicle' | 'fixedExpense';
+  dateDetected: string;
+  data?: any;
+  resolved: boolean;
+  actionLabel?: string;
+}
+

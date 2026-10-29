@@ -167,9 +167,15 @@ export function getStoredSpreadsheetId(): string | null {
  * Safely parse numeric values from Sheets or Inputs.
  */
 function parseNum(val: any): number {
-  if (typeof val === 'number') return val;
-  if (!val) return 0;
-  let str = String(val).replace(/€/g, '').replace(/\s/g, '').trim();
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (val === null || val === undefined) return 0;
+  let str = String(val).replace(/[\u00A0\s]/g, '').replace(/[€$R]/g, '').trim();
+  if (!str || str === '-' || str === '--' || str.startsWith('#')) return 0;
+
+  // Handle accounting parentheses: "(150,00)" -> -150.00
+  const isNegative = (str.startsWith('(') && str.endsWith(')')) || str.startsWith('-');
+  str = str.replace(/[()\-+]/g, '');
+
   if (str.includes('.') && str.includes(',')) {
     if (str.lastIndexOf('.') < str.lastIndexOf(',')) {
       str = str.replace(/\./g, '').replace(',', '.');
@@ -180,7 +186,8 @@ function parseNum(val: any): number {
     str = str.replace(',', '.');
   }
   const n = parseFloat(str);
-  return isNaN(n) ? 0 : n;
+  if (isNaN(n)) return 0;
+  return isNegative ? -n : n;
 }
 
 /**
@@ -190,7 +197,52 @@ function parseBool(val: any): boolean {
   if (typeof val === 'boolean') return val;
   if (!val) return false;
   const s = String(val).toLowerCase().trim();
-  return s === 'true' || s === 'sim' || s === '1' || s === 'yes' || s === 'ativo';
+  return s === 'true' || s === 'sim' || s === '1' || s === 'yes' || s === 'ativo' || s === 's' || s === 'y';
+}
+
+/**
+ * Safely normalizes date values from Google Sheets into standard YYYY-MM-DD.
+ * Handles ISO (2026-10-29), European (29/10/2026 or 29-10-2026), and Excel serial dates.
+ */
+function normalizeDateString(val: any): string {
+  if (val === null || val === undefined) return new Date().toISOString().slice(0, 10);
+  const s = String(val).trim();
+  if (!s || s === '-' || s.startsWith('#')) return new Date().toISOString().slice(0, 10);
+
+  // 1. ISO format: YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
+  const isoMatch = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  // 2. European / Portuguese format: DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+  const euMatch = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (euMatch) {
+    const [, d, m, y] = euMatch;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  // 3. Numeric Excel serial date (e.g. 45000 -> date around 2023)
+  const num = Number(s);
+  if (!isNaN(num) && num > 30000 && num < 60000) {
+    try {
+      const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().slice(0, 10);
+      }
+    } catch {}
+  }
+
+  // 4. Fallback Date.parse
+  try {
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  } catch {}
+
+  return s;
 }
 
 function mapToAssetCategory(val: string): AssetCategory {
@@ -283,8 +335,20 @@ export const ALIAS_MAP: Record<string, string[]> = {
   'Receitas_Pontuais': ['Receitas', 'Ganhos', 'Incomes', 'Entradas', 'Rendimentos'],
   'Receitas_Fixas_Registadas': ['Receitas_Fixas_Reg', 'Receitas_Fixas_Realizadas', 'Rendimentos_Fixos'],
   'Despesas': ['Gastos', 'Saídas', 'Expenses', 'Pagamentos', 'Custos'],
-  'Contas': ['Bancos', 'Contas_Bancarias', 'Accounts', 'Saldos']
+  'Contas': ['Bancos', 'Contas_Bancarias', 'Accounts', 'Saldos'],
+  'Auditoria_Alertas': ['Auditoria', 'Alertas_Auditoria', 'Audit', 'Saude_Financeira']
 };
+
+export function getColLetter(colIndex: number): string {
+  let letter = '';
+  let temp = colIndex;
+  while (temp > 0) {
+    const mod = (temp - 1) % 26;
+    letter = String.fromCharCode(65 + mod) + letter;
+    temp = Math.floor((temp - mod) / 26);
+  }
+  return letter || 'A';
+}
 
 async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: string): Promise<string[]> {
   const REQUIRED_SHEETS = [
@@ -306,17 +370,19 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     'Preferencias',
     'Regras_Categorizacao',
     'Notificacoes',
-    'Arquivo'
+    'Arquivo',
+    'Auditoria_Alertas',
+    'Assistente_Fiscal'
   ];
 
   const allHeaders: Record<string, string[]> = {
-    'Despesas': ["ID", "Nome da Despesa", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo", "ID Imóvel"],
+    'Despesas': ["ID", "Nome da Despesa", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo", "ID Imóvel", "Parcelas", "Tags", "Recorrente"],
     'Receitas_Pontuais': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas"],
     'Receitas_Fixas_Registadas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas", "ID Fixo"],
     'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Observações", "Próximo Vencimento"],
     'Receitas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Ativo", "Notas"],
     'Contas': ["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"],
-    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Gastos Mensais Est. (€)", "Gastos Anuais Est. (€)", "Rendimentos Mensais Est. (€)", "Rendimentos Anuais Est. (€)", "Lucro Mensal Est. (€)", "Lucro Anual Est. (€)", "Rentabilidade Bruta (%)", "Rentabilidade Líquida (%)", "Encargos JSON", "Rendimentos JSON"],
+    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Gastos Mensais Est. (€)", "Gastos Anuais Est. (€)", "Rendimentos Mensais Est. (€)", "Rendimentos Anuais Est. (€)", "Lucro Mensal Est. (€)", "Lucro Anual Est. (€)", "Rentabilidade Bruta (%)", "Rentabilidade Líquida (%)", "Quantidade", "Preço Médio (€)", "Taxa/Yield (%)", "Instituição/Custodiante", "Ticker", "Encargos JSON", "Rendimentos JSON"],
     'Patrimonio_Despesas': ["ID", "AssetID", "Título", "Valor (€)", "Frequência", "Categoria", "Dia Previsto", "Data Vencimento", "Data Início", "Data Fim", "Observações", "Método", "Notas"],
     'Patrimonio_Rendimentos': ["ID", "AssetID", "Título", "Valor (€)", "Frequência", "Categoria", "Dia Previsto", "Data Vencimento", "Data Início", "Data Fim", "Observações", "Método", "Notas"],
     'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
@@ -328,7 +394,9 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     'Preferencias': ["Chave", "Dados JSON", "Atualizado Em"],
     'Regras_Categorizacao': ["ID", "Keyword", "Categoria", "Tipo", "Prioridade"],
     'Notificacoes': ["ID", "Título", "Mensagem", "Data", "Lida", "Tipo"],
-    'Arquivo': ["ID", "Título", "Data", "Dados JSON", "Tipo"]
+    'Arquivo': ["ID", "Título", "Data", "Dados JSON", "Tipo"],
+    'Auditoria_Alertas': ["ID", "Data Verificação", "Tipo de Alerta", "Severidade", "Título", "Detalhes", "Estado"],
+    'Assistente_Fiscal': ["ID", "Tipo de Imposto", "Descrição / Alerta", "Prazo Limite", "Valor Estimado (€)", "Estado"]
   };
 
   try {
@@ -449,7 +517,7 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
       .filter(sheet => allHeaders[sheet])
       .map(sheet => {
         const headers = allHeaders[sheet];
-        const endChar = String.fromCharCode(64 + headers.length);
+        const endChar = getColLetter(headers.length);
         return {
           range: `'${sheet}'!A1:${endChar}1`,
           values: [headers]
@@ -545,6 +613,7 @@ export async function exportAllDataToSheets(
   let categorizationRules = getLocalData('fin_categorization_rules');
   let notifications = getLocalData('finanas_notifications');
   let archives = getLocalData('finanas_archives');
+  let auditAlerts = getLocalData('fin_audit_alerts');
   if (trash.length === 0) {
     trash = getLocalData('finanas_trash_items');
   }
@@ -558,7 +627,8 @@ export async function exportAllDataToSheets(
     accounts.length +
     patrimonio.length +
     vehicles.length +
-    categorizationRules.length;
+    categorizationRules.length +
+    auditAlerts.length;
 
   // 1. Check if remote version was restored or edited manually
   if (!force) {
@@ -609,7 +679,8 @@ export async function exportAllDataToSheets(
     rules: categorizationRules,
     goals: goals,
     budgets: budgets,
-    prefs: userPrefs
+    prefs: userPrefs,
+    audit: auditAlerts
   });
   const lastDataHash = localStorage.getItem('google_drive_last_export_hash');
   
@@ -620,9 +691,6 @@ export async function exportAllDataToSheets(
     return lastSyncStats;
   }
 
-  // 1. Gather Data directly from LocalStorage without pre-export merge
-  // (Redundant call removed since we already gathered data for safety checks)
-  
   // Persist cleaned lists back to LocalStorage
   setLocalData('fin_incomes', incomesPunctual);
   setLocalData('fin_incomes_fixed_realized', incomesFixedRealized);
@@ -631,10 +699,13 @@ export async function exportAllDataToSheets(
 
   // 2. Format 2D Arrays for Sheets with Headers + Data Rows
   const expRows = [
-    ["ID", "Nome da Despesa", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo", "ID Imóvel"],
+    ["ID", "Nome da Despesa", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo", "ID Imóvel", "Parcelas", "Tags", "Recorrente"],
     ...expenses.map((e: any) => {
       let resolvedExpName = '';
-      if (e.fixedExpenseId) {
+      if (e.name && e.name.trim() && e.name.trim().toLowerCase() !== 'despesa') {
+        resolvedExpName = e.name.trim();
+      }
+      if (!resolvedExpName && e.fixedExpenseId) {
         const matchedFE = fixedExpenses.find((fe: any) => String(fe.id) === String(e.fixedExpenseId));
         if (matchedFE && (matchedFE.name || matchedFE.description)) {
           resolvedExpName = matchedFE.name || matchedFE.description;
@@ -646,12 +717,12 @@ export async function exportAllDataToSheets(
           resolvedExpName = matchedPE.title || matchedPE.name;
         }
       }
-      if (!resolvedExpName && e.name && e.name.trim()) {
-        resolvedExpName = e.name.trim();
-      }
       if (!resolvedExpName) {
         resolvedExpName = e.description || e.entity || '';
       }
+
+      const installmentsStr = e.installmentsTotal ? `${e.installmentsCurrent || 1}/${e.installmentsTotal}` : '';
+      const tagsStr = Array.isArray(e.tags) ? e.tags.join(', ') : (e.tags || '');
 
       return [
         e.id || '',
@@ -660,11 +731,14 @@ export async function exportAllDataToSheets(
         e.entity || e.name || '',
         e.category || '',
         Number(e.amount || 0),
-        e.method || '',
+        e.method || e.paymentMethod || '',
         e.vehicle ? 'Sim' : 'Não',
         e.notes || '',
         e.fixedExpenseId || '',
-        e.assetId || e.propertyExpenseId || ''
+        e.assetId || e.propertyExpenseId || '',
+        installmentsStr,
+        tagsStr,
+        e.recurring ? 'Sim' : 'Não'
       ];
     })
   ];
@@ -750,7 +824,7 @@ export async function exportAllDataToSheets(
   };
 
   const patRows = [
-    ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Gastos Mensais Est. (€)", "Gastos Anuais Est. (€)", "Rendimentos Mensais Est. (€)", "Rendimentos Anuais Est. (€)", "Lucro Mensal Est. (€)", "Lucro Anual Est. (€)", "Rentabilidade Bruta (%)", "Rentabilidade Líquida (%)", "Encargos JSON", "Rendimentos JSON"],
+    ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Gastos Mensais Est. (€)", "Gastos Anuais Est. (€)", "Rendimentos Mensais Est. (€)", "Rendimentos Anuais Est. (€)", "Lucro Mensal Est. (€)", "Lucro Anual Est. (€)", "Rentabilidade Bruta (%)", "Rentabilidade Líquida (%)", "Quantidade", "Preço Médio (€)", "Taxa/Yield (%)", "Instituição/Custodiante", "Ticker", "Encargos JSON", "Rendimentos JSON"],
     ...patrimonio.map((p: any) => {
       const pExpenses = propertyExpenses.filter((e: any) => String(e.assetId) === String(p.id));
       const pIncomes = propertyIncomes.filter((i: any) => String(i.assetId) === String(p.id));
@@ -817,6 +891,11 @@ export async function exportAllDataToSheets(
         safeNum(aProfit),
         safeNum(grossYield),
         safeNum(netYield),
+        safeNum(p.quantity || 0),
+        safeNum(p.averagePrice || 0),
+        safeNum(p.expectedYield || p.interestRate || (pValue > 0 ? (aIncomes / pValue) * 100 : 0)),
+        p.institution || p.custodian || '',
+        p.ticker || '',
         JSON.stringify(pExpenses),
         JSON.stringify(pIncomes)
       ];
@@ -1028,7 +1107,21 @@ export async function exportAllDataToSheets(
   checkAndPush('Preferencias', prefsRows);
   checkAndPush('Regras_Categorizacao', catRulesRows);
   checkAndPush('Notificacoes', notifRows);
+  const auditAlertRows = [
+    ["ID", "Data Verificação", "Tipo de Alerta", "Severidade", "Título", "Detalhes", "Estado"],
+    ...auditAlerts.map((a: any) => [
+      a.id || '',
+      a.dateDetected || new Date().toISOString().slice(0, 10),
+      a.type || '',
+      a.severity || '',
+      a.title || '',
+      a.description || '',
+      a.resolved ? 'Resolvido' : 'Pendente'
+    ])
+  ];
+
   checkAndPush('Arquivo', archiveRows);
+  checkAndPush('Auditoria_Alertas', auditAlertRows);
 
   if (missingCriticalSheets.length > 0) {
     const msg = `Erro de Sincronização: As seguintes abas não foram encontradas na Drive, apesar de haver dados para gravar: ${missingCriticalSheets.join(', ')}. Por favor, use o botão "Reparar Abas" nas configurações.`;
@@ -1255,7 +1348,8 @@ export async function fetchAndParseRemoteSheets(
     { key: 'Preferencias', canonical: 'Preferencias', range: 'A1:C5' },
     { key: 'Regras_Categorizacao', canonical: 'Regras_Categorizacao', range: 'A1:Z' },
     { key: 'Notificacoes', canonical: 'Notificacoes', range: 'A1:Z' },
-    { key: 'Arquivo', canonical: 'Arquivo', range: 'A1:Z' }
+    { key: 'Arquivo', canonical: 'Arquivo', range: 'A1:Z' },
+    { key: 'Auditoria_Alertas', canonical: 'Auditoria_Alertas', range: 'A1:Z' }
   ];
 
   // Filter based on selectedSheets if provided, and check if sheet exists remotely
@@ -1299,83 +1393,212 @@ export async function fetchAndParseRemoteSheets(
   const data = await res.json();
   const valueRanges = data.valueRanges || [];
 
-  // Helper to find data by original mapping key
-  const getRowsByKey = (key: string) => {
+  // Helper to extract sheet headers (row 0) and data rows (rows 1+)
+  const getSheetDataByKey = (key: string) => {
     const mappingIdx = activeMappings.findIndex(m => m.key === key);
-    if (mappingIdx === -1) return [];
-    const rows = valueRanges[mappingIdx]?.values || [];
-    return rows.length > 1 ? rows.slice(1) : [];
+    if (mappingIdx === -1) return { headers: [] as string[], rows: [] as any[][] };
+    const allRows: any[][] = valueRanges[mappingIdx]?.values || [];
+    if (allRows.length === 0) return { headers: [] as string[], rows: [] as any[][] };
+
+    const rawHeaders: string[] = (allRows[0] || []).map((cell: any) => String(cell || '').trim());
+    const dataRows = allRows.slice(1).filter((row: any[]) => {
+      if (!row || !Array.isArray(row)) return false;
+      return row.some((cell: any) => cell !== null && cell !== undefined && String(cell).trim() !== '');
+    });
+
+    return { headers: rawHeaders, rows: dataRows };
   };
 
-  // Parse Expenses (supports new 11-column/10-column schema as well as 9-column legacy schema)
-  const expRows = getRowsByKey('Despesas');
-  const parsedExpenses = expRows.map((row: any[], i: number) => {
-    // Detect if column 1 is a date string (legacy format: ID, Data, Entidade...) vs new format (ID, Nome, Data, Entidade...)
-    const isLegacyFormat = typeof row[1] === 'string' && /^\d{4}[-/.]\d{2}[-/.]\d{2}/.test(row[1].trim());
+  const getRowsByKey = (key: string) => {
+    return getSheetDataByKey(key).rows;
+  };
 
-    if (isLegacyFormat) {
-      return {
-        id: row[0] || `exp_sheet_${i}`,
-        name: row[2] || 'Despesa',
-        date: row[1] || new Date().toISOString().slice(0, 10),
-        entity: row[2] || 'Despesa',
-        category: row[3] || 'Outros',
-        amount: parseNum(row[4]),
-        method: row[5] || 'MBWay',
-        vehicle: parseBool(row[6]),
-        notes: row[7] || '',
-        fixedExpenseId: row[8] || undefined,
-        description: row[2] || 'Despesa',
-        recurring: !!row[8]
-      };
+  // Safe helper to extract and trim string from row cell
+  const cellStr = (row: any[], idx: number): string => {
+    if (idx < 0 || !row || idx >= row.length) return '';
+    const val = row[idx];
+    if (val === null || val === undefined) return '';
+    return String(val).trim();
+  };
+
+  // Helper to normalize header string for fuzzy matching
+  const normalizeColHeader = (h: string) => 
+    String(h || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  // Parse Expenses with dynamic header-to-column mapping
+  const { headers: expHeaders, rows: expRows } = getSheetDataByKey('Despesas');
+  const cleanExpHeaders = expHeaders.map(normalizeColHeader);
+
+  // Column matching by header name
+  let expNameCol = cleanExpHeaders.findIndex(h => 
+    (h.includes('nome') && !h.includes('entidade')) ||
+    h.includes('designacao') ||
+    h.includes('titulo') ||
+    (h.includes('descricao') && !h.includes('entidade'))
+  );
+
+  let expDateCol = cleanExpHeaders.findIndex(h => h.includes('data') || h === 'date');
+
+  let expEntityCol = cleanExpHeaders.findIndex(h => 
+    h.includes('entidade') || h.includes('fornecedor') || h.includes('beneficiar') || h.includes('empresa') || h.includes('estabelecimento')
+  );
+
+  let expCatCol = cleanExpHeaders.findIndex(h => h.includes('categoria') || h === 'cat');
+
+  let expAmountCol = cleanExpHeaders.findIndex(h => 
+    h.includes('valor') || h.includes('quantia') || h.includes('montante') || h.includes('total') || h.includes('custo') || h.includes('preco') || h.includes('importancia')
+  );
+
+  let expMethodCol = cleanExpHeaders.findIndex(h => h.includes('metod') || h.includes('pagamento') || h.includes('forma'));
+
+  let expVehCol = cleanExpHeaders.findIndex(h => h.includes('veicul') || h.includes('viatura') || h.includes('carro'));
+
+  let expNotesCol = cleanExpHeaders.findIndex(h => h.includes('nota') || h.includes('obs') || h.includes('comentar'));
+
+  let expFixedIdCol = cleanExpHeaders.findIndex(h => h.includes('fixo'));
+
+  let expAssetIdCol = cleanExpHeaders.findIndex(h => h.includes('imov') || h.includes('ativ') || h.includes('patrimon') || h.includes('asset'));
+
+  let expInstallmentsCol = cleanExpHeaders.findIndex(h => h.includes('parcela') || h.includes('prestac'));
+
+  let expTagsCol = cleanExpHeaders.findIndex(h => h.includes('tag') || h.includes('etiqueta'));
+
+  let expRecurringCol = cleanExpHeaders.findIndex(h => h.includes('recorrente') || h.includes('recorrencia'));
+
+  let expIdCol = cleanExpHeaders.findIndex(h => h === 'id' || (h.startsWith('id') && !h.includes('fixo') && !h.includes('imov') && !h.includes('ativ')));
+  if (expIdCol === -1) expIdCol = 0;
+
+  // Fallback if headers were absent or unmapped
+  if (expDateCol === -1 && expAmountCol === -1) {
+    if (cleanExpHeaders.length >= 10 || (expRows[0] && expRows[0].length >= 10)) {
+      expIdCol = 0;
+      expNameCol = 1;
+      expDateCol = 2;
+      expEntityCol = 3;
+      expCatCol = 4;
+      expAmountCol = 5;
+      expMethodCol = 6;
+      expVehCol = 7;
+      expNotesCol = 8;
+      expFixedIdCol = 9;
+      expAssetIdCol = 10;
+      expInstallmentsCol = cleanExpHeaders.length >= 12 ? 11 : -1;
+      expTagsCol = cleanExpHeaders.length >= 13 ? 12 : -1;
+      expRecurringCol = cleanExpHeaders.length >= 14 ? 13 : -1;
+    } else {
+      expIdCol = 0;
+      expNameCol = -1;
+      expDateCol = 1;
+      expEntityCol = 2;
+      expCatCol = 3;
+      expAmountCol = 4;
+      expMethodCol = 5;
+      expVehCol = 6;
+      expNotesCol = 7;
+      expFixedIdCol = 8;
+      expAssetIdCol = -1;
+      expInstallmentsCol = -1;
+      expTagsCol = -1;
+      expRecurringCol = -1;
+    }
+  }
+
+  const parsedExpenses = expRows.map((row: any[], i: number) => {
+    const rawId = cellStr(row, expIdCol);
+    const rawName = cellStr(row, expNameCol);
+    const rawDate = cellStr(row, expDateCol);
+    const rawEntity = cellStr(row, expEntityCol);
+    const rawCat = cellStr(row, expCatCol);
+    const rawAmount = (expAmountCol >= 0 && row[expAmountCol] !== undefined) ? parseNum(row[expAmountCol]) : 0;
+    const rawMethod = cellStr(row, expMethodCol);
+    const rawVeh = (expVehCol >= 0 && row[expVehCol] !== undefined) ? parseBool(row[expVehCol]) : false;
+    const rawNotes = cellStr(row, expNotesCol);
+    const rawFixedId = cellStr(row, expFixedIdCol);
+    const rawAssetId = cellStr(row, expAssetIdCol);
+    const rawInstallments = cellStr(row, expInstallmentsCol);
+    const rawTags = cellStr(row, expTagsCol);
+    const rawRecurring = (expRecurringCol >= 0 && row[expRecurringCol] !== undefined) ? parseBool(row[expRecurringCol]) : Boolean(rawFixedId);
+
+    let installmentsTotal: number | undefined = undefined;
+    let installmentsCurrent: number | undefined = undefined;
+    if (rawInstallments && rawInstallments.includes('/')) {
+      const parts = rawInstallments.split('/');
+      const cur = parseInt(parts[0]?.trim() || '', 10);
+      const tot = parseInt(parts[1]?.trim() || '', 10);
+      if (!isNaN(cur) && !isNaN(tot)) {
+        installmentsCurrent = cur;
+        installmentsTotal = tot;
+      }
     }
 
+    const tags = rawTags ? rawTags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
+
+    let resolvedName = rawName;
+    if (!resolvedName || resolvedName.toLowerCase() === 'despesa') {
+      resolvedName = rawEntity || 'Despesa';
+    }
+
+    const resolvedEntity = rawEntity || (resolvedName !== 'Despesa' ? resolvedName : '') || 'Despesa';
+    const resolvedDescription = (resolvedName !== 'Despesa' ? resolvedName : '') || resolvedEntity || 'Despesa';
+    const finalDate = normalizeDateString(rawDate);
+
     return {
-      id: row[0] || `exp_sheet_${i}`,
-      name: row[1] || row[3] || 'Despesa',
-      date: row[2] || new Date().toISOString().slice(0, 10),
-      entity: row[3] || row[1] || 'Despesa',
-      category: row[4] || 'Outros',
-      amount: parseNum(row[5]),
-      method: row[6] || 'MBWay',
-      vehicle: parseBool(row[7]),
-      notes: row[8] || '',
-      fixedExpenseId: row[9] || undefined,
-      assetId: row[10] || undefined,
-      description: row[1] || row[3] || 'Despesa',
-      recurring: !!row[9]
+      id: rawId || `exp_sheet_${i}`,
+      name: resolvedName,
+      description: resolvedDescription,
+      date: finalDate,
+      entity: resolvedEntity,
+      category: rawCat || 'Outros',
+      amount: rawAmount,
+      method: rawMethod || 'MBWay',
+      paymentMethod: rawMethod || 'MBWay',
+      vehicle: rawVeh,
+      notes: rawNotes,
+      fixedExpenseId: rawFixedId || undefined,
+      assetId: rawAssetId || undefined,
+      propertyExpenseId: (rawAssetId && rawAssetId.startsWith('pe_')) ? rawAssetId : undefined,
+      installmentsTotal,
+      installmentsCurrent,
+      tags,
+      recurring: rawRecurring
     };
-  }).filter((e: any) => e.amount > 0 || e.name || e.entity);
+  }).filter((e: any) => e.amount > 0 || (e.name && e.name !== 'Despesa') || (e.entity && e.entity !== 'Despesa'));
 
   // Parse Incomes
   const incRows = getRowsByKey('Receitas_Pontuais');
   const rawParsedIncomes = incRows.map((row: any[], i: number) => ({
-    id: row[0] || `inc_sheet_${i}`,
-    date: row[1] || new Date().toISOString().slice(0, 10),
-    entity: row[2] || 'Receita',
-    category: row[3] || 'Outros',
+    id: cellStr(row, 0) || `inc_sheet_${i}`,
+    date: normalizeDateString(row[1]),
+    entity: cellStr(row, 2) || 'Receita',
+    category: cellStr(row, 3) || 'Outros',
     amount: parseNum(row[4]),
-    method: row[5] || 'Transferência Bancária',
-    notes: row[6] || '',
-    fixedIncomeId: row[7] || undefined,
+    method: cellStr(row, 5) || 'Transferência Bancária',
+    notes: cellStr(row, 6) || '',
+    fixedIncomeId: cellStr(row, 7) || undefined,
     isFixed: !!row[7] || (typeof row[0] === 'string' && row[0].startsWith('inc_fixed_')),
-    description: row[2] || 'Receita',
+    description: cellStr(row, 2) || 'Receita',
     recurring: !!row[7]
-  })).filter((i: any) => i.amount > 0 || i.entity);
+  })).filter((i: any) => i.amount > 0 || (i.entity && i.entity !== 'Receita'));
 
   // Parse Realized Fixed Incomes
   const fixIncRegRows = getRowsByKey('Receitas_Fixas_Registadas');
   const rawParsedFixedIncomesRealized = fixIncRegRows.map((row: any[], i: number) => ({
-    id: row[0] || `inc_fixed_sheet_${i}`,
-    date: row[1] || new Date().toISOString().slice(0, 10),
-    entity: row[2] || 'Receita',
-    category: row[3] || 'Outros',
+    id: cellStr(row, 0) || `inc_fixed_sheet_${i}`,
+    date: normalizeDateString(row[1]),
+    entity: cellStr(row, 2) || 'Receita',
+    category: cellStr(row, 3) || 'Outros',
     amount: parseNum(row[4]),
-    method: row[5] || 'Transferência Bancária',
-    notes: row[6] || '',
-    fixedIncomeId: row[7] || undefined,
+    method: cellStr(row, 5) || 'Transferência Bancária',
+    notes: cellStr(row, 6) || '',
+    fixedIncomeId: cellStr(row, 7) || undefined,
     isFixed: true
-  })).filter((i: any) => i.amount > 0 || i.entity);
+  })).filter((i: any) => i.amount > 0 || (i.entity && i.entity !== 'Receita'));
 
   const { punctual: parsedIncomes, fixedRealized: parsedFixedIncomesRealized } = partitionIncomes([
     ...rawParsedIncomes,
@@ -1427,27 +1650,26 @@ export async function fetchAndParseRemoteSheets(
   })).filter((a: any) => a.name !== 'Conta Principal' || a.balance > 0);
 
   // Parse Patrimonio
-  const patRows = getRowsByKey('Patrimonio');
+  const { headers: patHeaders, rows: patRows } = getSheetDataByKey('Patrimonio');
+  const cleanPatHeaders = patHeaders.map(normalizeColHeader);
+  const patQtyCol = cleanPatHeaders.findIndex(h => h.includes('quant'));
+  const patAvgPriceCol = cleanPatHeaders.findIndex(h => h.includes('medio'));
+  const patYieldCol = cleanPatHeaders.findIndex(h => h.includes('taxa') || h.includes('yield'));
+  const patInstCol = cleanPatHeaders.findIndex(h => h.includes('institui') || h.includes('custodi') || h.includes('corretor') || h.includes('broker'));
+  const patTickerCol = cleanPatHeaders.findIndex(h => h.includes('ticker') || h.includes('simbolo') || h.includes('codigo'));
+
   const parsedPatrimonio = patRows.map((row: any[], i: number) => {
     let detailedExpenses = [];
     let detailedIncomes = [];
     try {
-      // Check indices 18 and 19 for JSON (new format with rentabilidade), 16 and 17 (prev format), 14 and 15 (mid format), or 10 and 11 (old format)
       let jsonExpenses = '';
       let jsonIncomes = '';
-      
-      if (row.length > 18) {
-        jsonExpenses = row[18];
-        jsonIncomes = row[19];
-      } else if (row.length > 16) {
-        jsonExpenses = row[16];
-        jsonIncomes = row[17];
-      } else if (row.length > 14) {
-        jsonExpenses = row[14];
-        jsonIncomes = row[15];
-      } else {
-        jsonExpenses = row[10];
-        jsonIncomes = row[11];
+      for (let c = row.length - 1; c >= 10; c--) {
+        const val = String(row[c] || '').trim();
+        if (val.startsWith('[') || val.startsWith('{')) {
+          if (!jsonIncomes) jsonIncomes = val;
+          else if (!jsonExpenses) jsonExpenses = val;
+        }
       }
 
       if (jsonExpenses) {
@@ -1459,6 +1681,12 @@ export async function fetchAndParseRemoteSheets(
     } catch (e) {
       console.warn('Erro ao processar dados detalhados do imóvel:', e);
     }
+
+    const quantity = patQtyCol >= 0 ? parseNum(row[patQtyCol]) : (row.length > 20 ? parseNum(row[18]) : undefined);
+    const averagePrice = patAvgPriceCol >= 0 ? parseNum(row[patAvgPriceCol]) : (row.length > 20 ? parseNum(row[19]) : undefined);
+    const expectedYield = patYieldCol >= 0 ? parseNum(row[patYieldCol]) : (row.length > 20 ? parseNum(row[20]) : undefined);
+    const institution = patInstCol >= 0 ? cellStr(row, patInstCol) : (row.length > 21 ? cellStr(row, 21) : undefined);
+    const ticker = patTickerCol >= 0 ? cellStr(row, patTickerCol) : (row.length > 22 ? cellStr(row, 22) : undefined);
 
     return {
       id: row[0] || `pat_${i}`,
@@ -1472,6 +1700,13 @@ export async function fetchAndParseRemoteSheets(
       zipCode: row[7] || '',
       city: row[8] || '',
       notes: row[9] || (row.length === 5 ? row[4] : '') || '',
+      quantity,
+      averagePrice,
+      interestRate: expectedYield,
+      expectedYield,
+      institution,
+      custodian: institution,
+      ticker,
       expenses: detailedExpenses,
       incomes: detailedIncomes
     };
@@ -1657,6 +1892,56 @@ export async function fetchAndParseRemoteSheets(
     };
   }).filter((a: any) => a.title);
 
+  // Parse Auditoria & Alertas
+  const auditRowsData = getRowsByKey('Auditoria_Alertas');
+  const parsedAuditAlerts = auditRowsData.map((row: any[], i: number) => ({
+    id: cellStr(row, 0) || `audit_${i}`,
+    dateDetected: normalizeDateString(row[1]),
+    type: cellStr(row, 2) || 'anomaly',
+    severity: (cellStr(row, 3) || 'medium') as any,
+    title: cellStr(row, 4) || 'Alerta',
+    description: cellStr(row, 5) || '',
+    resolved: cellStr(row, 6) === 'Resolvido'
+  })).filter((a: any) => a.title);
+
+  // Cross-reference pass: guarantee expense names and asset links are fully resolved from linked collections
+  parsedExpenses.forEach((exp: any) => {
+    // 1. If name is generic or missing, try to resolve from Fixed Expenses
+    if (!exp.name || exp.name === 'Despesa') {
+      if (exp.fixedExpenseId) {
+        const fe = parsedFixedExpenses.find((f: any) => String(f.id) === String(exp.fixedExpenseId));
+        if (fe && (fe.name || (fe as any).description)) {
+          exp.name = fe.name || (fe as any).description;
+          exp.description = exp.name;
+        }
+      }
+    }
+
+    // 2. If name is still generic or missing, try to resolve from Property Expenses
+    if (!exp.name || exp.name === 'Despesa') {
+      if (exp.assetId || exp.propertyExpenseId) {
+        const pe = parsedPropertyExpenses.find((p: any) => 
+          String(p.id) === String(exp.propertyExpenseId) || 
+          String(p.id) === String(exp.assetId) ||
+          String(p.assetId) === String(exp.assetId)
+        );
+        if (pe && (pe.title || (pe as any).name)) {
+          exp.name = pe.title || (pe as any).name;
+          exp.description = exp.name;
+        }
+      }
+    }
+
+    // 3. If propertyExpenseId is not set but assetId matches a PropertyExpense ID, link them
+    if (!exp.propertyExpenseId && exp.assetId) {
+      const pe = parsedPropertyExpenses.find((p: any) => String(p.id) === String(exp.assetId));
+      if (pe) {
+        exp.propertyExpenseId = pe.id;
+        exp.assetId = pe.assetId;
+      }
+    }
+  });
+
   return {
     parsedExpenses,
     parsedIncomes,
@@ -1677,7 +1962,8 @@ export async function fetchAndParseRemoteSheets(
     customCategories,
     parsedCatRules,
     parsedNotifs,
-    parsedArchives
+    parsedArchives,
+    parsedAuditAlerts
   };
 }
 
@@ -1802,6 +2088,9 @@ export async function importAllDataFromSheets(
   }
   if (remote.parsedArchives.length > 0) {
     if (!selectedSheets || selectedSheets.includes('Arquivo')) { setLocalData('finanas_archives', remote.parsedArchives); }
+  }
+  if (remote.parsedAuditAlerts && remote.parsedAuditAlerts.length > 0) {
+    if (!selectedSheets || selectedSheets.includes('Auditoria_Alertas')) { setLocalData('fin_audit_alerts', remote.parsedAuditAlerts); }
   }
 
   onProgress?.('Concluído!', 100);
@@ -2396,13 +2685,13 @@ export async function clearAllSpreadsheetData(
 
   // 3. Write clean header rows
   const allHeaders: Record<string, string[]> = {
-    'Despesas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo"],
+    'Despesas': ["ID", "Nome da Despesa", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Veículo", "Notas", "ID Fixo", "ID Imóvel", "Parcelas", "Tags", "Recorrente"],
     'Receitas_Pontuais': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas"],
     'Receitas_Fixas_Registadas': ["ID", "Data", "Entidade", "Categoria", "Valor (€)", "Método", "Notas", "ID Fixo"],
     'Despesas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Método", "Ativo", "Veículo", "Notas", "Data Início", "Data Fim", "Observações", "Próximo Vencimento"],
     'Receitas_Fixas': ["ID", "Nome", "Entidade", "Categoria", "Valor (€)", "Dia Vencimento", "Frequência", "Ativo", "Notas"],
     'Contas': ["ID", "Nome", "Tipo", "IBAN", "Saldo (€)", "Ativa"],
-    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Gastos Mensais Est. (€)", "Gastos Anuais Est. (€)", "Rendimentos Mensais Est. (€)", "Rendimentos Anuais Est. (€)", "Lucro Mensal Est. (€)", "Lucro Anual Est. (€)", "Rentabilidade Bruta (%)", "Rentabilidade Líquida (%)", "Encargos JSON", "Rendimentos JSON"],
+    'Patrimonio': ["ID", "Nome", "Categoria / SubTipo", "Valor Atual (€)", "Valor Compra (€)", "Data Aquisição", "Rua", "Código Postal", "Localidade", "Notas", "Gastos Mensais Est. (€)", "Gastos Anuais Est. (€)", "Rendimentos Mensais Est. (€)", "Rendimentos Anuais Est. (€)", "Lucro Mensal Est. (€)", "Lucro Anual Est. (€)", "Rentabilidade Bruta (%)", "Rentabilidade Líquida (%)", "Quantidade", "Preço Médio (€)", "Taxa/Yield (%)", "Instituição/Custodiante", "Ticker", "Encargos JSON", "Rendimentos JSON"],
     'Patrimonio_Despesas': ["ID", "AssetID", "Título", "Valor (€)", "Frequência", "Categoria", "Dia Previsto", "Data Vencimento", "Data Início", "Data Fim", "Observações", "Método", "Notas"],
     'Patrimonio_Rendimentos': ["ID", "AssetID", "Título", "Valor (€)", "Frequência", "Categoria", "Dia Previsto", "Data Vencimento", "Data Início", "Data Fim", "Observações", "Método", "Notas"],
     'Veiculos': ["ID", "Marca", "Modelo", "Matrícula", "Ano"],
@@ -2412,7 +2701,8 @@ export async function clearAllSpreadsheetData(
     'Preferencias': ["Chave", "Dados JSON", "Atualizado Em"],
     'Regras_Categorizacao': ["ID", "Keyword", "Categoria", "Tipo", "Prioridade"],
     'Notificacoes': ["ID", "Título", "Mensagem", "Data", "Lida", "Tipo"],
-    'Arquivo': ["ID", "Título", "Data", "Dados JSON", "Tipo"]
+    'Arquivo': ["ID", "Título", "Data", "Dados JSON", "Tipo"],
+    'Auditoria_Alertas': ["ID", "Data Verificação", "Tipo de Alerta", "Severidade", "Título", "Detalhes", "Estado"]
   };
 
   const headerPayload = Object.keys(allHeaders)
