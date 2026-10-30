@@ -17,7 +17,8 @@ import {
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
-import { Building2, X, Plus, LayoutGrid, Info, TrendingUp } from 'lucide-react';
+import { Building2, X, Plus, LayoutGrid, Info, TrendingUp, Calculator } from 'lucide-react';
+import { MortgageAmortizationCalculator } from '../components/patrimonio/MortgageAmortizationCalculator';
 import { scheduleSheetsBackgroundSync } from '../lib/googleSheetsDataService';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -1055,6 +1056,11 @@ export default function PatrimonioView() {
         </div>
       </motion.div>
       </AnimatePresence>
+
+      {/* Mortgage Amortization Simulator Section */}
+      <div className="pt-6 border-t border-border/60">
+        <MortgageAmortizationCalculator />
+      </div>
 
       {/* Modals */}
       <AssetImovelForm 

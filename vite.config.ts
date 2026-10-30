@@ -43,6 +43,9 @@ export default defineConfig(() => {
             },
           ],
         },
+        workbox: {
+          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        },
         devOptions: {
           enabled: true,
           type: 'module',
@@ -61,10 +64,12 @@ export default defineConfig(() => {
       include: [
         'react',
         'react-dom',
+        'react-dom/client',
         'react-router',
         'react-router-dom',
         'lucide-react',
-        '@tanstack/react-query'
+        '@tanstack/react-query',
+        'motion/react'
       ],
     },
     server: {

@@ -1,23 +1,43 @@
-import { lazy } from 'react';
+import WelcomeView from './WelcomeView';
+import DashboardView from './DashboardView';
+import FinancasView from './FinancasView';
+import ViaturasView from './ViaturasView';
+import PatrimonioView from './PatrimonioView';
+import NotificacoesView from './NotificacoesView';
+import OrcamentosView from './OrcamentosView';
+import DespesasFixasView from './DespesasFixasView';
+import ReceitasFixasView from './ReceitasFixasView';
+import ObjectivosView from './ObjectivosView';
+import ConfiguracoesView from './ConfiguracoesView';
+import LixeiraView from './LixeiraView';
+import ArquivoView from './ArquivoView';
+import UtilitariosView from './UtilitariosView';
+import InvestmentsView from './InvestmentsView';
+import ProjecoesView from './ProjecoesView';
+import AuditoriaView from './AuditoriaView';
+import AssistenteFiscalView from './AssistenteFiscalView';
+import RelatorioMensalImprimivelView from './RelatorioMensalImprimivelView';
+import PageNotFoundView from './PageNotFoundView';
 
-// Use lazy loading for all views
-export const WelcomeView = lazy(() => import('./WelcomeView'));
-export const DashboardView = lazy(() => import('./DashboardView'));
-export const FinancasView = lazy(() => import('./FinancasView'));
-export const ViaturasView = lazy(() => import('./ViaturasView'));
-export const PatrimonioView = lazy(() => import('./PatrimonioView'));
-export const NotificacoesView = lazy(() => import('./NotificacoesView'));
-export const OrcamentosView = lazy(() => import('./OrcamentosView'));
-export const DespesasFixasView = lazy(() => import('./DespesasFixasView'));
-export const ReceitasFixasView = lazy(() => import('./ReceitasFixasView'));
-export const ObjectivosView = lazy(() => import('./ObjectivosView'));
-export const ConfiguracoesView = lazy(() => import('./ConfiguracoesView'));
-export const LixeiraView = lazy(() => import('./LixeiraView'));
-export const ArquivoView = lazy(() => import('./ArquivoView'));
-export const UtilitariosView = lazy(() => import('./UtilitariosView'));
-export const InvestmentsView = lazy(() => import('./InvestmentsView'));
-export const ProjecoesView = lazy(() => import('./ProjecoesView'));
-export const AuditoriaView = lazy(() => import('./AuditoriaView'));
-export const AssistenteFiscalView = lazy(() => import('./AssistenteFiscalView'));
-export const RelatorioMensalImprimivelView = lazy(() => import('./RelatorioMensalImprimivelView'));
-export const PageNotFoundView = lazy(() => import('./PageNotFoundView'));
+export {
+  WelcomeView,
+  DashboardView,
+  FinancasView,
+  ViaturasView,
+  PatrimonioView,
+  NotificacoesView,
+  OrcamentosView,
+  DespesasFixasView,
+  ReceitasFixasView,
+  ObjectivosView,
+  ConfiguracoesView,
+  LixeiraView,
+  ArquivoView,
+  UtilitariosView,
+  InvestmentsView,
+  ProjecoesView,
+  AuditoriaView,
+  AssistenteFiscalView,
+  RelatorioMensalImprimivelView,
+  PageNotFoundView
+};

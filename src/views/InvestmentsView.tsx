@@ -41,9 +41,14 @@ import {
   XAxis,
   YAxis
 } from 'recharts';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Sliders, PiggyBank } from 'lucide-react';
 import { AssetFinanceiroForm } from '../components/patrimonio/AssetFinanceiroForm';
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal';
 import { Asset } from '../components/patrimonio/types';
+import { PortfolioRebalancingEngine } from '../components/investimentos/PortfolioRebalancingEngine';
+import { AdvancedInvestmentMetrics } from '../components/investimentos/AdvancedInvestmentMetrics';
+import { PprTaxOptimizer } from '../components/investimentos/PprTaxOptimizer';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1', '#14b8a6'];
 
@@ -236,20 +241,37 @@ export function InvestmentsView() {
         </PageHeader>
       </motion.div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="h-40 bg-card/40 animate-pulse rounded-[2rem]" />
-          <div className="h-40 bg-card/40 animate-pulse rounded-[2rem]" />
-          <div className="h-40 bg-card/40 animate-pulse rounded-[2rem]" />
-          <div className="h-40 bg-card/40 animate-pulse rounded-[2rem]" />
-        </div>
-      ) : (
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="space-y-8"
-        >
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid grid-cols-2 md:grid-cols-4 bg-secondary/50 p-1 rounded-2xl h-auto gap-1">
+          <TabsTrigger value="overview" className="gap-2 text-xs font-bold py-2.5 rounded-xl">
+            <PieChartIcon className="w-4 h-4 text-primary" /> Ativos & Posições
+          </TabsTrigger>
+          <TabsTrigger value="rebalance" className="gap-2 text-xs font-bold py-2.5 rounded-xl">
+            <Sliders className="w-4 h-4 text-emerald-500" /> Rebalanceamento
+          </TabsTrigger>
+          <TabsTrigger value="metrics" className="gap-2 text-xs font-bold py-2.5 rounded-xl">
+            <Activity className="w-4 h-4 text-indigo-500" /> Métricas TWR/Sharpe
+          </TabsTrigger>
+          <TabsTrigger value="ppr" className="gap-2 text-xs font-bold py-2.5 rounded-xl">
+            <PiggyBank className="w-4 h-4 text-amber-500" /> Otimizador PPR & IRS
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-8 focus-visible:outline-none">
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="h-40 bg-card/40 animate-pulse rounded-[2rem]" />
+              <div className="h-40 bg-card/40 animate-pulse rounded-[2rem]" />
+              <div className="h-40 bg-card/40 animate-pulse rounded-[2rem]" />
+              <div className="h-40 bg-card/40 animate-pulse rounded-[2rem]" />
+            </div>
+          ) : (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="space-y-8"
+            >
           {/* Main Top KPIs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <motion.div variants={itemVariants}>
@@ -717,6 +739,23 @@ export function InvestmentsView() {
           </section>
         </motion.div>
       )}
+        </TabsContent>
+
+        {/* Tab 2: Rebalancing Engine */}
+        <TabsContent value="rebalance" className="focus-visible:outline-none">
+          <PortfolioRebalancingEngine />
+        </TabsContent>
+
+        {/* Tab 3: Advanced Investment Metrics */}
+        <TabsContent value="metrics" className="focus-visible:outline-none">
+          <AdvancedInvestmentMetrics />
+        </TabsContent>
+
+        {/* Tab 4: PPR Tax Optimizer */}
+        <TabsContent value="ppr" className="focus-visible:outline-none">
+          <PprTaxOptimizer />
+        </TabsContent>
+      </Tabs>
 
       {/* Add / Edit Modal */}
       <AssetFinanceiroForm

@@ -372,7 +372,10 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     'Notificacoes',
     'Arquivo',
     'Auditoria_Alertas',
-    'Assistente_Fiscal'
+    'Assistente_Fiscal',
+    'Amortizacoes_Credito',
+    'Investimentos_Rebalanceamento',
+    'PPR_IRS_Simulacoes'
   ];
 
   const allHeaders: Record<string, string[]> = {
@@ -396,7 +399,10 @@ async function ensureMissingSheetsExist(accessToken: string, spreadsheetId: stri
     'Notificacoes': ["ID", "Título", "Mensagem", "Data", "Lida", "Tipo"],
     'Arquivo': ["ID", "Título", "Data", "Dados JSON", "Tipo"],
     'Auditoria_Alertas': ["ID", "Data Verificação", "Tipo de Alerta", "Severidade", "Título", "Detalhes", "Estado"],
-    'Assistente_Fiscal': ["ID", "Tipo de Imposto", "Descrição / Alerta", "Prazo Limite", "Valor Estimado (€)", "Estado"]
+    'Assistente_Fiscal': ["ID", "Tipo de Imposto", "Descrição / Alerta", "Prazo Limite", "Valor Estimado (€)", "Estado"],
+    'Amortizacoes_Credito': ["ID", "Nome do Empréstimo", "Capital Devedor (€)", "Montante Amortizado (€)", "Nova Prestação (€)", "Poupança Total Juros (€)", "Data Simulação"],
+    'Investimentos_Rebalanceamento': ["ID", "Target Ações (%)", "Target Obrigações (%)", "Target Imobiliário (%)", "Target Cripto (%)", "Target Liquidez (%)", "Atualizado Em"],
+    'PPR_IRS_Simulacoes': ["ID", "Escalão Idade", "Contribuição Anual (€)", "Dedução IRS Obtida (€)", "Data Simulação"]
   };
 
   try {
@@ -1120,8 +1126,58 @@ export async function exportAllDataToSheets(
     ])
   ];
 
+  let fiscalItems = getLocalData('fin_fiscal_items');
+  const fiscalRows = [
+    ["ID", "Tipo de Imposto", "Descrição / Alerta", "Prazo Limite", "Valor Estimado (€)", "Estado"],
+    ...fiscalItems.map((f: any) => [
+      f.id || '',
+      f.taxType || f.type || 'Imposto',
+      f.description || f.title || '',
+      f.deadline || f.date || '',
+      Number(f.estimatedAmount || f.amount || 0),
+      f.status || 'Pendente'
+    ])
+  ];
+
+  let amortizations = getLocalData('fin_mortgage_amortizations');
+  const amortRows = [
+    ["ID", "Nome do Empréstimo", "Capital Devedor (€)", "Montante Amortizado (€)", "Nova Prestação (€)", "Poupança Total Juros (€)", "Data Simulação"],
+    ...amortizations.map((a: any) => [
+      a.id || '',
+      a.loanName || 'Crédito Habitação',
+      Number(a.principal || 0),
+      Number(a.amortizationAmount || 0),
+      Number(a.newMonthlyPayment || 0),
+      Number(a.totalInterestSaved || 0),
+      a.date || new Date().toISOString().slice(0, 10)
+    ])
+  ];
+
+  let rebalanceRaw = localStorage.getItem('fin_rebalancing_targets');
+  let rebalanceObj = rebalanceRaw ? JSON.parse(rebalanceRaw) : {};
+  const rebalanceRows = [
+    ["ID", "Target Ações (%)", "Target Obrigações (%)", "Target Imobiliário (%)", "Target Cripto (%)", "Target Liquidez (%)", "Atualizado Em"],
+    ["reb_target", Number(rebalanceObj.targetAcoes || 60), Number(rebalanceObj.targetObrigacoes || 20), Number(rebalanceObj.targetImobiliario || 10), Number(rebalanceObj.targetCripto || 5), Number(rebalanceObj.targetLiquidez || 5), rebalanceObj.updatedAt || new Date().toISOString()]
+  ];
+
+  let pprSims = getLocalData('fin_ppr_simulations');
+  const pprRows = [
+    ["ID", "Escalão Idade", "Contribuição Anual (€)", "Dedução IRS Obtida (€)", "Data Simulação"],
+    ...pprSims.map((p: any) => [
+      p.id || '',
+      p.ageCategory || 'under_35',
+      Number(p.annualContributionInput || 0),
+      Number(p.estimatedTaxCredit || 0),
+      p.date || new Date().toISOString().slice(0, 10)
+    ])
+  ];
+
   checkAndPush('Arquivo', archiveRows);
   checkAndPush('Auditoria_Alertas', auditAlertRows);
+  checkAndPush('Assistente_Fiscal', fiscalRows);
+  checkAndPush('Amortizacoes_Credito', amortRows);
+  checkAndPush('Investimentos_Rebalanceamento', rebalanceRows);
+  checkAndPush('PPR_IRS_Simulacoes', pprRows);
 
   if (missingCriticalSheets.length > 0) {
     const msg = `Erro de Sincronização: As seguintes abas não foram encontradas na Drive, apesar de haver dados para gravar: ${missingCriticalSheets.join(', ')}. Por favor, use o botão "Reparar Abas" nas configurações.`;
@@ -1904,6 +1960,58 @@ export async function fetchAndParseRemoteSheets(
     resolved: cellStr(row, 6) === 'Resolvido'
   })).filter((a: any) => a.title);
 
+  // Parse Assistente Fiscal
+  const fiscalRowsData = getRowsByKey('Assistente_Fiscal');
+  const parsedFiscalItems = fiscalRowsData.map((row: any[], i: number) => ({
+    id: cellStr(row, 0) || `fiscal_${i}`,
+    taxType: cellStr(row, 1) || 'Imposto',
+    type: cellStr(row, 1) || 'Imposto',
+    title: cellStr(row, 2) || 'Alerta Fiscal',
+    description: cellStr(row, 2) || '',
+    deadline: normalizeDateString(row[3]),
+    date: normalizeDateString(row[3]),
+    estimatedAmount: parseNum(row[4]),
+    amount: parseNum(row[4]),
+    status: cellStr(row, 5) || 'Pendente'
+  })).filter((f: any) => f.title);
+
+  // Parse Amortizacoes Credito
+  const amortRowsData = getRowsByKey('Amortizacoes_Credito');
+  const parsedAmortizations = amortRowsData.map((row: any[], i: number) => ({
+    id: cellStr(row, 0) || `amort_${i}`,
+    loanName: cellStr(row, 1) || 'Crédito Habitação',
+    principal: parseNum(row[2]),
+    amortizationAmount: parseNum(row[3]),
+    newMonthlyPayment: parseNum(row[4]),
+    totalInterestSaved: parseNum(row[5]),
+    date: normalizeDateString(row[6])
+  })).filter((a: any) => a.principal > 0 || a.amortizationAmount > 0);
+
+  // Parse Rebalance Targets
+  const rebRowsData = getRowsByKey('Investimentos_Rebalanceamento');
+  let parsedRebalanceTargets = null;
+  if (rebRowsData.length > 0 && rebRowsData[0]) {
+    const row = rebRowsData[0];
+    parsedRebalanceTargets = {
+      targetAcoes: parseNum(row[1]) || 60,
+      targetObrigacoes: parseNum(row[2]) || 20,
+      targetImobiliario: parseNum(row[3]) || 10,
+      targetCripto: parseNum(row[4]) || 5,
+      targetLiquidez: parseNum(row[5]) || 5,
+      updatedAt: cellStr(row, 6) || new Date().toISOString()
+    };
+  }
+
+  // Parse PPR Simulations
+  const pprRowsData = getRowsByKey('PPR_IRS_Simulacoes');
+  const parsedPprSimulations = pprRowsData.map((row: any[], i: number) => ({
+    id: cellStr(row, 0) || `ppr_${i}`,
+    ageCategory: cellStr(row, 1) || 'under_35',
+    annualContributionInput: parseNum(row[2]),
+    estimatedTaxCredit: parseNum(row[3]),
+    date: normalizeDateString(row[4])
+  })).filter((p: any) => p.annualContributionInput > 0);
+
   // Cross-reference pass: guarantee expense names and asset links are fully resolved from linked collections
   parsedExpenses.forEach((exp: any) => {
     // 1. If name is generic or missing, try to resolve from Fixed Expenses
@@ -1963,7 +2071,11 @@ export async function fetchAndParseRemoteSheets(
     parsedCatRules,
     parsedNotifs,
     parsedArchives,
-    parsedAuditAlerts
+    parsedAuditAlerts,
+    parsedFiscalItems,
+    parsedAmortizations,
+    parsedRebalanceTargets,
+    parsedPprSimulations
   };
 }
 
@@ -2091,6 +2203,18 @@ export async function importAllDataFromSheets(
   }
   if (remote.parsedAuditAlerts && remote.parsedAuditAlerts.length > 0) {
     if (!selectedSheets || selectedSheets.includes('Auditoria_Alertas')) { setLocalData('fin_audit_alerts', remote.parsedAuditAlerts); }
+  }
+  if (remote.parsedFiscalItems && remote.parsedFiscalItems.length > 0) {
+    if (!selectedSheets || selectedSheets.includes('Assistente_Fiscal')) { setLocalData('fin_fiscal_items', remote.parsedFiscalItems); }
+  }
+  if (remote.parsedAmortizations && remote.parsedAmortizations.length > 0) {
+    if (!selectedSheets || selectedSheets.includes('Amortizacoes_Credito')) { setLocalData('fin_mortgage_amortizations', remote.parsedAmortizations); }
+  }
+  if (remote.parsedRebalanceTargets) {
+    if (!selectedSheets || selectedSheets.includes('Investimentos_Rebalanceamento')) { localStorage.setItem('fin_rebalancing_targets', JSON.stringify(remote.parsedRebalanceTargets)); }
+  }
+  if (remote.parsedPprSimulations && remote.parsedPprSimulations.length > 0) {
+    if (!selectedSheets || selectedSheets.includes('PPR_IRS_Simulacoes')) { setLocalData('fin_ppr_simulations', remote.parsedPprSimulations); }
   }
 
   onProgress?.('Concluído!', 100);
